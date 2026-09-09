@@ -1,0 +1,13 @@
+FIRST THING TO RUN 
+
+
+1. User model
+2. Sign-up API
+3. OTP generation + verification
+4. Login API
+5. Authentication/session
+6. Auth middleware
+7. Roles/permissions
+8. Forgot/reset password
+9. Frontend auth pages
+10. Security/rate limiting
