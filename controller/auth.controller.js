@@ -303,7 +303,7 @@ export const Signup = async (req, res) => {
     // Send email to user (or fallback to testing email if needed)
     try {
       await sendEmail({
-        to: "edegbaiayomikun@gmail.com",
+        to: emailValue ,
         subject: "Verify your OlivetNOSA Alumni Account",
         html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px;">
@@ -588,7 +588,7 @@ export const resendVerifyEmailLink = async (req, res) => {
       `${process.env.FRONTEND_URL}/portal/verify-email?token=${verificationToken}`;
 
     await sendEmail({
-      to: "edegbaiayomikun@gmail.com",
+      to: normalizedEmail,
       subject: "Verify your OlivetNOSA Alumni Account",
       html: `
         <h2>Verify your email address</h2>
@@ -710,7 +710,7 @@ export const forgetPassword = async (req, res) => {
     const resetUrl = 
      `${process.env.FRONTEND_URL}/portal/reset-password?token=${resetToken}`;
     await sendEmail({
-      to: "edegbaiayomikun@gmail.com",
+      to: normalizedEmail,
       subject: "Verify your OlivetNOSA Alumni Account",
      html: `
   <h2>Reset Your OlivetNOSA Password</h2>
