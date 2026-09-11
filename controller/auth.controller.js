@@ -1146,6 +1146,8 @@ export const getCurrentUser = async (req, res) => {
     email: user.email,
     role: user.role,
     isEmailVerified: user.isEmailVerified,
+    memberStatus: user.status,
+    graduationYear: user.graduationYear
   });
 };
 

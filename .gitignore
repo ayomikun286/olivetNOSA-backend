@@ -2,6 +2,7 @@
 node_modules/
 seeds/
 
+
 # Environment variables
 .env
 .env.*
