@@ -1,5 +1,5 @@
 export const corsOptions = {
-  origin: "http://localhost:5173",
+  origin: ["http://localhost:5173", "https://olivetbhsnosa.org"],
 
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 

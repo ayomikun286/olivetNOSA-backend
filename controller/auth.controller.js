@@ -7,11 +7,12 @@ import User from "../models/User.js";
 import YearSet from "../models/YearSet.js";
 import Chapter from "../models/Chapter.js";
 import { validateEmail } from "../utils/validator.js";
-
+import verifyEmailTemplate from "../utils/Mail-template/verifyEmail.template.js"
 import {
   successResponse,
   errorResponse,
 } from "../utils/response.js";
+import { error } from "console";
 
 
 // COOKIE CONFIGURATION
@@ -297,6 +298,7 @@ export const Signup = async (req, res) => {
 
     const verificationLink = `${frontendBase}/portal/verify-email?token=${verificationToken}`;
 
+    //  const letter = verifyEmailTemplate({ firstNameValue ,verificationLink}
 
     // Send email to user (or fallback to testing email if needed)
     try {
@@ -398,9 +400,8 @@ export const Signup = async (req, res) => {
 
 
 
-// VERIFY EMAIL
-// VERIFY EMAIL
 
+// VERIFY EMAIL
 export const verifyEmail = async (req, res) => {
   try {
     const { token } = req.query;
@@ -426,11 +427,7 @@ export const verifyEmail = async (req, res) => {
       .update(token)
       .digest("hex");
 
-    console.log("====================================");
-    console.log("EMAIL VERIFICATION");
-    console.log("RAW TOKEN:", token);
-    console.log("HASHED TOKEN:", hashedToken);
-    console.log("CURRENT TIME:", new Date());
+   
 
     // ------------------------------------------
     // FIND USER
@@ -445,14 +442,10 @@ export const verifyEmail = async (req, res) => {
       "+emailVerificationToken +emailVerificationExpires"
     );
 
-    console.log("USER FOUND:", !!user);
+   
 
-    if (user) {
-      console.log("DB TOKEN:", user.emailVerificationToken);
-      console.log("DB EXPIRY:", user.emailVerificationExpires);
-    }
+   
 
-    console.log("====================================");
 
     // ------------------------------------------
     // INVALID / EXPIRED TOKEN
@@ -538,6 +531,358 @@ export const verifyEmail = async (req, res) => {
       res,
       500,
       "Something went wrong while verifying your email."
+    );
+  }
+};
+
+//  resent verification 
+export const resendVerifyEmailLink = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return errorResponse(res, 400, "Email is required.");
+    }
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const user = await User.findOne({
+      email: normalizedEmail,
+    }).select(
+      "+emailVerificationToken +emailVerificationExpires"
+    );
+
+    if (!user) {
+      return errorResponse(res, 404, "User not found.");
+    }
+
+    
+    if (user.isEmailVerified) {
+      return errorResponse(
+        res,
+        400,
+        "Your email is already verified. Please login."
+      );
+    }
+
+   
+    // GENERATE NEW TOKEN
+    const verificationToken = crypto
+      .randomBytes(32)
+      .toString("hex");
+
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(verificationToken)
+      .digest("hex");
+
+
+    // SAVE TOKEN + EXPIRY
+    user.emailVerificationToken = hashedToken;
+    user.emailVerificationExpires = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+
+    await user.save();
+
+    
+    // SEND EMAIL
+    const verificationUrl =
+      `${process.env.FRONTEND_URL}/portal/verify-email?token=${verificationToken}`;
+
+    await sendEmail({
+      to: "edegbaiayomikun@gmail.com",
+      subject: "Verify your OlivetNOSA Alumni Account",
+      html: `
+        <h2>Verify your email address</h2>
+
+        <p>
+          Please click the button below to verify your
+          OlivetNOSA account.
+        </p>
+
+        <p>
+          <a href="${verificationUrl}">
+            Verify My Email
+          </a>
+        </p>
+
+        <p>
+          This verification link will expire in 30 minutes.
+        </p>
+      `,
+    });
+
+    // ------------------------------------------
+    // RESPONSE
+    // ------------------------------------------
+
+    return successResponse(
+      res,
+      "A new verification link has been sent to your email.",
+      {
+        email: user.email,
+      }
+    );
+
+  } catch (err) {
+    console.error(
+      "Resend verification error:",
+      err
+    );
+
+    return errorResponse(
+      res,
+      500,
+      "Something went wrong while resending the verification email."
+    );
+  }
+};
+
+
+
+
+
+
+
+
+// forget password
+export const forgetPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    // ------------------------------------------
+    // EMAIL REQUIRED
+    // ------------------------------------------
+
+    if (!email) {
+      return errorResponse(
+        res,
+        400,
+        "Email is required."
+      );
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // ------------------------------------------
+    // FIND USER
+    // ------------------------------------------
+
+    const user = await User.findOne({
+      email: normalizedEmail,
+    });
+
+   
+
+    if (!user) {
+      return successResponse(
+        res,
+        "If an account exists with this email address, a password reset link has been sent."
+      );
+    }
+
+  
+    // GENERATE RESET TOKEN
+    const resetToken = crypto
+      .randomBytes(32)
+      .toString("hex");
+
+    
+    
+    
+      // HASH RESET TOKEN
+     const hashedToken = crypto
+      .createHash("sha256")
+      .update(resetToken)
+      .digest("hex");
+
+   
+
+
+
+    // SAVE TOKEN + EXPIRY
+    user.passwordResetToken = hashedToken;
+
+    user.passwordResetExpires = new Date(Date.now() + 30 * 60 * 1000);
+     await user.save();
+
+  
+
+    // RESET URL
+    const resetUrl = 
+     `${process.env.FRONTEND_URL}/portal/reset-password?token=${resetToken}`;
+    await sendEmail({
+      to: "edegbaiayomikun@gmail.com",
+      subject: "Verify your OlivetNOSA Alumni Account",
+     html: `
+  <h2>Reset Your OlivetNOSA Password</h2>
+
+  <p>
+    We received a request to reset the password for your
+    OlivetNOSA account.
+  </p>
+
+  <p>
+    If you made this request, click the button below to
+    create a new password and regain access to your account.
+  </p>
+
+  <p>
+    <a href="${resetUrl}">
+      Reset My Password
+    </a>
+  </p>
+
+  <p>
+    For your security, this password reset link will expire
+    in 30 minutes.
+  </p>
+
+  <p>
+    If you did not request a password reset, you can safely
+    ignore this email. Your password will remain unchanged.
+  </p>
+
+  <p>
+    Thank you,<br />
+    <strong>OlivetNOSA</strong>
+  </p>
+`,
+    });
+
+    // ------------------------------------------
+    // RESPONSE
+    // ------------------------------------------
+
+    return successResponse(
+      res,
+      "If an account exists with this email address, a password reset link has been sent."
+    );
+
+  } catch (err) {
+
+    console.error(
+      "Forgot password error:",
+      err
+    );
+
+    return errorResponse(
+      res,
+      500,
+      "Something went wrong while processing your request."
+    );
+  }
+};
+
+
+// rest password
+export const resetPassword = async (req, res) => {
+  try {
+    const {
+      token,
+      password,
+      confirmPassword,
+    } = req.body;
+
+    // ========================================
+    // VALIDATION
+    // ========================================
+
+    if (!token) {
+      return errorResponse(
+        res,
+        400,
+        "Password reset token is required."
+      );
+    }
+
+    if (!password || !confirmPassword) {
+      return errorResponse(
+        res,
+        400,
+        "New password and confirmation are required."
+      );
+    }
+
+    if (password.length < 8) {
+      return errorResponse(
+        res,
+        400,
+        "Password must be at least 8 characters."
+      );
+    }
+
+    if (password !== confirmPassword) {
+      return errorResponse(
+        res,
+        400,
+        "Passwords do not match."
+      );
+    }
+
+    // ========================================
+    // HASH RESET TOKEN
+    // ========================================
+
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+
+    // ========================================
+    // FIND USER WITH VALID TOKEN
+    // ========================================
+
+    const user = await User.findOne({
+      passwordResetToken: hashedToken,
+      passwordResetExpires: {
+        $gt: new Date(),
+      },
+    }).select(
+      "+passwordResetToken +passwordResetExpires +password"
+    );
+
+    // ========================================
+    // TOKEN INVALID / EXPIRED
+    // ========================================
+
+    if (!user) {
+      return errorResponse(
+        res,
+        400,
+        "This password reset link is invalid or has expired."
+      );
+    }
+
+    
+    // HASH NEW PASSWORD
+    const hashedPassword = await bcrypt.hash(
+      password,
+      12
+    );
+
+    user.password = hashedPassword;
+
+    
+    // CLEAR RESET TOKEN
+    user.passwordResetToken = null;
+    user.passwordResetExpires = null;
+
+    await user.save();
+
+    return successResponse(
+      res,
+      "Password reset successfully."
+    );
+
+  } catch (err) {
+    console.error(
+      "Reset password error:",
+      err
+    );
+
+    return errorResponse(
+      res,
+      500,
+      "Something went wrong while resetting your password."
     );
   }
 };
@@ -786,7 +1131,7 @@ export const Login = async (req, res) => {
 };
 
 
-
+// user details 
 export const getCurrentUser = async (req, res) => {
   const user = await User.findById(req.user.id)
     .select("-password");
@@ -834,4 +1179,3 @@ export const logout = async (req, res) => {
 };
 
 
-// user details 
