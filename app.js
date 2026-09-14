@@ -11,8 +11,8 @@ import chapterRoutes from "./routes/chapter.routes.js";
 import yearSetRoutes from "./routes/yearSet.routes.js";
 import userRoutes from "./routes/auth.js"
 import cookieParser from "cookie-parser";
-
-
+import obligationRoutes from "./routes/obligationRoutes.js";
+import obligationAssignmentRoutes from "./routes/obligationAssignmentRoutes.js"
 import dns from "dns";
 
 dns.setServers(["8.8.8.8", "1.1.1.1"]);
@@ -39,6 +39,16 @@ app.use(session(sessionConfig));
 app.use("/api/chapters", chapterRoutes);
 app.use("/api/yearSet", yearSetRoutes);
 app.use(userRoutes)
+
+// app.use((req, res, next) => {
+//   console.log("METHOD:", req.method);
+//   console.log("CONTENT-TYPE:", req.headers["content-type"]);
+//   console.log("BODY:", req.body);
+//   next();
+// });
+app.use("/api/obligations", obligationRoutes);
+app.use( obligationAssignmentRoutes)
+// obligationAssignmentRoutes
 
 
 

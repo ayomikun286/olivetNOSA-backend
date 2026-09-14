@@ -1134,20 +1134,29 @@ export const Login = async (req, res) => {
 // user details 
 export const getCurrentUser = async (req, res) => {
   const user = await User.findById(req.user.id)
-    .select("-password");
+      .select("-password")
+      .populate("chapter", "_id name code country")
+      .populate("yearSet", "_id year name");
 
   if (!user) {
     return errorResponse(res, "User not found.", 404);
   }
 
   return successResponse(res, "Current user retrieved.", {
-    id: user._id,
-    firstName: user.firstName,
-    email: user.email,
-    role: user.role,
-    isEmailVerified: user.isEmailVerified,
-    memberStatus: user.status,
-    graduationYear: user.graduationYear
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        graduationYear: user.graduationYear,
+        isEmailVerified: user.isEmailVerified,
+        memberStatus: user.status,
+        role: user.role,
+
+        alumniId:user.alumniId,
+        chapter: user.chapter,
+        yearSet: user.yearSet,
+
+    
   });
 };
 
