@@ -1135,8 +1135,8 @@ export const Login = async (req, res) => {
 export const getCurrentUser = async (req, res) => {
   const user = await User.findById(req.user.id)
       .select("-password")
-      .populate("chapter", "_id name code country")
-      .populate("yearSet", "_id year name");
+      .populate("chapter", "_id name code country leader")
+      .populate("yearSet", "_id year name leader");
 
   if (!user) {
     return errorResponse(res, "User not found.", 404);

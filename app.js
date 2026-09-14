@@ -2,8 +2,8 @@ import "./config/env.js";
 import session from "express-session";
 import express from "express";
 import cors from "cors";
-import indexRoutes  from "./routes/index.js";
-// import { logger } from "./middleware/logger.js";
+
+import AdminRoute from "./routes/AdminRoutes.js"
 import {corsOptions} from "./config/cors.js";
 import {sessionConfig} from "./config/session.js";
 import connectDB from "./config/db.js";
@@ -39,6 +39,7 @@ app.use(session(sessionConfig));
 app.use("/api/chapters", chapterRoutes);
 app.use("/api/yearSet", yearSetRoutes);
 app.use(userRoutes)
+app.use("/api", AdminRoute)
 
 // app.use((req, res, next) => {
 //   console.log("METHOD:", req.method);

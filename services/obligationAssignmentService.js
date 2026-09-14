@@ -3,18 +3,25 @@ import ObligationAssignment from "../models/ObligationAssignment.js";
 import User from "../models/User.js";
 
 /**
- * Assign all active individual obligations to one user.
+ * Assign current active individual obligations to one user.
  *
  * Used when a new member becomes eligible.
  */
-export const assignIndividualObligationsToUser = async (userId) => {
-  // Get active individual obligations
+export const assignIndividualObligationsToUser = async (
+  userId,
+  session = null
+) => {
+  const currentYear = new Date().getFullYear();
+
+  // Get current year's active individual obligations
   const obligations = await Obligation.find({
     category: "individual",
+    year: currentYear,
     isActive: true,
   })
     .select("_id amount dueDate")
-    .lean();
+    .lean()
+    .session(session);
 
   if (!obligations.length) {
     return {
@@ -22,7 +29,7 @@ export const assignIndividualObligationsToUser = async (userId) => {
     };
   }
 
-  // Check which obligations this user already has
+  // Check which of these obligations the user already has
   const existingAssignments = await ObligationAssignment.find({
     user: userId,
     obligation: {
@@ -30,7 +37,8 @@ export const assignIndividualObligationsToUser = async (userId) => {
     },
   })
     .select("obligation")
-    .lean();
+    .lean()
+    .session(session);
 
   const existingObligationIds = new Set(
     existingAssignments.map((assignment) =>
@@ -51,9 +59,6 @@ export const assignIndividualObligationsToUser = async (userId) => {
       amountPaid: 0,
       status: "pending",
       dueDate: obligation.dueDate || null,
-
-      // No admin context here yet.
-      // This function is triggered by member activation.
       assignedBy: null,
     }));
 
@@ -63,13 +68,14 @@ export const assignIndividualObligationsToUser = async (userId) => {
     };
   }
 
-  await ObligationAssignment.insertMany(assignments);
+  await ObligationAssignment.insertMany(assignments, {
+    session,
+  });
 
   return {
     assigned: assignments.length,
   };
 };
-
 
 /**
  * Assign one individual obligation to all eligible members.
