@@ -89,34 +89,36 @@ export const getMyYearSet = async (req, res) => {
       0
     );
 
-    // ========================================
-    // RESPONSE
-    // ========================================
+   // ========================================
+// RESPONSE
+// ========================================
 
-    return successResponse(
-      res,
-      "Year set information fetched successfully.",
-      {
-        yearSet: {
-          id: yearSet._id,
-          name: yearSet.name,
-          year: yearSet.year,
-        },
+return successResponse(
+  res,
+  "Year set information fetched successfully.",
+  {
+    yearSet: {
+      id: yearSet._id,
+      name: yearSet.name,
+      year: yearSet.year,
+    },
 
-        summary: {
-          totalDue,
-          amountPaid,
-          outstanding,
-          memberCount: members.length,
-        },
+    summary: {
+      totalDue,
+      amountPaid,
+      outstanding,
+      memberCount: members.length,
+    },
 
-        members,
+    obligations: validAssignments,
 
-        // Will be connected when Payment/Transaction
-        // module is created.
-        recentActivity: [],
-      }
-    );
+    members,
+
+    // Will be connected when Payment/Transaction
+    // module is created.
+    recentActivity: [],
+  }
+);
   } catch (error) {
     console.error("Get my year set error:", error);
 

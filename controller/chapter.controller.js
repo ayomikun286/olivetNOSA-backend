@@ -153,6 +153,7 @@ export const getMyChapter = async (req, res) => {
     );
 
 
+
     // =====================================================
     // RESPONSE
     // =====================================================
@@ -174,6 +175,14 @@ export const getMyChapter = async (req, res) => {
           outstanding,
           memberCount: members.length,
         },
+
+        obligations: validAssignments.map((assignment) => ({
+          _id: assignment._id,
+          amountDue: assignment.amountDue,
+          amountPaid: assignment.amountPaid,
+          dueDate: assignment.obligation?.dueDate,
+          obligation: assignment.obligation,
+        })),
 
         members,
 

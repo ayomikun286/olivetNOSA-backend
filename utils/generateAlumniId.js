@@ -2,22 +2,21 @@ import Counter from "../models/Counter.js";
 import YearSet from "../models/YearSet.js";
 import Chapter from "../models/Chapter.js";
 
-const generateAlumniId = async (yearSetId, chapterId) => {
+const generateAlumniId = async (yearSetId, chapterId, session) => {
   // 1. Find the Year Set
-  const yearSet = await YearSet.findById(yearSetId);
+  const yearSet = await YearSet.findById(yearSetId).session(session);
+
+  const chapter = await Chapter.findById(chapterId).session(session);
 
   if (!yearSet) {
     throw new Error("Year Set not found");
   }
 
-  // 2. Find the Chapter
-  const chapter = await Chapter.findById(chapterId);
-
   if (!chapter) {
     throw new Error("Chapter not found");
   }
 
-  // 3. Make sure both are active
+
   if (!yearSet.isActive) {
     throw new Error("Year Set is inactive");
   }
@@ -26,7 +25,7 @@ const generateAlumniId = async (yearSetId, chapterId) => {
     throw new Error("Chapter is inactive");
   }
 
-  // 4. Get the next sequence number
+ 
   const counter = await Counter.findOneAndUpdate(
     {
       yearSet: yearSetId,
@@ -41,6 +40,7 @@ const generateAlumniId = async (yearSetId, chapterId) => {
       new: true,
       upsert: true,
       setDefaultsOnInsert: true,
+       session,
     }
   );
 

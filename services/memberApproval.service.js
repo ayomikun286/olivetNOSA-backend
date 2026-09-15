@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 import User from "../models/User.js";
-import Counter from "../models/Counter.js";
 import { assignIndividualObligationsToUser } from "./obligationAssignmentService.js";
 import generateAlumniId from "../utils/generateAlumniId.js";
 export const approveMember = async (userId) => {
@@ -38,29 +37,13 @@ export const approveMember = async (userId) => {
       throw new Error("Member must have a graduation year before approval.");
     }
 
-    // ========================================
-    // GENERATE ALUMNI ID SEQUENCE
-    // ========================================
 
-    const counter = await Counter.findOneAndUpdate(
-      {
-        yearSet: user.yearSet._id,
-        chapter: user.chapter._id,
-      },
-      {
-        $inc: { sequence: 1 },
-      },
-      {
-        new: true,
-        upsert: true,
-        setDefaultsOnInsert: true,
-        session,
-      }
+
+    const alumniId = await generateAlumniId(
+      user.yearSet._id,
+      user.chapter._id,
+      session
     );
-
-
-    const alumniId = await generateAlumniId(user.graduationYear, user.chapter.code)    
-
     // ========================================
     // APPROVE MEMBER
     // ========================================

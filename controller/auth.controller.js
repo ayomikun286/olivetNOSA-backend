@@ -1155,6 +1155,8 @@ export const getCurrentUser = async (req, res) => {
         alumniId:user.alumniId,
         chapter: user.chapter,
         yearSet: user.yearSet,
+        createdAt:user.createdAt
+
 
     
   });

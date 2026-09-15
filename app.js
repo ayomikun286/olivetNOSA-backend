@@ -8,9 +8,11 @@ import {corsOptions} from "./config/cors.js";
 import {sessionConfig} from "./config/session.js";
 import connectDB from "./config/db.js";
 import chapterRoutes from "./routes/chapter.routes.js";
+import paymentRoutes from "./routes/paymentRoutes.js";
 import yearSetRoutes from "./routes/yearSet.routes.js";
 import userRoutes from "./routes/auth.js"
 import cookieParser from "cookie-parser";
+import Notification from "./routes/notificationRoutes.js";
 import obligationRoutes from "./routes/obligationRoutes.js";
 import obligationAssignmentRoutes from "./routes/obligationAssignmentRoutes.js"
 import dns from "dns";
@@ -41,16 +43,10 @@ app.use("/api/yearSet", yearSetRoutes);
 app.use(userRoutes)
 app.use("/api", AdminRoute)
 
-// app.use((req, res, next) => {
-//   console.log("METHOD:", req.method);
-//   console.log("CONTENT-TYPE:", req.headers["content-type"]);
-//   console.log("BODY:", req.body);
-//   next();
-// });
 app.use("/api/obligations", obligationRoutes);
 app.use( obligationAssignmentRoutes)
-// obligationAssignmentRoutes
-
+app.use("/api/notifications", Notification)
+app.use("/api/payments", paymentRoutes);
 
 
     
