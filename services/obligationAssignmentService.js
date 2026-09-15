@@ -9,6 +9,7 @@ import User from "../models/User.js";
  */
 export const assignIndividualObligationsToUser = async (
   userId,
+  assignedBy = null,
   session = null
 ) => {
   const currentYear = new Date().getFullYear();
@@ -50,7 +51,9 @@ export const assignIndividualObligationsToUser = async (
   const assignments = obligations
     .filter(
       (obligation) =>
-        !existingObligationIds.has(obligation._id.toString())
+        !existingObligationIds.has(
+          obligation._id.toString()
+        )
     )
     .map((obligation) => ({
       obligation: obligation._id,
@@ -59,7 +62,9 @@ export const assignIndividualObligationsToUser = async (
       amountPaid: 0,
       status: "pending",
       dueDate: obligation.dueDate || null,
-      assignedBy: null,
+
+      // Admin who triggered the assignment
+      assignedBy,
     }));
 
   if (!assignments.length) {
@@ -122,7 +127,9 @@ export const assignIndividualObligationToMembers = async (
     amountPaid: 0,
     status: "pending",
     dueDate: obligation.dueDate || null,
-    assignedBy: null,
+
+    // Admin who created the obligation
+    assignedBy,
   }));
 
   // Insert in bulk

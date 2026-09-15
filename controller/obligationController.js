@@ -1,11 +1,16 @@
 import Obligation from "../models/Obligation.js";
-// import User from "../models/User.js";
 import ObligationAssignment from "../models/ObligationAssignment.js";
-import { assignIndividualObligationToMembers,} from "../services/obligationAssignmentService.js";
-// import ObligationAssignment from "../models/ObligationAssignment.js";
+
+import {
+  assignIndividualObligationToMembers,
+} from "../services/obligationAssignmentService.js";
+
+import { createAuditLog } from "../services/auditLog.service.js";
+
 // ========================================
 // CREATE OBLIGATION
 // ========================================
+
 export const createObligation = async (req, res) => {
   try {
     const {
@@ -17,6 +22,10 @@ export const createObligation = async (req, res) => {
       year,
       dueDate,
     } = req.body;
+
+    // ----------------------------------------
+    // VALIDATION
+    // ----------------------------------------
 
     if (!name || !category || amount === undefined || !year) {
       return res.status(400).json({
@@ -51,7 +60,10 @@ export const createObligation = async (req, res) => {
       }
     }
 
-    // 1. Create the obligation
+    // ----------------------------------------
+    // CREATE OBLIGATION
+    // ----------------------------------------
+
     const obligation = await Obligation.create({
       name,
       description,
@@ -60,21 +72,53 @@ export const createObligation = async (req, res) => {
       paymentPlans: paymentPlans || [],
       year,
       dueDate: dueDate || null,
-      createdBy: null, // temporary until admin auth is ready
+
+      // Record admin who created it
+      createdBy: req.user._id,
     });
 
-    // 2. Allocate individual obligation
+    // ----------------------------------------
+    // ASSIGN INDIVIDUAL OBLIGATION
+    // ----------------------------------------
+
+    let obligationsAssigned = 0;
+
     if (category === "individual") {
-            await assignIndividualObligationToMembers(
-    obligation._id,
-    null
-  );
-}
+      const result = await assignIndividualObligationToMembers(
+        obligation._id,
+        req.user._id
+      );
+
+      obligationsAssigned = result.assigned;
+    }
+
+    // ----------------------------------------
+    // AUDIT LOG
+    // ----------------------------------------
+
+    await createAuditLog({
+      actor: req.user._id,
+      action: "obligation.created",
+      resource: "Obligation",
+      resourceId: obligation._id,
+      details: {
+        name: obligation.name,
+        description: obligation.description,
+        category: obligation.category,
+        amount: obligation.amount,
+        paymentPlans: obligation.paymentPlans,
+        year: obligation.year,
+        dueDate: obligation.dueDate,
+        obligationsAssigned,
+      },
+      req,
+    });
 
     return res.status(201).json({
       success: true,
       message: "Obligation created successfully.",
       obligation,
+      obligationsAssigned,
     });
   } catch (error) {
     console.error("Create obligation error:", error);
@@ -85,10 +129,6 @@ export const createObligation = async (req, res) => {
     });
   }
 };
-
-
-
-
 
 // ========================================
 // GET ALL OBLIGATIONS
@@ -117,8 +157,14 @@ export const getObligations = async (req, res) => {
     }
 
     const obligations = await Obligation.find(filter)
-      .populate("createdBy", "firstName lastName email")
-      .sort({ year: -1, createdAt: -1 });
+      .populate(
+        "createdBy",
+        "firstName lastName email"
+      )
+      .sort({
+        year: -1,
+        createdAt: -1,
+      });
 
     return res.status(200).json({
       success: true,
@@ -144,7 +190,10 @@ export const getObligation = async (req, res) => {
     const { id } = req.params;
 
     const obligation = await Obligation.findById(id)
-      .populate("createdBy", "firstName lastName email");
+      .populate(
+        "createdBy",
+        "firstName lastName email"
+      );
 
     if (!obligation) {
       return res.status(404).json({
@@ -167,7 +216,6 @@ export const getObligation = async (req, res) => {
   }
 };
 
-
 // ========================================
 // UPDATE OBLIGATION
 // ========================================
@@ -175,6 +223,10 @@ export const getObligation = async (req, res) => {
 export const updateObligation = async (req, res) => {
   try {
     const { id } = req.params;
+
+    // ----------------------------------------
+    // ALLOWED FIELDS
+    // ----------------------------------------
 
     const allowedFields = [
       "name",
@@ -194,21 +246,48 @@ export const updateObligation = async (req, res) => {
       }
     }
 
-    if (updates.amount !== undefined && updates.amount < 0) {
+    // ----------------------------------------
+    // VALIDATION
+    // ----------------------------------------
+
+    if (
+      updates.amount !== undefined &&
+      updates.amount < 0
+    ) {
       return res.status(400).json({
         success: false,
         message: "Amount cannot be negative.",
       });
     }
 
-    const obligation = await Obligation.findByIdAndUpdate(
-      id,
-      updates,
-      {
-        new: true,
-        runValidators: true,
+    if (updates.paymentPlans?.length) {
+      for (const plan of updates.paymentPlans) {
+        if (
+          !plan.frequency ||
+          plan.amount === undefined
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Each payment plan must have a frequency and amount.",
+          });
+        }
+
+        if (plan.amount < 0) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Payment plan amount cannot be negative.",
+          });
+        }
       }
-    );
+    }
+
+    // ----------------------------------------
+    // FIND CURRENT OBLIGATION
+    // ----------------------------------------
+
+    const obligation = await Obligation.findById(id);
 
     if (!obligation) {
       return res.status(404).json({
@@ -216,6 +295,54 @@ export const updateObligation = async (req, res) => {
         message: "Obligation not found.",
       });
     }
+
+    // ----------------------------------------
+    // SAVE BEFORE STATE
+    // ----------------------------------------
+
+    const before = {
+      name: obligation.name,
+      description: obligation.description,
+      category: obligation.category,
+      amount: obligation.amount,
+      paymentPlans: obligation.paymentPlans,
+      year: obligation.year,
+      dueDate: obligation.dueDate,
+      isActive: obligation.isActive,
+    };
+
+    // ----------------------------------------
+    // APPLY UPDATE
+    // ----------------------------------------
+
+    Object.assign(obligation, updates);
+
+    await obligation.save();
+
+    // ----------------------------------------
+    // AUDIT LOG
+    // ----------------------------------------
+
+    await createAuditLog({
+      actor: req.user._id,
+      action: "obligation.updated",
+      resource: "Obligation",
+      resourceId: obligation._id,
+      details: {
+        before,
+        after: {
+          name: obligation.name,
+          description: obligation.description,
+          category: obligation.category,
+          amount: obligation.amount,
+          paymentPlans: obligation.paymentPlans,
+          year: obligation.year,
+          dueDate: obligation.dueDate,
+          isActive: obligation.isActive,
+        },
+      },
+      req,
+    });
 
     return res.status(200).json({
       success: true,
@@ -232,14 +359,20 @@ export const updateObligation = async (req, res) => {
   }
 };
 
-
 // ========================================
 // TOGGLE OBLIGATION STATUS
 // ========================================
 
-export const toggleObligationStatus = async (req, res) => {
+export const toggleObligationStatus = async (
+  req,
+  res
+) => {
   try {
     const { id } = req.params;
+
+    // ----------------------------------------
+    // FIND OBLIGATION
+    // ----------------------------------------
 
     const obligation = await Obligation.findById(id);
 
@@ -250,9 +383,31 @@ export const toggleObligationStatus = async (req, res) => {
       });
     }
 
+    // ----------------------------------------
+    // TOGGLE STATUS
+    // ----------------------------------------
+
     obligation.isActive = !obligation.isActive;
 
     await obligation.save();
+
+    // ----------------------------------------
+    // AUDIT LOG
+    // ----------------------------------------
+
+    await createAuditLog({
+      actor: req.user._id,
+      action: obligation.isActive
+        ? "obligation.activated"
+        : "obligation.deactivated",
+      resource: "Obligation",
+      resourceId: obligation._id,
+      details: {
+        name: obligation.name,
+        isActive: obligation.isActive,
+      },
+      req,
+    });
 
     return res.status(200).json({
       success: true,
@@ -262,7 +417,10 @@ export const toggleObligationStatus = async (req, res) => {
       obligation,
     });
   } catch (error) {
-    console.error("Toggle obligation status error:", error);
+    console.error(
+      "Toggle obligation status error:",
+      error
+    );
 
     return res.status(500).json({
       success: false,

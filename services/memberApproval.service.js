@@ -1,8 +1,17 @@
 import mongoose from "mongoose";
+
 import User from "../models/User.js";
-import { assignIndividualObligationsToUser } from "./obligationAssignmentService.js";
+
+import {
+  assignIndividualObligationsToUser,
+} from "./obligationAssignmentService.js";
+
 import generateAlumniId from "../utils/generateAlumniId.js";
-export const approveMember = async (userId) => {
+
+export const approveMember = async (
+  userId,
+  approvedBy
+) => {
   const session = await mongoose.startSession();
 
   try {
@@ -18,7 +27,9 @@ export const approveMember = async (userId) => {
     }
 
     if (!user.isEmailVerified) {
-      throw new Error("Member must verify their email before approval.");
+      throw new Error(
+        "Member must verify their email before approval."
+      );
     }
 
     if (user.status === "active" && user.alumniId) {
@@ -26,24 +37,33 @@ export const approveMember = async (userId) => {
     }
 
     if (!user.chapter) {
-      throw new Error("Member must have a chapter before approval.");
+      throw new Error(
+        "Member must have a chapter before approval."
+      );
     }
 
     if (!user.yearSet) {
-      throw new Error("Member must have a year set before approval.");
+      throw new Error(
+        "Member must have a year set before approval."
+      );
     }
 
     if (!user.graduationYear) {
-      throw new Error("Member must have a graduation year before approval.");
+      throw new Error(
+        "Member must have a graduation year before approval."
+      );
     }
 
-
+    // ========================================
+    // GENERATE ALUMNI ID
+    // ========================================
 
     const alumniId = await generateAlumniId(
       user.yearSet._id,
       user.chapter._id,
       session
     );
+
     // ========================================
     // APPROVE MEMBER
     // ========================================
@@ -58,7 +78,15 @@ export const approveMember = async (userId) => {
     // ========================================
 
     const obligationResult =
-      await assignIndividualObligationsToUser(user._id, session);
+      await assignIndividualObligationsToUser(
+        user._id,
+        approvedBy,
+        session
+      );
+
+    // ========================================
+    // COMMIT
+    // ========================================
 
     await session.commitTransaction();
 

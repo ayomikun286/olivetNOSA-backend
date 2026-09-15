@@ -5,7 +5,13 @@ import Chapter from "../models/Chapter.js";
 import Obligation from "../models/Obligation.js";
 import ObligationAssignment from "../models/ObligationAssignment.js";
 
-export const assignYearSetLeader = async (userId, yearSetId) => {
+export const assignYearSetLeader = async (
+  userId,
+  yearSetId,
+  assignedBy
+) => {
+  
+  
   const session = await mongoose.startSession();
 
   try {
@@ -64,7 +70,7 @@ export const assignYearSetLeader = async (userId, yearSetId) => {
             amountPaid: 0,
             status: "pending",
             dueDate: obligation.dueDate || null,
-            assignedBy: null,
+            assignedBy,
           },
         ],
         { session }
@@ -88,7 +94,13 @@ export const assignYearSetLeader = async (userId, yearSetId) => {
 };
 
 
-export const assignChapterLeader = async (userId, chapterId) => {
+export const assignChapterLeader = async (
+  userId,
+  chapterId,
+  assignedBy
+) => {
+  
+  
   const session = await mongoose.startSession();
 
   try {
@@ -147,7 +159,7 @@ export const assignChapterLeader = async (userId, chapterId) => {
             amountPaid: 0,
             status: "pending",
             dueDate: obligation.dueDate || null,
-            assignedBy: null,
+            assignedBy,
           },
         ],
         { session }

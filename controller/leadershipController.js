@@ -3,6 +3,12 @@ import {
   assignChapterLeader,
 } from "../services/leadership.service.js";
 
+import { createAuditLog } from "../services/auditLog.service.js";
+
+// ========================================
+// ASSIGN YEAR SET LEADER
+// ========================================
+
 export const assignYearSetLeaderController = async (req, res) => {
   try {
     const { userId, yearSetId } = req.body;
@@ -14,7 +20,24 @@ export const assignYearSetLeaderController = async (req, res) => {
       });
     }
 
-    const result = await assignYearSetLeader(userId, yearSetId);
+    const result = await assignYearSetLeader(
+      userId,
+      yearSetId,
+      req.user._id
+    );
+
+    await createAuditLog({
+      actor: req.user._id,
+      action: "yearSet.leader.assigned",
+      resource: "YearSet",
+      resourceId: yearSetId,
+      targetUser: userId,
+      details: {
+        yearSet: result.yearSet?._id || yearSetId,
+        obligationsAssigned: result.obligationsAssigned,
+      },
+      req,
+    });
 
     return res.status(200).json({
       success: true,
@@ -29,11 +52,15 @@ export const assignYearSetLeaderController = async (req, res) => {
 
     return res.status(400).json({
       success: false,
-      message: error.message || "Failed to assign year set leader.",
+      message:
+        error.message || "Failed to assign year set leader.",
     });
   }
 };
 
+// ========================================
+// ASSIGN CHAPTER LEADER
+// ========================================
 
 export const assignChapterLeaderController = async (req, res) => {
   try {
@@ -46,7 +73,24 @@ export const assignChapterLeaderController = async (req, res) => {
       });
     }
 
-    const result = await assignChapterLeader(userId, chapterId);
+    const result = await assignChapterLeader(
+      userId,
+      chapterId,
+      req.user._id
+    );
+
+    await createAuditLog({
+      actor: req.user._id,
+      action: "chapter.leader.assigned",
+      resource: "Chapter",
+      resourceId: chapterId,
+      targetUser: userId,
+      details: {
+        chapter: result.chapter?._id || chapterId,
+        obligationsAssigned: result.obligationsAssigned,
+      },
+      req,
+    });
 
     return res.status(200).json({
       success: true,
@@ -61,7 +105,8 @@ export const assignChapterLeaderController = async (req, res) => {
 
     return res.status(400).json({
       success: false,
-      message: error.message || "Failed to assign chapter leader.",
+      message:
+        error.message || "Failed to assign chapter leader.",
     });
   }
 };

@@ -41,7 +41,7 @@ app.use(session(sessionConfig));
 app.use("/api/chapters", chapterRoutes);
 app.use("/api/yearSet", yearSetRoutes);
 app.use(userRoutes)
-app.use("/api", AdminRoute)
+app.use("/api/admin", AdminRoute);
 
 app.use("/api/obligations", obligationRoutes);
 app.use( obligationAssignmentRoutes)
