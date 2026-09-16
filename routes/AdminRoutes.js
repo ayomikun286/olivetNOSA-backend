@@ -3,11 +3,13 @@ import express from "express";
 import {
   approveMemberController,
   getAdminDashboard,
+  getAdminMembersController
 } from "../controller/adminController.js";
 
 import {
   assignYearSetLeaderController,
   assignChapterLeaderController,
+  
 } from "../controller/leadershipController.js";
 
 import { protect } from "../middleware/authmiddleware.js";
@@ -47,6 +49,16 @@ router.patch(
   approveMemberController
 );
 
+
+router.get(
+  "/members/",
+  protect,
+  requireRole(
+    "admin",
+    "superAdmin"
+  ),
+  getAdminMembersController
+);
 
 // ========================================
 // LEADERSHIP

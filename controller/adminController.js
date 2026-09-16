@@ -6,10 +6,6 @@ import { approveMember } from "../services/memberApproval.service.js";
 import { createAuditLog } from "../services/auditLog.service.js";
 
 
-// ========================================
-// APPROVE MEMBER
-// ========================================
-
 export const approveMemberController = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -51,10 +47,6 @@ export const approveMemberController = async (req, res) => {
   }
 };
 
-
-// ========================================
-// ADMIN DASHBOARD
-// ========================================
 
 export const getAdminDashboard = async (req, res) => {
   try {
@@ -355,3 +347,55 @@ const collectionTrend = monthNames.map((month, index) => {
     });
   }
 }
+
+
+export const getAdminMembersController = async (req, res) => {
+  try {
+    const page = Math.max(Number(req.query.page) || 1, 1);
+    const limit = Math.min(
+      Math.max(Number(req.query.limit) || 20, 1),
+      100
+    );
+
+    const skip = (page - 1) * limit;
+
+    const filter = {
+      role: "member",
+    };
+
+    const [members, total] = await Promise.all([
+      User.find(filter)
+        .select(
+          "firstName middleName lastName email phone enrollmentYear graduationYear alumniId status isEmailVerified role yearSet chapter createdAt updatedAt"
+        )
+        .populate("yearSet", "year name")
+        .populate("chapter", "name code")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+
+      User.countDocuments(filter),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+
+    return res.status(200).json({
+      success: true,
+      members,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
+    });
+  } catch (error) {
+    console.error("Get admin members error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load members.",
+    });
+  }
+};
