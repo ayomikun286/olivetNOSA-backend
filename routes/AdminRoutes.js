@@ -3,7 +3,8 @@ import express from "express";
 import {
   approveMemberController,
   getAdminDashboard,
-  getAdminMembersController
+  getAdminMembersController,
+  createAdminMemberController
 } from "../controller/adminController.js";
 
 import {
@@ -82,6 +83,15 @@ router.patch(
     "superAdmin"
   ),
   assignChapterLeaderController
+);
+
+
+
+router.post(
+  "/members",
+  protect,
+  requireRole("admin", "superAdmin"),
+  createAdminMemberController
 );
 
 

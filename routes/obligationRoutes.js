@@ -8,17 +8,17 @@ import {
   toggleObligationStatus,
 } from "../controller/obligationController.js";
 
-// import protect from "../middleware/authMiddleware.js";
-
+import {protect} from "../middleware/authmiddleware.js";
+import requireRole from "../middleware/roleMiddleware.js";
 const router = express.Router();
 
 // ========================================
 // OBLIGATION ROUTES
 // ========================================
 
-// router.use(protect);
+router.use(protect);
 
-router.post("/", createObligation);
+router.post("/", protect, createObligation);
 
 router.get("/", getObligations);
 

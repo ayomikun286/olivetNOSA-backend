@@ -86,7 +86,7 @@ const userSchema = new mongoose.Schema(
 
     password: {
       type: String,
-      required: true,
+      required: false,
       select: false,
     },
 
@@ -132,6 +132,19 @@ const userSchema = new mongoose.Schema(
       type: Date,
       select: false,
     },
+
+    // ========================================
+// ACCOUNT SETUP / ACTIVATION
+// ========================================
+accountSetupToken: {
+  type: String,
+  select: false,
+},
+
+accountSetupExpires: {
+  type: Date,
+  select: false,
+},
 
 
     
@@ -188,7 +201,7 @@ userSchema.index({ role: 1 });
 // Verification / password reset
 userSchema.index({ emailVerificationToken: 1 });
 userSchema.index({ passwordResetToken: 1 });
-
+userSchema.index({ accountSetupToken: 1 });
 
 const User = mongoose.model("User", userSchema);
 

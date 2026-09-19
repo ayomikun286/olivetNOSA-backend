@@ -2,7 +2,7 @@ import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import { sendEmail } from "../services/email.service.js"
-
+import { verifyAccountSetupToken } from "../services/accountActivation.service.js";
 import User from "../models/User.js";
 import YearSet from "../models/YearSet.js";
 import Chapter from "../models/Chapter.js";
@@ -360,23 +360,12 @@ export const Signup = async (req, res) => {
       console.error("Failed to deliver verification email via provider:", emailErr);
     }
 
-    // DEVELOPMENT CONSOLE LOG (Always available for local testing)
-    // console.log(`
-    //   =========================================
-    //           EMAIL VERIFICATION LINK
-    //   =========================================
-    //   Email: ${user.email}
-    //   Verification Link: ${verificationLink}
-    //   Expires: ${verificationExpires}
-    //   =========================================
-    // `);
+   
 
 
 
 
-
-    // RESPONSE
-    // ==========================================
+  
     return successResponse(
       res,
       "Account created successfully. Please check your email to verify your account.",
@@ -1151,7 +1140,7 @@ export const getCurrentUser = async (req, res) => {
         isEmailVerified: user.isEmailVerified,
         memberStatus: user.status,
         role: user.role,
-
+        phone:user.phone,
         alumniId:user.alumniId,
         chapter: user.chapter,
         yearSet: user.yearSet,
@@ -1192,3 +1181,109 @@ export const logout = async (req, res) => {
 };
 
 
+
+
+export const verifyAccountSetupController = async (req, res) => {
+  try {
+    const { token } = req.query;
+
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: "Activation token is required.",
+      });
+    }
+
+    const user = await verifyAccountSetupToken(token);
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: "This activation link is invalid or has expired.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Activation link is valid.",
+    });
+  } catch (error) {
+    console.error("Verify account setup error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to verify activation link.",
+    });
+  }
+};
+
+
+
+
+
+
+export const setPasswordController = async (req, res) => {
+  try {
+    const { token, password, confirmPassword } = req.body;
+
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: "Activation token is required.",
+      });
+    }
+
+    if (!password || !confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Password and confirmation are required.",
+      });
+    }
+
+    if (password !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Passwords do not match.",
+      });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 8 characters.",
+      });
+    }
+
+    const user = await verifyAccountSetupToken(token);
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: "This activation link is invalid or has expired.",
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    user.password = hashedPassword;
+    user.isEmailVerified = true;
+    user.status = "active";
+
+    user.accountSetupToken = undefined;
+    user.accountSetupExpires = undefined;
+
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Password set successfully. You can now log in.",
+    });
+  } catch (error) {
+    console.error("Set password error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to set password.",
+    });
+  }
+};
