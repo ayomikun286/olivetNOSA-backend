@@ -1117,12 +1117,12 @@ export const handlePaystackCallback = async (
 
         if (!reference) {
             return res.redirect(
-                `${process.env.FRONTEND_URL}/portal/member/dashboard/payments?payment=failed`
+                `${process.env.FRONTEND_URL}/portal/member/dashboard/payment-history?payment=failed`
             );
         }
 
         return res.redirect(
-            `${process.env.FRONTEND_URL}/portal/member/dashboard/payments?payment=verify&reference=${encodeURIComponent(
+            `${process.env.FRONTEND_URL}/portal/member/dashboard/payment-history?payment=verify&reference=${encodeURIComponent(
                 reference
             )}`
         );
@@ -1135,7 +1135,7 @@ export const handlePaystackCallback = async (
         );
 
         return res.redirect(
-            `${process.env.FRONTEND_URL}/portal/member/dashboard/payments?payment=failed`
+            `${process.env.FRONTEND_URL}/portal/member/dashboard/payment-history?payment=failed`
         );
     }
 };
