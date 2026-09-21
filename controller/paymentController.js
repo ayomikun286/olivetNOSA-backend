@@ -798,15 +798,10 @@ export const verifyPayment = async (
 /**
  * Paystack webhook
  */
-export const handlePaystackWebhook = async (
-    req,
-    res
-) => {
+export const handlePaystackWebhook = async (req, res) => {
     try {
         const signature =
-            req.headers[
-                "x-paystack-signature"
-            ];
+            req.headers["x-paystack-signature"];
 
         // ========================================
         // CHECK SIGNATURE
@@ -815,8 +810,7 @@ export const handlePaystackWebhook = async (
         if (!signature) {
             return res.status(401).json({
                 success: false,
-                message:
-                    "Missing Paystack signature.",
+                message: "Missing Paystack signature.",
             });
         }
 
@@ -824,44 +818,34 @@ export const handlePaystackWebhook = async (
         // VERIFY WEBHOOK SIGNATURE
         // ========================================
 
-        // Because this route uses express.raw(),
-        // req.body is a Buffer containing the
-        // original request body.
+        // This route uses express.raw(),
+        // so req.body must be a Buffer.
 
-        const rawBody =
-            req.body;
+        const rawBody = req.body;
 
-        if (
-            !Buffer.isBuffer(rawBody)
-        ) {
+        if (!Buffer.isBuffer(rawBody)) {
             console.error(
                 "Paystack webhook body is not a raw Buffer."
             );
 
             return res.status(400).json({
                 success: false,
-                message:
-                    "Invalid webhook body.",
+                message: "Invalid webhook body.",
             });
         }
 
-        const hash =
-            crypto
-                .createHmac(
-                    "sha512",
-                    process.env
-                        .PAYSTACK_SECRET_KEY
-                )
-                .update(rawBody)
-                .digest("hex");
+        const hash = crypto
+            .createHmac(
+                "sha512",
+                process.env.PAYSTACK_SECRET_KEY
+            )
+            .update(rawBody)
+            .digest("hex");
 
-        if (
-            hash !== signature
-        ) {
+        if (hash !== signature) {
             return res.status(401).json({
                 success: false,
-                message:
-                    "Invalid Paystack signature.",
+                message: "Invalid Paystack signature.",
             });
         }
 
@@ -872,15 +856,10 @@ export const handlePaystackWebhook = async (
         let payload;
 
         try {
-            payload =
-                JSON.parse(
-                    rawBody.toString(
-                        "utf8"
-                    )
-                );
-
+            payload = JSON.parse(
+                rawBody.toString("utf8")
+            );
         } catch (parseError) {
-
             console.error(
                 "Paystack webhook JSON parse error:",
                 parseError
@@ -888,42 +867,27 @@ export const handlePaystackWebhook = async (
 
             return res.status(400).json({
                 success: false,
-                message:
-                    "Invalid webhook payload.",
+                message: "Invalid webhook payload.",
             });
         }
 
-        const {
+        const { event, data } = payload;
+
+        console.log(
+            "Paystack webhook received:",
             event,
-            data,
-        } = payload;
-
-        // ========================================
-        // HANDLE EVENT
-        // ========================================
-
-        if (
-            event !==
-            "charge.success"
-        ) {
-            return res.status(200).json({
-                success: true,
-                message:
-                    "Event received.",
-            });
-        }
+            data?.reference
+        );
 
         // ========================================
         // GET REFERENCE
         // ========================================
 
-        const reference =
-            data?.reference;
+        const reference = data?.reference;
 
         if (!reference) {
             return res.status(200).json({
                 success: true,
-
                 message:
                     "Webhook received without reference.",
             });
@@ -933,17 +897,12 @@ export const handlePaystackWebhook = async (
         // FIND PAYMENT
         // ========================================
 
-        const payment =
-            await Payment.findOne({
-                gatewayReference:
-                    reference,
-
-                gateway:
-                    "paystack",
-            });
+        const payment = await Payment.findOne({
+            gatewayReference: reference,
+            gateway: "paystack",
+        });
 
         if (!payment) {
-
             console.warn(
                 "Paystack payment not found:",
                 reference
@@ -951,25 +910,65 @@ export const handlePaystackWebhook = async (
 
             return res.status(200).json({
                 success: true,
-
-                message:
-                    "Payment record not found.",
+                message: "Payment record not found.",
             });
         }
 
         // ========================================
-        // ALREADY COMPLETED
+        // ALREADY SUCCESSFUL
         // ========================================
 
-        if (
-            payment.status ===
-            "successful"
-        ) {
+        if (payment.status === "successful") {
             return res.status(200).json({
                 success: true,
-
                 message:
                     "Payment already processed.",
+            });
+        }
+
+        // ========================================
+        // HANDLE FAILED PAYMENT
+        // ========================================
+
+        if (event === "charge.failed") {
+            payment.status = "failed";
+
+            payment.metadata = {
+                ...payment.metadata,
+
+                gatewayResponse:
+                    data?.gateway_response ||
+                    "Payment failed.",
+
+                failureReason:
+                    data?.gateway_response ||
+                    "Payment failed.",
+
+                paystackStatus:
+                    data?.status || "failed",
+            };
+
+            await payment.save();
+
+            console.log(
+                `Paystack payment marked as failed: ${reference}`
+            );
+
+            return res.status(200).json({
+                success: true,
+                message:
+                    "Failed payment recorded.",
+            });
+        }
+
+        // ========================================
+        // IGNORE OTHER NON-SUCCESS EVENTS
+        // ========================================
+
+        if (event !== "charge.success") {
+            return res.status(200).json({
+                success: true,
+                message: "Event received.",
             });
         }
 
@@ -984,14 +983,10 @@ export const handlePaystackWebhook = async (
             Number(data.amount);
 
         if (
-            !Number.isFinite(
-                receivedAmount
-            ) ||
-            receivedAmount !==
-                expectedAmount
+            !Number.isFinite(receivedAmount) ||
+            receivedAmount !== expectedAmount
         ) {
-            payment.status =
-                "failed";
+            payment.status = "failed";
 
             payment.metadata = {
                 ...payment.metadata,
@@ -1013,7 +1008,6 @@ export const handlePaystackWebhook = async (
 
             return res.status(200).json({
                 success: true,
-
                 message:
                     "Payment amount mismatch recorded.",
             });
@@ -1025,11 +1019,9 @@ export const handlePaystackWebhook = async (
 
         if (
             data.currency &&
-            data.currency.toUpperCase() !==
-                "NGN"
+            data.currency.toUpperCase() !== "NGN"
         ) {
-            payment.status =
-                "failed";
+            payment.status = "failed";
 
             payment.metadata = {
                 ...payment.metadata,
@@ -1037,8 +1029,7 @@ export const handlePaystackWebhook = async (
                 webhookError:
                     "Paystack currency mismatch.",
 
-                expectedCurrency:
-                    "NGN",
+                expectedCurrency: "NGN",
 
                 paystackCurrency:
                     data.currency,
@@ -1048,14 +1039,13 @@ export const handlePaystackWebhook = async (
 
             return res.status(200).json({
                 success: true,
-
                 message:
                     "Payment currency mismatch recorded.",
             });
         }
 
         // ========================================
-        // COMPLETE PAYMENT
+        // COMPLETE SUCCESSFUL PAYMENT
         // ========================================
 
         await completeSuccessfulPayment(
@@ -1069,13 +1059,11 @@ export const handlePaystackWebhook = async (
 
         return res.status(200).json({
             success: true,
-
             message:
                 "Payment processed successfully.",
         });
 
     } catch (error) {
-
         console.error(
             "Paystack webhook error:",
             error
@@ -1088,7 +1076,6 @@ export const handlePaystackWebhook = async (
 
         return res.status(500).json({
             success: false,
-
             message:
                 "Webhook processing failed.",
         });

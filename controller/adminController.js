@@ -287,6 +287,56 @@ export const getAdminDashboard = async (req, res) => {
       yearlyPaymentResult[0]?.total || 0;
 
 
+      // ========================================
+// COLLECTION BY CATEGORY
+// ========================================
+
+const collectionByCategory = await Payment.aggregate([
+  {
+    $match: {
+      status: "successful",
+    },
+  },
+  {
+    $lookup: {
+      from: "obligationassignments",
+      localField: "obligationAssignment",
+      foreignField: "_id",
+      as: "assignment",
+    },
+  },
+  {
+    $unwind: "$assignment",
+  },
+  {
+    $lookup: {
+      from: "obligations",
+      localField: "assignment.obligation",
+      foreignField: "_id",
+      as: "obligation",
+    },
+  },
+  {
+    $unwind: "$obligation",
+  },
+  {
+    $group: {
+      _id: "$obligation.category",
+      amount: {
+        $sum: "$amount",
+      },
+    },
+  },
+  {
+    $project: {
+      _id: 0,
+      category: "$_id",
+      amount: 1,
+    },
+  },
+]);
+
+
     // ========================================
     // PENDING PAYMENTS
     // ========================================
@@ -372,7 +422,7 @@ export const getAdminDashboard = async (req, res) => {
 
       charts: {
         collectionTrend,
-        collectionByCategory: [],
+        collectionByCategory
       },
 
       recentMembers,
