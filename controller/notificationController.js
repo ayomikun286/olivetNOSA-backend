@@ -3,35 +3,36 @@ import Notification from "../models/Notification.js";
 /**
  * Get current user's notifications
  */
+
 export const getMyNotifications = async (req, res) => {
-    try {
-        const userId = req.user._id;
+  try {
+    const userId = req.user._id;
 
-        const notifications = await Notification.find({
-            user: userId,
-        })
-            .sort({ createdAt: -1 })
-            .limit(50)
-            .lean();
+    const notifications = await Notification.find({
+      user: userId,
+    })
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .lean();
 
-        const unreadCount = await Notification.countDocuments({
-            user: userId,
-            isRead: false,
-        });
+    const unreadCount = await Notification.countDocuments({
+      user: userId,
+      isRead: false,
+    });
 
-        res.status(200).json({
-            success: true,
-            unreadCount,
-            notifications,
-        });
-    } catch (error) {
-        console.error("Get notifications error:", error);
+    res.status(200).json({
+      success: true,
+      unreadCount,
+      notifications,
+    });
+  } catch (error) {
+    console.error("Get notifications error:", error);
 
-        res.status(500).json({
-            success: false,
-            message: "Failed to load notifications.",
-        });
-    }
+    res.status(500).json({
+      success: false,
+      message: "Failed to load notifications.",
+    });
+  }
 };
 
 /**

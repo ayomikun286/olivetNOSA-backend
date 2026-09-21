@@ -6,6 +6,7 @@ import {
 } from "../services/obligationAssignmentService.js";
 
 import { createAuditLog } from "../services/auditLog.service.js";
+import { createNotification } from "../services/notificationService.js";
 
 // ========================================
 // CREATE OBLIGATION
@@ -23,10 +24,7 @@ export const createObligation = async (req, res) => {
       dueDate,
     } = req.body;
 
-    // ----------------------------------------
     // VALIDATION
-    // ----------------------------------------
-
     if (!name || !category || amount === undefined || !year) {
       return res.status(400).json({
         success: false,
@@ -60,10 +58,7 @@ export const createObligation = async (req, res) => {
       }
     }
 
-    // ----------------------------------------
     // CREATE OBLIGATION
-    // ----------------------------------------
-
     const obligation = await Obligation.create({
       name,
       description,
@@ -72,15 +67,10 @@ export const createObligation = async (req, res) => {
       paymentPlans: paymentPlans || [],
       year,
       dueDate: dueDate || null,
-
-      // Record admin who created it
       createdBy: req.user._id,
     });
 
-    // ----------------------------------------
     // ASSIGN INDIVIDUAL OBLIGATION
-    // ----------------------------------------
-
     let obligationsAssigned = 0;
 
     if (category === "individual") {
@@ -92,9 +82,40 @@ export const createObligation = async (req, res) => {
       obligationsAssigned = result.assigned;
     }
 
-    // ----------------------------------------
+    // ========================================
+    // NOTIFY ASSIGNED MEMBERS
+    // ========================================
+
+    try {
+      const assignments = await ObligationAssignment.find({
+        obligation: obligation._id,
+      }).select("user");
+
+      if (assignments.length > 0) {
+        await Promise.all(
+          assignments.map((assignment) =>
+            createNotification({
+              userId: assignment.user,
+              type: "obligation",
+              title: "New Payment Obligation",
+              message: `A new payment obligation, ${obligation.name}, of ₦${Number(
+                obligation.amount
+              ).toLocaleString()} has been added to your account. Please review the obligation details.`,
+              link: "/portal/member/dashboard/my-obligation",
+            })
+          )
+        );
+      }
+    } catch (notificationError) {
+      console.error(
+        "Obligation creation notification error:",
+        notificationError
+      );
+    }
+
+    // ========================================
     // AUDIT LOG
-    // ----------------------------------------
+    // ========================================
 
     await createAuditLog({
       actor: req.user._id,
@@ -136,35 +157,19 @@ export const createObligation = async (req, res) => {
 
 export const getObligations = async (req, res) => {
   try {
-    const {
-      category,
-      year,
-      isActive,
-    } = req.query;
+    const { category, year, isActive } = req.query;
 
     const filter = {};
 
-    if (category) {
-      filter.category = category;
-    }
-
-    if (year) {
-      filter.year = Number(year);
-    }
-
+    if (category) filter.category = category;
+    if (year) filter.year = Number(year);
     if (isActive !== undefined) {
       filter.isActive = isActive === "true";
     }
 
     const obligations = await Obligation.find(filter)
-      .populate(
-        "createdBy",
-        "firstName lastName email"
-      )
-      .sort({
-        year: -1,
-        createdAt: -1,
-      });
+      .populate("createdBy", "firstName lastName email")
+      .sort({ year: -1, createdAt: -1 });
 
     return res.status(200).json({
       success: true,
@@ -189,11 +194,10 @@ export const getObligation = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const obligation = await Obligation.findById(id)
-      .populate(
-        "createdBy",
-        "firstName lastName email"
-      );
+    const obligation = await Obligation.findById(id).populate(
+      "createdBy",
+      "firstName lastName email"
+    );
 
     if (!obligation) {
       return res.status(404).json({
@@ -224,10 +228,6 @@ export const updateObligation = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // ----------------------------------------
-    // ALLOWED FIELDS
-    // ----------------------------------------
-
     const allowedFields = [
       "name",
       "description",
@@ -245,10 +245,6 @@ export const updateObligation = async (req, res) => {
         updates[field] = req.body[field];
       }
     }
-
-    // ----------------------------------------
-    // VALIDATION
-    // ----------------------------------------
 
     if (
       updates.amount !== undefined &&
@@ -283,10 +279,6 @@ export const updateObligation = async (req, res) => {
       }
     }
 
-    // ----------------------------------------
-    // FIND CURRENT OBLIGATION
-    // ----------------------------------------
-
     const obligation = await Obligation.findById(id);
 
     if (!obligation) {
@@ -295,10 +287,6 @@ export const updateObligation = async (req, res) => {
         message: "Obligation not found.",
       });
     }
-
-    // ----------------------------------------
-    // SAVE BEFORE STATE
-    // ----------------------------------------
 
     const before = {
       name: obligation.name,
@@ -311,17 +299,44 @@ export const updateObligation = async (req, res) => {
       isActive: obligation.isActive,
     };
 
-    // ----------------------------------------
-    // APPLY UPDATE
-    // ----------------------------------------
-
     Object.assign(obligation, updates);
 
     await obligation.save();
 
-    // ----------------------------------------
+    // ========================================
+    // NOTIFY ASSIGNED MEMBERS
+    // ========================================
+
+    if (Object.keys(updates).length > 0) {
+      try {
+        const assignments = await ObligationAssignment.find({
+          obligation: obligation._id,
+        }).select("user");
+
+        if (assignments.length > 0) {
+          await Promise.all(
+            assignments.map((assignment) =>
+              createNotification({
+                userId: assignment.user,
+                type: "obligation",
+                title: "Payment Obligation Updated",
+                message: `The ${obligation.name} payment obligation has been updated. Please review the latest obligation details.`,
+                link: "/portal/member/dashboard/my-obligation",
+              })
+            )
+          );
+        }
+      } catch (notificationError) {
+        console.error(
+          "Obligation update notification error:",
+          notificationError
+        );
+      }
+    }
+
+    // ========================================
     // AUDIT LOG
-    // ----------------------------------------
+    // ========================================
 
     await createAuditLog({
       actor: req.user._id,
@@ -363,16 +378,9 @@ export const updateObligation = async (req, res) => {
 // TOGGLE OBLIGATION STATUS
 // ========================================
 
-export const toggleObligationStatus = async (
-  req,
-  res
-) => {
+export const toggleObligationStatus = async (req, res) => {
   try {
     const { id } = req.params;
-
-    // ----------------------------------------
-    // FIND OBLIGATION
-    // ----------------------------------------
 
     const obligation = await Obligation.findById(id);
 
@@ -383,17 +391,50 @@ export const toggleObligationStatus = async (
       });
     }
 
-    // ----------------------------------------
-    // TOGGLE STATUS
-    // ----------------------------------------
-
     obligation.isActive = !obligation.isActive;
 
     await obligation.save();
 
-    // ----------------------------------------
+    // ========================================
+    // NOTIFY ASSIGNED MEMBERS
+    // ========================================
+
+    try {
+      const assignments = await ObligationAssignment.find({
+        obligation: obligation._id,
+      }).select("user");
+
+      const title = obligation.isActive
+        ? "Payment Obligation Activated"
+        : "Payment Obligation Deactivated";
+
+      const message = obligation.isActive
+        ? `The ${obligation.name} payment obligation is now active. Please review your obligation details.`
+        : `The ${obligation.name} payment obligation has been deactivated. Please review your obligation details for the latest status.`;
+
+      if (assignments.length > 0) {
+        await Promise.all(
+          assignments.map((assignment) =>
+            createNotification({
+              userId: assignment.user,
+              type: "obligation",
+              title,
+              message,
+              link: "/portal/member/dashboard/my-obligation",
+            })
+          )
+        );
+      }
+    } catch (notificationError) {
+      console.error(
+        "Obligation status notification error:",
+        notificationError
+      );
+    }
+
+    // ========================================
     // AUDIT LOG
-    // ----------------------------------------
+    // ========================================
 
     await createAuditLog({
       actor: req.user._id,

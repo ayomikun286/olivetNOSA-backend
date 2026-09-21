@@ -7,12 +7,19 @@ import User from "../models/User.js";
 import YearSet from "../models/YearSet.js";
 import Chapter from "../models/Chapter.js";
 import { validateEmail } from "../utils/validator.js";
+
+
 import verifyEmailTemplate from "../utils/Mail-template/verifyEmail.template.js"
 import {
   successResponse,
   errorResponse,
 } from "../utils/response.js";
 import { error } from "console";
+
+// notification //
+import { createNotification } from "../services/notificationService.js";
+import { NOTIFICATION_MESSAGES } from "../constants/notificationMessages.js";
+
 
 
 // COOKIE CONFIGURATION
@@ -289,6 +296,19 @@ export const Signup = async (req, res) => {
     });
 
 
+     // notification//
+    const notification = NOTIFICATION_MESSAGES.account.welcome;
+
+    await createNotification({
+      userId: user._id,
+      type: "account",
+      title: notification.title,
+      message: notification.message,
+      link: notification.link,
+    });
+
+
+
 
     // VERIFICATION LINK
     // ==========================================
@@ -303,7 +323,7 @@ export const Signup = async (req, res) => {
     // Send email to user (or fallback to testing email if needed)
     try {
       await sendEmail({
-        to: emailValue ,
+        to: emailValue,
         subject: "Verify your OlivetNOSA Alumni Account",
         html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px;">
@@ -360,12 +380,12 @@ export const Signup = async (req, res) => {
       console.error("Failed to deliver verification email via provider:", emailErr);
     }
 
-   
 
 
 
 
-  
+
+
     return successResponse(
       res,
       "Account created successfully. Please check your email to verify your account.",
@@ -416,7 +436,7 @@ export const verifyEmail = async (req, res) => {
       .update(token)
       .digest("hex");
 
-   
+
 
     // ------------------------------------------
     // FIND USER
@@ -431,9 +451,9 @@ export const verifyEmail = async (req, res) => {
       "+emailVerificationToken +emailVerificationExpires"
     );
 
-   
 
-   
+
+
 
 
     // ------------------------------------------
@@ -472,10 +492,20 @@ export const verifyEmail = async (req, res) => {
 
     await user.save();
 
-    // ------------------------------------------
-    // CREATE JWT
-    // ------------------------------------------
 
+    // notification//
+    await createNotification({
+      userId: user._id,
+      type: "account",
+      title: "Email Verified",
+      message:
+        "Your email address has been verified successfully. Please complete the remaining information required for your member directory profile.",
+      link: "/portal/member/dashboard/profile",
+    });
+
+
+
+    
     const authToken = jwt.sign(
       {
         id: user._id,
@@ -544,7 +574,7 @@ export const resendVerifyEmailLink = async (req, res) => {
       return errorResponse(res, 404, "User not found.");
     }
 
-    
+
     if (user.isEmailVerified) {
       return errorResponse(
         res,
@@ -553,7 +583,7 @@ export const resendVerifyEmailLink = async (req, res) => {
       );
     }
 
-   
+
     // GENERATE NEW TOKEN
     const verificationToken = crypto
       .randomBytes(32)
@@ -571,7 +601,7 @@ export const resendVerifyEmailLink = async (req, res) => {
 
     await user.save();
 
-    
+
     // SEND EMAIL
     const verificationUrl =
       `${process.env.FRONTEND_URL}/portal/verify-email?token=${verificationToken}`;
@@ -659,7 +689,7 @@ export const forgetPassword = async (req, res) => {
       email: normalizedEmail,
     });
 
-   
+
 
     if (!user) {
       return successResponse(
@@ -668,22 +698,22 @@ export const forgetPassword = async (req, res) => {
       );
     }
 
-  
+
     // GENERATE RESET TOKEN
     const resetToken = crypto
       .randomBytes(32)
       .toString("hex");
 
-    
-    
-    
-      // HASH RESET TOKEN
-     const hashedToken = crypto
+
+
+
+    // HASH RESET TOKEN
+    const hashedToken = crypto
       .createHash("sha256")
       .update(resetToken)
       .digest("hex");
 
-   
+
 
 
 
@@ -691,17 +721,17 @@ export const forgetPassword = async (req, res) => {
     user.passwordResetToken = hashedToken;
 
     user.passwordResetExpires = new Date(Date.now() + 30 * 60 * 1000);
-     await user.save();
+    await user.save();
 
-  
+
 
     // RESET URL
-    const resetUrl = 
-     `${process.env.FRONTEND_URL}/portal/reset-password?token=${resetToken}`;
+    const resetUrl =
+      `${process.env.FRONTEND_URL}/portal/reset-password?token=${resetToken}`;
     await sendEmail({
       to: normalizedEmail,
       subject: "Verify your OlivetNOSA Alumni Account",
-     html: `
+      html: `
   <h2>Reset Your OlivetNOSA Password</h2>
 
   <p>
@@ -841,7 +871,7 @@ export const resetPassword = async (req, res) => {
       );
     }
 
-    
+
     // HASH NEW PASSWORD
     const hashedPassword = await bcrypt.hash(
       password,
@@ -850,7 +880,7 @@ export const resetPassword = async (req, res) => {
 
     user.password = hashedPassword;
 
-    
+
     // CLEAR RESET TOKEN
     user.passwordResetToken = null;
     user.passwordResetExpires = null;
@@ -899,7 +929,7 @@ export const checkVerificationStatus = async (req, res) => {
       email: user.email,
       isEmailVerified: user.isEmailVerified,
       firstName: user.firstName,
-      
+
     });
   } catch (err) {
     console.error("Check verification status error:", err);
@@ -988,11 +1018,11 @@ export const Login = async (req, res) => {
     const user = await User.findOne(
       isEmail
         ? {
-            email: loginValue.toLowerCase(),
-          }
+          email: loginValue.toLowerCase(),
+        }
         : {
-            alumniId: loginValue.toUpperCase(),
-          }
+          alumniId: loginValue.toUpperCase(),
+        }
     ).select("+password");
 
     // ------------------------------------------
@@ -1123,31 +1153,31 @@ export const Login = async (req, res) => {
 // user details 
 export const getCurrentUser = async (req, res) => {
   const user = await User.findById(req.user.id)
-      .select("-password")
-      .populate("chapter", "_id name code country leader")
-      .populate("yearSet", "_id year name leader");
+    .select("-password")
+    .populate("chapter", "_id name code country leader")
+    .populate("yearSet", "_id year name leader");
 
   if (!user) {
     return errorResponse(res, "User not found.", 404);
   }
 
   return successResponse(res, "Current user retrieved.", {
-        id: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        graduationYear: user.graduationYear,
-        isEmailVerified: user.isEmailVerified,
-        memberStatus: user.status,
-        role: user.role,
-        phone:user.phone,
-        alumniId:user.alumniId,
-        chapter: user.chapter,
-        yearSet: user.yearSet,
-        createdAt:user.createdAt
+    id: user._id,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    email: user.email,
+    graduationYear: user.graduationYear,
+    isEmailVerified: user.isEmailVerified,
+    memberStatus: user.status,
+    role: user.role,
+    phone: user.phone,
+    alumniId: user.alumniId,
+    chapter: user.chapter,
+    yearSet: user.yearSet,
+    createdAt: user.createdAt
 
 
-    
+
   });
 };
 

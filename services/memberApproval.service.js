@@ -94,6 +94,7 @@ export const approveMember = async (
       user,
       alumniId,
       obligationsAssigned: obligationResult.assigned,
+       obligationAssignments: obligationResult.assignments,
     };
   } catch (error) {
     await session.abortTransaction();

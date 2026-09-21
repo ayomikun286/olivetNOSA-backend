@@ -17,6 +17,13 @@ import {
 
 import { sendEmail } from "../services/email.service.js";
 
+
+// notifications // 
+import { createNotification } from "../services/notificationService.js";
+import { NOTIFICATION_MESSAGES } from "../constants/notificationMessages.js";
+
+
+
 const escapeRegex = (value = "") => {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 };
@@ -29,6 +36,29 @@ export const approveMemberController = async (req, res) => {
       userId,
       req.user._id
     );
+
+
+    for (const assignment of result.obligationAssignments || []) {
+      await createNotification({
+        userId: userId,
+        type: "obligation",
+        title: "New Payment Obligation",
+        message:
+          "A new payment obligation has been assigned to your account. Please review your obligations for the current year.",
+        link: "/portal/member/dashboard/directory",
+      });
+    }
+
+    // notification//
+    const notification = NOTIFICATION_MESSAGES.account.approved;
+
+    await createNotification({
+      userId: userId,
+      type: "account",
+      title: notification.title,
+      message: notification.message,
+      link: notification.link,
+    });
 
     await createAuditLog({
       actor: req.user._id,
@@ -178,59 +208,59 @@ export const getAdminDashboard = async (req, res) => {
     );
 
     const monthlyPaymentResult = await Payment.aggregate([
-  {
-    $match: {
-      status: "successful",
-      paidAt: {
-        $gte: startOfYear,
-        $lt: startOfNextYear,
+      {
+        $match: {
+          status: "successful",
+          paidAt: {
+            $gte: startOfYear,
+            $lt: startOfNextYear,
+          },
+        },
       },
-    },
-  },
-  {
-    $group: {
-      _id: {
-        $month: "$paidAt",
+      {
+        $group: {
+          _id: {
+            $month: "$paidAt",
+          },
+          amount: {
+            $sum: "$amount",
+          },
+        },
       },
-      amount: {
-        $sum: "$amount",
+      {
+        $sort: {
+          _id: 1,
+        },
       },
-    },
-  },
-  {
-    $sort: {
-      _id: 1,
-    },
-  },
-]);
+    ]);
 
-const monthNames = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
+    const monthNames = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
 
-const collectionTrend = monthNames.map((month, index) => {
-  const monthNumber = index + 1;
+    const collectionTrend = monthNames.map((month, index) => {
+      const monthNumber = index + 1;
 
-  const found = monthlyPaymentResult.find(
-    (item) => item._id === monthNumber
-  );
+      const found = monthlyPaymentResult.find(
+        (item) => item._id === monthNumber
+      );
 
-  return {
-    month,
-    amount: found?.amount || 0,
-  };
-});
+      return {
+        month,
+        amount: found?.amount || 0,
+      };
+    });
 
     const yearlyPaymentResult =
       await Payment.aggregate([
@@ -366,9 +396,6 @@ const collectionTrend = monthNames.map((month, index) => {
 
 export const getAdminMembersController = async (req, res) => {
   try {
-    // ========================================
-    // PAGINATION
-    // ========================================
 
     const page = Math.max(
       Number(req.query.page) || 1,
@@ -382,9 +409,6 @@ export const getAdminMembersController = async (req, res) => {
 
     const skip = (page - 1) * limit;
 
-    // ========================================
-    // QUERY PARAMETERS
-    // ========================================
 
     const search = String(
       req.query.search || ""
@@ -394,9 +418,6 @@ export const getAdminMembersController = async (req, res) => {
       req.query.status || ""
     ).trim();
 
-    // ========================================
-    // BASE FILTER
-    // ========================================
 
     const filter = {
       role: "member",
@@ -604,7 +625,7 @@ export const createAdminMemberController = async (req, res) => {
       chapter,
     } = req.body;
 
-  
+
 
     if (
       !firstName?.trim() ||
@@ -639,7 +660,7 @@ export const createAdminMemberController = async (req, res) => {
       });
     }
 
-   
+
 
     const existingMember = await User.findOne({
       email: normalizedEmail,
@@ -654,7 +675,7 @@ export const createAdminMemberController = async (req, res) => {
       });
     }
 
-    
+
 
     const [chapterDoc, yearSetDoc] = await Promise.all([
       Chapter.findById(chapter).select("_id code name"),
@@ -681,7 +702,7 @@ export const createAdminMemberController = async (req, res) => {
       });
     }
 
-    
+
 
     session.startTransaction();
 
@@ -691,7 +712,7 @@ export const createAdminMemberController = async (req, res) => {
       session
     );
 
-   
+
 
     const [member] = await User.create(
       [
@@ -722,7 +743,7 @@ export const createAdminMemberController = async (req, res) => {
 
           alumniId,
 
-         
+
           password: undefined,
 
           role: "member",
@@ -738,7 +759,7 @@ export const createAdminMemberController = async (req, res) => {
       }
     );
 
-   
+
 
     const obligationResult =
       await assignIndividualObligationsToUser(
@@ -746,6 +767,16 @@ export const createAdminMemberController = async (req, res) => {
         req.user?._id || null,
         session
       );
+
+
+
+
+
+
+
+
+
+
 
     const rawToken = crypto
       .randomBytes(32)
@@ -769,7 +800,7 @@ export const createAdminMemberController = async (req, res) => {
 
     await session.commitTransaction();
 
-   
+
 
     const frontendUrl =
       process.env.FRONTEND_URL ||
@@ -778,16 +809,16 @@ export const createAdminMemberController = async (req, res) => {
     const activationLink =
       `${frontendUrl}/set-password?token=${rawToken}`;
 
-   
 
-      try {
-        await sendEmail({
-          to: normalizedEmail,
 
-          subject:
-            "Welcome to OlivetNOSA – Activate Your Account",
+    try {
+      await sendEmail({
+        to: normalizedEmail,
 
-          html: `
+        subject:
+          "Welcome to OlivetNOSA – Activate Your Account",
+
+        html: `
             <div
               style="
                 font-family: Arial, sans-serif;
@@ -857,34 +888,34 @@ export const createAdminMemberController = async (req, res) => {
 
             </div>
           `,
-        });
-      } catch (emailError) {
-        console.error(
-          "Admin member created but welcome email failed:",
-          emailError
-        );
+      });
+    } catch (emailError) {
+      console.error(
+        "Admin member created but welcome email failed:",
+        emailError
+      );
 
-        return res.status(201).json({
-          success: true,
-          emailSent: false,
+      return res.status(201).json({
+        success: true,
+        emailSent: false,
 
-          message:
-            "Member was created successfully, but the activation email could not be sent.",
+        message:
+          "Member was created successfully, but the activation email could not be sent.",
 
-          member: {
-            _id: member._id,
-            firstName: member.firstName,
-            lastName: member.lastName,
-            email: member.email,
-            alumniId: member.alumniId,
-          },
+        member: {
+          _id: member._id,
+          firstName: member.firstName,
+          lastName: member.lastName,
+          email: member.email,
+          alumniId: member.alumniId,
+        },
 
-          obligationsAssigned:
-            obligationResult.assigned,
-        });
-      }
+        obligationsAssigned:
+          obligationResult.assigned,
+      });
+    }
 
-  
+
 
     return res.status(201).json({
       success: true,

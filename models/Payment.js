@@ -93,6 +93,8 @@ const paymentSchema = new mongoose.Schema(
             type: String,
             trim: true,
             index: true,
+            unique: true,
+            sparse: true,
         },
 
         // ========================================

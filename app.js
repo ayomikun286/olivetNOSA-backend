@@ -22,6 +22,13 @@ dns.setDefaultResultOrder("ipv4first");
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Paystack webhook MUST receive the raw body
+app.use(
+    "/api/payments/webhook",
+    express.raw({ type: "application/json" })
+);
+
+
 // mongoose
 app.use(express.json());
 app.use(cors(corsOptions));

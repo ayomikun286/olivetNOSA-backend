@@ -4,6 +4,7 @@ import {
 } from "../services/leadership.service.js";
 
 import { createAuditLog } from "../services/auditLog.service.js";
+import { createNotification } from "../services/notificationService.js";
 
 // ========================================
 // ASSIGN YEAR SET LEADER
@@ -25,6 +26,32 @@ export const assignYearSetLeaderController = async (req, res) => {
       yearSetId,
       req.user._id
     );
+
+    // ========================================
+    // NOTIFY USER
+    // ========================================
+
+    try {
+      const yearSetName =
+        result.yearSet?.name || "your year set";
+
+      await createNotification({
+        userId,
+        type: "system",
+        title: "Year Set Leadership Assigned",
+        message: `You have been assigned as the leader of ${yearSetName}. Please review your Year Set dashboard and leadership responsibilities.`,
+        link: "/portal/member/dashboard/year-set",
+      });
+    } catch (notificationError) {
+      console.error(
+        "Year set leader notification error:",
+        notificationError
+      );
+    }
+
+    // ========================================
+    // AUDIT LOG
+    // ========================================
 
     await createAuditLog({
       actor: req.user._id,
@@ -78,6 +105,32 @@ export const assignChapterLeaderController = async (req, res) => {
       chapterId,
       req.user._id
     );
+
+    // ========================================
+    // NOTIFY USER
+    // ========================================
+
+    try {
+      const chapterName =
+        result.chapter?.name || "your chapter";
+
+      await createNotification({
+        userId,
+        type: "system",
+        title: "Chapter Leadership Assigned",
+        message: `You have been assigned as the leader of ${chapterName}. Please review your Chapter dashboard and leadership responsibilities.`,
+        link: "/portal/member/dashboard/chapter",
+      });
+    } catch (notificationError) {
+      console.error(
+        "Chapter leader notification error:",
+        notificationError
+      );
+    }
+
+    // ========================================
+    // AUDIT LOG
+    // ========================================
 
     await createAuditLog({
       actor: req.user._id,

@@ -2,11 +2,7 @@ import Obligation from "../models/Obligation.js";
 import ObligationAssignment from "../models/ObligationAssignment.js";
 import User from "../models/User.js";
 
-/**
- * Assign current active individual obligations to one user.
- *
- * Used when a new member becomes eligible.
- */
+
 export const assignIndividualObligationsToUser = async (
   userId,
   assignedBy = null,
@@ -20,13 +16,14 @@ export const assignIndividualObligationsToUser = async (
     year: currentYear,
     isActive: true,
   })
-    .select("_id amount dueDate")
+    .select("_id amount dueDate name")
     .lean()
     .session(session);
 
   if (!obligations.length) {
     return {
       assigned: 0,
+      assignments: [],
     };
   }
 
@@ -70,38 +67,42 @@ export const assignIndividualObligationsToUser = async (
   if (!assignments.length) {
     return {
       assigned: 0,
+      assignments: [],
     };
   }
 
-  await ObligationAssignment.insertMany(assignments, {
-    session,
-  });
+  const createdAssignments =
+    await ObligationAssignment.insertMany(assignments, {
+      session,
+    });
 
   return {
-    assigned: assignments.length,
+    assigned: createdAssignments.length,
+    assignments: createdAssignments,
   };
 };
 
-/**
- * Assign one individual obligation to all eligible members.
- *
- * Used when an admin creates a new individual obligation.
- */
+
 export const assignIndividualObligationToMembers = async (
   obligationId,
   assignedBy
 ) => {
+  const currentYear = new Date().getFullYear();
+
   // Get the obligation
   const obligation = await Obligation.findOne({
     _id: obligationId,
     category: "individual",
+    year: currentYear,
     isActive: true,
   })
-    .select("_id amount dueDate")
+    .select("_id amount dueDate name year")
     .lean();
 
   if (!obligation) {
-    throw new Error("Individual obligation not found.");
+    throw new Error(
+      "Individual obligation not found or does not belong to the current year."
+    );
   }
 
   // Get all eligible members
@@ -116,6 +117,7 @@ export const assignIndividualObligationToMembers = async (
   if (!members.length) {
     return {
       assigned: 0,
+      assignments: [],
     };
   }
 
@@ -142,5 +144,6 @@ export const assignIndividualObligationToMembers = async (
 
   return {
     assigned: result.length,
+    assignments: result,
   };
 };

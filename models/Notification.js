@@ -14,6 +14,7 @@ const notificationSchema = new mongoose.Schema(
             enum: [
                 "account",
                 "payment",
+                "payment_success",
                 "obligation",
                 "announcement",
                 "system",

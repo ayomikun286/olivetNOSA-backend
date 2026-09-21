@@ -11,6 +11,8 @@ import {protect} from "../middleware/authmiddleware.js";
 
 const router = express.Router();
 
+// api/notifications
+
 router.get("/", protect, getMyNotifications);
 
 router.get("/unread-count", protect, getUnreadNotificationCount);
