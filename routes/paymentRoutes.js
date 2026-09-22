@@ -39,7 +39,7 @@ router.post(
     handlePaystackWebhook
 );
 
-router.post(
+router.get(
     "/internal/verify-pending",
     verifyPendingPaymentsInternal
 );
