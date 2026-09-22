@@ -1,7 +1,7 @@
 import User from "../models/User.js";
 import ObligationAssignment from "../models/ObligationAssignment.js";
 import Chapter from "../models/Chapter.js";
-
+import Payment from "../models/Payment.js";
 import {
   successResponse,
   errorResponse,
@@ -38,7 +38,7 @@ export const getChapters = async (req, res) => {
 
 
 // =====================================================
-// GET MY CHAPTER
+// GET MY CHAPTER obligation and members
 // =====================================================
 
 export const getMyChapter = async (req, res) => {
@@ -132,6 +132,39 @@ export const getMyChapter = async (req, res) => {
 
 
     // =====================================================
+// GET RECENT CHAPTER PAYMENT ACTIVITY
+// =====================================================
+
+const assignmentIds = validAssignments.map(
+  (assignment) => assignment._id
+);
+
+const recentActivity = await Payment.find({
+  obligationAssignment: {
+    $in: assignmentIds,
+  },
+  status: "successful",
+})
+  .populate({
+    path: "obligationAssignment",
+    select: "obligation",
+    populate: {
+      path: "obligation",
+      select: "name category",
+    },
+  })
+  .select(
+    "_id amount status paidAt obligationAssignment createdAt"
+  )
+  .sort({
+    paidAt: -1,
+    createdAt: -1,
+  })
+  .limit(10)
+  .lean();
+
+
+    // =====================================================
     // CALCULATE FINANCIAL SUMMARY
     // =====================================================
 
@@ -186,7 +219,7 @@ export const getMyChapter = async (req, res) => {
 
         members,
 
-        recentActivity: [],
+        recentActivity: recentActivity,
       }
     );
 

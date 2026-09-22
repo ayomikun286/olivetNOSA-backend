@@ -1,5 +1,6 @@
 import User from "../models/User.js";
 import ObligationAssignment from "../models/ObligationAssignment.js";
+import Payment from "../models/Payment.js";
 import {
   successResponse,
   errorResponse,
@@ -72,6 +73,30 @@ export const getMyYearSet = async (req, res) => {
       (assignment) => assignment.obligation
     );
 
+    const assignmentIds = validAssignments.map(
+      (assignment) => assignment._id
+    );
+
+    const recentPayments = await Payment.find({
+      obligationAssignment: { $in: assignmentIds },
+      status: "successful",
+    })
+      .populate(
+        "user",
+        "_id firstName middleName lastName alumniId"
+      )
+      .populate({
+        path: "obligationAssignment",
+        select: "obligation",
+        populate: {
+          path: "obligation",
+          select: "name category",
+        },
+      })
+      .sort({ paidAt: -1, createdAt: -1 })
+      .limit(10)
+      .lean();
+
     const totalDue = validAssignments.reduce(
       (total, assignment) =>
         total + Number(assignment.amountDue || 0),
@@ -89,36 +114,36 @@ export const getMyYearSet = async (req, res) => {
       0
     );
 
-   // ========================================
-// RESPONSE
-// ========================================
+    // ========================================
+    // RESPONSE
+    // ========================================
 
-return successResponse(
-  res,
-  "Year set information fetched successfully.",
-  {
-    yearSet: {
-      id: yearSet._id,
-      name: yearSet.name,
-      year: yearSet.year,
-    },
+    return successResponse(
+      res,
+      "Year set information fetched successfully.",
+      {
+        yearSet: {
+          id: yearSet._id,
+          name: yearSet.name,
+          year: yearSet.year,
+        },
 
-    summary: {
-      totalDue,
-      amountPaid,
-      outstanding,
-      memberCount: members.length,
-    },
+        summary: {
+          totalDue,
+          amountPaid,
+          outstanding,
+          memberCount: members.length,
+        },
 
-    obligations: validAssignments,
+        obligations: validAssignments,
 
-    members,
+        members,
 
-    // Will be connected when Payment/Transaction
-    // module is created.
-    recentActivity: [],
-  }
-);
+        // Will be connected when Payment/Transaction
+        // module is created.
+        recentActivity: recentPayments,
+      }
+    );
   } catch (error) {
     console.error("Get my year set error:", error);
 
