@@ -6,6 +6,7 @@ import {
     verifyPayment,
     handlePaystackCallback,
     handlePaystackWebhook,
+    verifyPendingPaymentsInternal
 } from "../controller/paymentController.js";
 
 import { protect } from "../middleware/authmiddleware.js";
@@ -38,4 +39,12 @@ router.post(
     handlePaystackWebhook
 );
 
+router.post(
+    "/internal/verify-pending",
+    verifyPendingPaymentsInternal
+);
+
 export default router;
+
+
+// POST /api/payments/internal/verify-pending

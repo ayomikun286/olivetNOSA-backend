@@ -1,296 +1,14 @@
 import crypto from "crypto";
-import mongoose from "mongoose";
-
 import Payment from "../models/Payment.js";
 import ObligationAssignment from "../models/ObligationAssignment.js";
-
 import { paystackRequest } from "../config/paystack.js";
+import { completeSuccessfulPayment } from "../services/paymentService.js";
+import { verifyPendingPayments } from "../services/pendingPaymentVerificationService.js";
+import {handleFailedPayment} from "../services/paymentService.js";
 
-import { createNotification } from "../services/notificationService.js";
-import { sendEmail } from "../services/email.service.js";
 
-import User from "../models/User.js";
 
-/**
- * Complete a successful payment
- *
- * This function updates:
- * - Payment
- * - ObligationAssignment
- *
- * It is designed to be safe against
- * duplicate Paystack callbacks/webhooks.
- */
-const completeSuccessfulPayment = async (
-    paymentId,
-    transaction
-) => {
-    const session = await mongoose.startSession();
 
-    try {
-        session.startTransaction();
-
-        // ========================================
-        // FIND PAYMENT
-        // ========================================
-
-        const payment = await Payment.findById(paymentId)
-            .session(session);
-
-        if (!payment) {
-            throw new Error(
-                "Payment record not found."
-            );
-        }
-
-        // ========================================
-        // ALREADY PROCESSED
-        // ========================================
-
-        if (payment.status === "successful") {
-            const assignment =
-                await ObligationAssignment.findById(
-                    payment.obligationAssignment
-                ).session(session);
-
-            await session.commitTransaction();
-
-            return {
-                payment,
-                assignment,
-            };
-        }
-
-        // ========================================
-        // FIND ASSIGNMENT
-        // ========================================
-
-        const assignment =
-            await ObligationAssignment.findById(
-                payment.obligationAssignment
-            ).session(session);
-
-        if (!assignment) {
-            throw new Error(
-                "Obligation assignment not found."
-            );
-        }
-
-        // ========================================
-        // FINAL AMOUNT SAFETY CHECK
-        // ========================================
-
-        const amountDue =
-            Number(assignment.amountDue || 0);
-
-        const amountPaid =
-            Number(assignment.amountPaid || 0);
-
-        const paymentAmount =
-            Number(payment.amount || 0);
-
-        const outstanding =
-            Math.max(
-                amountDue - amountPaid,
-                0
-            );
-
-        if (paymentAmount > outstanding) {
-            throw new Error(
-                "Payment exceeds the outstanding obligation balance."
-            );
-        }
-
-        // ========================================
-        // UPDATE PAYMENT
-        // ========================================
-
-        payment.status = "successful";
-
-        payment.paidAt =
-            transaction.paid_at
-                ? new Date(transaction.paid_at)
-                : new Date();
-
-        payment.paymentMethod =
-            mapPaystackPaymentMethod(
-                transaction.channel
-            );
-
-        payment.metadata = {
-            ...payment.metadata,
-
-            paystackTransactionId:
-                transaction.id,
-
-            paystackStatus:
-                transaction.status,
-
-            channel:
-                transaction.channel,
-
-            currency:
-                transaction.currency,
-
-            gatewayResponse:
-                transaction.gateway_response,
-
-            paidAt:
-                transaction.paid_at,
-        };
-
-        await payment.save({
-            session,
-        });
-
-        // ========================================
-        // UPDATE OBLIGATION
-        // ========================================
-
-        const newAmountPaid =
-            amountPaid + paymentAmount;
-
-        assignment.amountPaid =
-            Math.min(
-                newAmountPaid,
-                amountDue
-            );
-
-        assignment.status =
-            assignment.amountPaid >= amountDue
-                ? "paid"
-                : assignment.amountPaid > 0
-                    ? "partial"
-                    : "pending";
-
-        await assignment.save({
-            session,
-        });
-
-        // ========================================
-        // COMMIT DATABASE TRANSACTION
-        // ========================================
-
-        await session.commitTransaction();
-
-        // ========================================
-        // CREATE PAYMENT NOTIFICATION
-        // ========================================
-
-        await createNotification({
-            userId: payment.user,
-            type: "payment_success",
-            title: "Payment Successful",
-            message: `Your payment of ₦${payment.amount.toLocaleString()} was successful.`,
-            link: "/portal/member/dashboard/payment-history",
-        });
-
-        // ========================================
-        // SEND PAYMENT SUCCESS EMAIL
-        // ========================================
-
-        try {
-            const user = await User.findById(payment.user)
-                .select("email firstName lastName")
-                .lean();
-
-            if (user?.email) {
-                await sendEmail({
-                    to: user.email,
-
-                    subject:
-                        "Payment Successful - Olivet NOSA",
-
-                    html: `
-                        <h2>Payment Successful</h2>
-
-                        <p>
-                            Hello ${user.firstName || "Member"},
-                        </p>
-
-                        <p>
-                            Your payment of
-                            <strong>
-                                ₦${payment.amount.toLocaleString()}
-                            </strong>
-                            has been successfully received.
-                        </p>
-
-                        <p>
-                            <strong>Reference:</strong>
-                            ${payment.gatewayReference}
-                        </p>
-
-                        <p>
-                            <strong>Payment Method:</strong>
-                            ${payment.paymentMethod}
-                        </p>
-
-                        <p>
-                            Thank you for your payment.
-                        </p>
-
-                        <p>
-                            <strong>Olivet NOSA</strong>
-                        </p>
-                    `,
-                });
-            }
-        } catch (emailError) {
-            console.error(
-                "Payment success email error:",
-                emailError.message
-            );
-        }
-
-        // ========================================
-        // RETURN RESULT
-        // ========================================
-
-        return {
-            payment,
-            assignment,
-        };
-
-    } catch (error) {
-        await session.abortTransaction();
-        throw error;
-
-    } finally {
-        await session.endSession();
-    }
-};
-
-
-/**
- * Map Paystack channel to our payment method
- */
-const mapPaystackPaymentMethod = (
-    channel
-) => {
-    switch (channel) {
-        case "card":
-            return "card";
-
-        case "bank":
-        case "bank_transfer":
-            return "bank_transfer";
-
-        case "ussd":
-            return "ussd";
-
-        case "mobile_money":
-            return "mobile_money";
-
-        default:
-            return "other";
-    }
-};
-
-
-/**
- * Get current user's payment history
- */
 export const getMyPayments = async (req, res) => {
     try {
         const payments = await Payment.find({
@@ -749,7 +467,7 @@ export const verifyPayment = async (
 
         const failedStatus =
             transaction.status ===
-            "abandoned"
+                "abandoned"
                 ? "cancelled"
                 : "failed";
 
@@ -931,24 +649,11 @@ export const handlePaystackWebhook = async (req, res) => {
         // ========================================
 
         if (event === "charge.failed") {
-            payment.status = "failed";
-
-            payment.metadata = {
-                ...payment.metadata,
-
-                gatewayResponse:
-                    data?.gateway_response ||
-                    "Payment failed.",
-
-                failureReason:
-                    data?.gateway_response ||
-                    "Payment failed.",
-
-                paystackStatus:
-                    data?.status || "failed",
-            };
-
-            await payment.save();
+            await handleFailedPayment(
+                payment,
+                data,
+                "failed"
+            );
 
             console.log(
                 `Paystack payment marked as failed: ${reference}`
@@ -960,7 +665,6 @@ export const handlePaystackWebhook = async (req, res) => {
                     "Failed payment recorded.",
             });
         }
-
         // ========================================
         // IGNORE OTHER NON-SUCCESS EVENTS
         // ========================================
@@ -1124,5 +828,47 @@ export const handlePaystackCallback = async (
         return res.redirect(
             `${process.env.FRONTEND_URL}/portal/member/dashboard/payment-history?payment=failed`
         );
+    }
+};
+
+
+
+
+
+
+/**
+ * Internal: verify pending Paystack payments
+ */
+export const verifyPendingPaymentsInternal = async (req, res) => {
+    try {
+        const internalSecret = req.headers["x-internal-secret"];
+
+        if (
+            !internalSecret ||
+            internalSecret !== process.env.INTERNAL_PAYMENT_SECRET
+        ) {
+            return res.status(401).json({
+                success: false,
+                message: "Unauthorized.",
+            });
+        }
+
+        const result = await verifyPendingPayments();
+
+        return res.status(200).json({
+            success: true,
+            message: "Pending payments checked successfully.",
+            result,
+        });
+    } catch (error) {
+        console.error(
+            "Internal pending payment verification error:",
+            error
+        );
+
+        return res.status(500).json({
+            success: false,
+            message: "Pending payment verification failed.",
+        });
     }
 };

@@ -18,6 +18,7 @@ const notificationSchema = new mongoose.Schema(
                 "obligation",
                 "announcement",
                 "system",
+                "payment_failed"
             ],
             required: true,
         },
