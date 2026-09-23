@@ -12,6 +12,7 @@ import {
   Login,
   getCurrentUser,
    getMemberProfile,
+   updateMemberProfile,
   uploadProfilePhoto,
 } from "../controller/auth.controller.js";
 import {protect} from "../middleware/authmiddleware.js";
@@ -35,7 +36,7 @@ router.get(
 router.put(
   "/auth/profile",
   protect,
-  uploadProfilePhoto
+  updateMemberProfile
 );
 
 
