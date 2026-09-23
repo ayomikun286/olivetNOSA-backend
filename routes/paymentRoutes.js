@@ -44,7 +44,9 @@ router.get(
     verifyPendingPaymentsInternal
 );
 
+
+
 export default router;
 
-
+// GET /api/payments/:paymentId
 // POST /api/payments/internal/verify-pending

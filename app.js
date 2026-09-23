@@ -12,6 +12,8 @@ import paymentRoutes from "./routes/paymentRoutes.js";
 import yearSetRoutes from "./routes/yearSet.routes.js";
 import userRoutes from "./routes/auth.js"
 import cookieParser from "cookie-parser";
+
+import directoryRoutes from "./routes/directory.routes.js";
 import Notification from "./routes/notificationRoutes.js";
 import obligationRoutes from "./routes/obligationRoutes.js";
 import obligationAssignmentRoutes from "./routes/obligationAssignmentRoutes.js"
@@ -51,9 +53,10 @@ app.use(userRoutes)
 app.use("/api/admin", AdminRoute);
 
 app.use("/api/obligations", obligationRoutes);
-app.use( obligationAssignmentRoutes)
-app.use("/api/notifications", Notification)
+app.use( obligationAssignmentRoutes);
+app.use("/api/notifications", Notification);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/directory", directoryRoutes);
 
 
     

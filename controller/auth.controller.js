@@ -1181,6 +1181,143 @@ export const getCurrentUser = async (req, res) => {
   });
 };
 
+// ========================================
+// GET MEMBER PROFILE
+// ========================================
+
+export const getMemberProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id)
+      .select("-password")
+      .populate("chapter", "_id name code country")
+      .populate("yearSet", "_id year name");
+
+    if (!user) {
+      return errorResponse(res, 404, "User not found.");
+    }
+
+    return successResponse(
+      res,
+      "Member profile retrieved successfully.",
+      {
+        id: user._id,
+        firstName: user.firstName,
+        middleName: user.middleName,
+        lastName: user.lastName,
+        email: user.email,
+        phone: user.phone,
+
+        enrollmentYear: user.enrollmentYear,
+        graduationYear: user.graduationYear,
+
+        alumniId: user.alumniId,
+        yearSet: user.yearSet,
+        chapter: user.chapter,
+
+        profile: user.profile,
+
+        status: user.status,
+        isEmailVerified: user.isEmailVerified,
+      }
+    );
+  } catch (err) {
+    console.error("Get member profile error:", err);
+
+    return errorResponse(
+      res,
+      500,
+      "Something went wrong while retrieving your profile."
+    );
+  }
+};
+
+
+
+// UPDATE MEMBER PROFILE
+export const updateMemberProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return errorResponse(res, 404, "User not found.");
+    }
+
+    const {
+      firstName,
+      middleName,
+      lastName,
+      phone,
+      profile,
+    } = req.body;
+
+    // ----------------------------------------
+    // BASIC NAME / PHONE
+    // ----------------------------------------
+
+    if (firstName !== undefined) {
+      if (!firstName.trim()) {
+        return errorResponse(res, 400, "First name is required.");
+      }
+
+      user.firstName = firstName.trim();
+    }
+
+    if (middleName !== undefined) {
+      user.middleName = middleName.trim();
+    }
+
+    if (lastName !== undefined) {
+      if (!lastName.trim()) {
+        return errorResponse(res, 400, "Last name is required.");
+      }
+
+      user.lastName = lastName.trim();
+    }
+
+    if (phone !== undefined) {
+      user.phone = phone.trim();
+    }
+
+    // ----------------------------------------
+    // PROFILE
+    // ----------------------------------------
+
+    if (profile && typeof profile === "object") {
+      user.profile = {
+        ...user.profile?.toObject?.() || user.profile || {},
+        ...profile,
+      };
+    }
+
+    await user.save();
+
+    return successResponse(
+      res,
+      "Profile updated successfully.",
+      {
+        id: user._id,
+        firstName: user.firstName,
+        middleName: user.middleName,
+        lastName: user.lastName,
+        email: user.email,
+        phone: user.phone,
+        enrollmentYear: user.enrollmentYear,
+        graduationYear: user.graduationYear,
+        alumniId: user.alumniId,
+        profile: user.profile,
+      }
+    );
+  } catch (err) {
+    console.error("Update member profile error:", err);
+
+    return errorResponse(
+      res,
+      500,
+      "Something went wrong while updating your profile."
+    );
+  }
+};
+
 
 // LOGOUT
 export const logout = async (req, res) => {
@@ -1317,3 +1454,7 @@ export const setPasswordController = async (req, res) => {
     });
   }
 };
+
+
+
+

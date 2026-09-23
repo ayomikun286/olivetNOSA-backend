@@ -1,5 +1,19 @@
 import express from "express";
-import {Signup,logout,setPasswordController, verifyEmail,resendVerifyEmailLink, verifyAccountSetupController, resetPassword ,forgetPassword, checkVerificationStatus,Login,getCurrentUser} from "../controller/auth.controller.js"
+import {
+  Signup,
+  logout,
+  setPasswordController,
+  verifyEmail,
+  resendVerifyEmailLink,
+  verifyAccountSetupController,
+  resetPassword,
+  forgetPassword,
+  checkVerificationStatus,
+  Login,
+  getCurrentUser,
+   getMemberProfile,
+  updateMemberProfile
+} from "../controller/auth.controller.js";
 import {protect} from "../middleware/authmiddleware.js";
 
 const router = express.Router();
@@ -11,6 +25,19 @@ router.get("/user/verification-status", checkVerificationStatus);
 router.post("/user/login", Login);
 router.get("/user/logout",protect,logout)
 router.get("/auth/me",protect,getCurrentUser)
+
+router.get(
+  "/auth/profile",
+  protect,
+  getMemberProfile
+);
+
+router.put(
+  "/auth/profile",
+  protect,
+  updateMemberProfile
+);
+
 router.post("/user/resendVerifyEmailLink", resendVerifyEmailLink)
 router.post("/user/forgetPassword", forgetPassword);
 router.post("/user/reset-password", resetPassword)
