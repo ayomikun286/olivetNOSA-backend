@@ -7,7 +7,7 @@ import User from "../models/User.js";
 import YearSet from "../models/YearSet.js";
 import Chapter from "../models/Chapter.js";
 import { validateEmail } from "../utils/validator.js";
-
+import cloudinary from "../config/cloudinary.js";
 
 import verifyEmailTemplate from "../utils/Mail-template/verifyEmail.template.js"
 import {
@@ -1457,4 +1457,70 @@ export const setPasswordController = async (req, res) => {
 
 
 
+export const uploadProfilePhoto = async (req, res) => {
+  try {
+    if (!req.file) {
+      return errorResponse(res, 400, "Please select an image.");
+    }
 
+    if (!req.file.mimetype.startsWith("image/")) {
+      return errorResponse(res, 400, "Profile photo must be an image.");
+    }
+
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return errorResponse(res, 404, "User not found.");
+    }
+
+    const uploadResult = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        {
+          folder: "olivetnosa/profile-photos",
+          resource_type: "image",
+          transformation: [
+            {
+              width: 500,
+              height: 500,
+              crop: "fill",
+              gravity: "face",
+            },
+            {
+              quality: "auto",
+              fetch_format: "auto",
+            },
+          ],
+        },
+        (error, result) => {
+          if (error) {
+            reject(error);
+          } else {
+            resolve(result);
+          }
+        }
+      );
+
+      stream.end(req.file.buffer);
+    });
+
+    user.profile.profilePhoto = uploadResult.secure_url;
+
+    await user.save();
+
+    return successResponse(
+      res,
+      "Profile photo uploaded successfully.",
+      {
+        profilePhoto: uploadResult.secure_url,
+      }
+    );
+  } catch (err) {
+    console.error("Upload profile photo error:", err);
+
+    return errorResponse(
+      res,
+      500,
+      "Something went wrong while uploading your profile photo."
+    );
+  }
+};

@@ -12,10 +12,10 @@ import {
   Login,
   getCurrentUser,
    getMemberProfile,
-  updateMemberProfile
+  uploadProfilePhoto,
 } from "../controller/auth.controller.js";
 import {protect} from "../middleware/authmiddleware.js";
-
+import upload from "../middleware/upload.middleware.js";
 const router = express.Router();
 
 
@@ -35,7 +35,15 @@ router.get(
 router.put(
   "/auth/profile",
   protect,
-  updateMemberProfile
+  uploadProfilePhoto
+);
+
+
+router.put(
+  "/auth/profile/photo",
+  protect,
+  upload.single("profilePhoto"),
+  uploadProfilePhoto
 );
 
 router.post("/user/resendVerifyEmailLink", resendVerifyEmailLink)
