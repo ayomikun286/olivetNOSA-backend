@@ -15,6 +15,15 @@ import {
 import upload from "../middleware/upload.middleware.js";
 import { protect } from "../middleware/authmiddleware.js";
 import requireRole from "../middleware/roleMiddleware.js";
+import {
+  getAdminMemorials,
+  getAdminMemorialById,
+  createMemorial,
+  updateMemorial,
+  deleteMemorial,
+} from "../controller/memorial.controller.js";
+
+import memorialUpload from "../middleware/memorialUpload.middleware.js";
 
 const router = express.Router();
 
@@ -145,6 +154,84 @@ router.delete(
     "superAdmin"
   ),
   deleteNewsEvent
+);
+
+
+
+
+
+// ========================================
+// MEMORIAL MANAGEMENT
+// ========================================
+
+router.get(
+  "/memorials",
+  protect,
+  requireRole(
+    "admin",
+    "superAdmin"
+  ),
+  getAdminMemorials
+);
+
+router.get(
+  "/memorials/:id",
+  protect,
+  requireRole(
+    "admin",
+    "superAdmin"
+  ),
+  getAdminMemorialById
+);
+
+router.post(
+  "/memorials",
+  protect,
+  requireRole(
+    "admin",
+    "superAdmin"
+  ),
+  memorialUpload.fields([
+    {
+      name: "photograph",
+      maxCount: 1,
+    },
+    {
+      name: "additionalPhotos",
+      maxCount: 10,
+    },
+  ]),
+  createMemorial
+);
+
+router.patch(
+  "/memorials/:id",
+  protect,
+  requireRole(
+    "admin",
+    "superAdmin"
+  ),
+  memorialUpload.fields([
+    {
+      name: "photograph",
+      maxCount: 1,
+    },
+    {
+      name: "additionalPhotos",
+      maxCount: 10,
+    },
+  ]),
+  updateMemorial
+);
+
+router.delete(
+  "/memorials/:id",
+  protect,
+  requireRole(
+    "admin",
+    "superAdmin"
+  ),
+  deleteMemorial
 );
 
 export default router;
