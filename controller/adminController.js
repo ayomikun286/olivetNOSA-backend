@@ -97,9 +97,7 @@ export const getAdminDashboard = async (req, res) => {
   try {
     const currentYear = new Date().getFullYear();
 
-    // ========================================
-    // MEMBER STATISTICS
-    // ========================================
+   
 
     const [
       totalMembers,
@@ -127,10 +125,6 @@ export const getAdminDashboard = async (req, res) => {
       }),
     ]);
 
-
-    // ========================================
-    // FINANCIAL SUMMARY
-    // ========================================
 
     const financialResult = await ObligationAssignment.aggregate([
       {
@@ -166,9 +160,7 @@ export const getAdminDashboard = async (req, res) => {
       financialSummary.totalOutstanding || 0;
 
 
-    // ========================================
-    // SUCCESSFUL PAYMENTS
-    // ========================================
+
 
     const successfulPaymentResult =
       await Payment.aggregate([
@@ -191,9 +183,6 @@ export const getAdminDashboard = async (req, res) => {
       successfulPaymentResult[0]?.total || 0;
 
 
-    // ========================================
-    // CURRENT YEAR COLLECTION
-    // ========================================
 
     const startOfYear = new Date(
       currentYear,
@@ -287,9 +276,6 @@ export const getAdminDashboard = async (req, res) => {
       yearlyPaymentResult[0]?.total || 0;
 
 
-      // ========================================
-// COLLECTION BY CATEGORY
-// ========================================
 
 const collectionByCategory = await Payment.aggregate([
   {
@@ -337,9 +323,7 @@ const collectionByCategory = await Payment.aggregate([
 ]);
 
 
-    // ========================================
-    // PENDING PAYMENTS
-    // ========================================
+    
 
     const pendingPayments =
       await Payment.countDocuments({
@@ -347,9 +331,7 @@ const collectionByCategory = await Payment.aggregate([
       });
 
 
-    // ========================================
-    // RECENT MEMBERS
-    // ========================================
+   
 
     const recentMembers = await User.find({
       role: "member",
@@ -372,9 +354,7 @@ const collectionByCategory = await Payment.aggregate([
       .lean();
 
 
-    // ========================================
-    // RECENT PAYMENTS
-    // ========================================
+   
 
     const recentPayments = await Payment.find()
       .populate(
@@ -398,9 +378,7 @@ const collectionByCategory = await Payment.aggregate([
       .lean();
 
 
-    // ========================================
-    // RESPONSE
-    // ========================================
+   
 
     return res.status(200).json({
       success: true,
@@ -1040,4 +1018,8 @@ export const createAdminMemberController = async (req, res) => {
     await session.endSession();
   }
 };
+
+
+
+
 

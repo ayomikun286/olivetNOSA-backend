@@ -6,10 +6,8 @@ import {
 import { createAuditLog } from "../services/auditLog.service.js";
 import { createNotification } from "../services/notificationService.js";
 
-// ========================================
-// ASSIGN YEAR SET LEADER
-// ========================================
 
+// ASSIGN YEAR SET LEADER
 export const assignYearSetLeaderController = async (req, res) => {
   try {
     const { userId, yearSetId } = req.body;
@@ -85,10 +83,8 @@ export const assignYearSetLeaderController = async (req, res) => {
   }
 };
 
-// ========================================
-// ASSIGN CHAPTER LEADER
-// ========================================
 
+// ASSIGN CHAPTER LEADER
 export const assignChapterLeaderController = async (req, res) => {
   try {
     const { userId, chapterId } = req.body;

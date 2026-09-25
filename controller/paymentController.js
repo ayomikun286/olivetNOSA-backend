@@ -80,9 +80,6 @@ export const getMyPayments = async (req, res) => {
 };
 
 
-/**
- * Initialize Paystack payment
- */
 export const initializePayment = async (
     req,
     res
@@ -95,9 +92,7 @@ export const initializePayment = async (
             amount,
         } = req.body;
 
-        // ========================================
-        // VALIDATE INPUT
-        // ========================================
+       
 
         if (!obligationAssignmentId) {
             return res.status(400).json({
@@ -120,9 +115,7 @@ export const initializePayment = async (
             });
         }
 
-        // ========================================
-        // FIND ASSIGNMENT
-        // ========================================
+        
 
         const assignment =
             await ObligationAssignment.findOne({
@@ -142,10 +135,8 @@ export const initializePayment = async (
             });
         }
 
-        // ========================================
+       
         // CALCULATE OUTSTANDING
-        // ========================================
-
         const amountDue =
             Number(
                 assignment.amountDue || 0
@@ -162,10 +153,8 @@ export const initializePayment = async (
                 0
             );
 
-        // ========================================
+       
         // ALREADY PAID
-        // ========================================
-
         if (outstanding <= 0) {
             return res.status(400).json({
                 success: false,
@@ -174,10 +163,8 @@ export const initializePayment = async (
             });
         }
 
-        // ========================================
+      
         // AMOUNT TOO HIGH
-        // ========================================
-
         if (requestedAmount > outstanding) {
             return res.status(400).json({
                 success: false,
@@ -189,21 +176,17 @@ export const initializePayment = async (
             });
         }
 
-        // ========================================
+       
         // GENERATE UNIQUE REFERENCE
-        // ========================================
-
         const reference =
             `NOSA-${Date.now()}-${Math.random()
                 .toString(36)
                 .substring(2, 8)
                 .toUpperCase()}`;
 
-        // ========================================
+       
         // CREATE PENDING PAYMENT
-        // ========================================
-
-        const payment = await Payment.create({
+         const payment = await Payment.create({
             user: userId,
 
             obligationAssignment:
@@ -233,10 +216,8 @@ export const initializePayment = async (
             },
         });
 
-        // ========================================
+      
         // INITIALIZE PAYSTACK
-        // ========================================
-
         const paystackData =
             await paystackRequest(
                 "/transaction/initialize",
@@ -273,10 +254,8 @@ export const initializePayment = async (
                 }
             );
 
-        // ========================================
+      
         // RESPONSE
-        // ========================================
-
         res.status(200).json({
             success: true,
 
@@ -318,9 +297,6 @@ export const initializePayment = async (
 };
 
 
-/**
- * Verify Paystack payment
- */
 export const verifyPayment = async (
     req,
     res
@@ -340,10 +316,9 @@ export const verifyPayment = async (
             });
         }
 
-        // ========================================
+       
+        
         // FIND OUR PAYMENT FIRST
-        // ========================================
-
         const payment =
             await Payment.findOne({
                 gatewayReference:
@@ -364,10 +339,8 @@ export const verifyPayment = async (
             });
         }
 
-        // ========================================
+        
         // ALREADY PROCESSED
-        // ========================================
-
         if (
             payment.status ===
             "successful"
@@ -382,10 +355,8 @@ export const verifyPayment = async (
             });
         }
 
-        // ========================================
+       
         // ASK PAYSTACK FOR REAL STATUS
-        // ========================================
-
         const paystackResponse =
             await paystackRequest(
                 `/transaction/verify/${encodeURIComponent(
@@ -396,13 +367,10 @@ export const verifyPayment = async (
                 }
             );
 
-        const transaction =
-            paystackResponse.data;
+        const transaction = paystackResponse.data;
 
-        // ========================================
+       
         // VERIFY AMOUNT
-        // ========================================
-
         const expectedAmount =
             Number(payment.amount) * 100;
 
@@ -433,10 +401,8 @@ export const verifyPayment = async (
             });
         }
 
-        // ========================================
+        
         // SUCCESSFUL PAYMENT
-        // ========================================
-
         if (
             transaction.status ===
             "success"
@@ -461,10 +427,8 @@ export const verifyPayment = async (
             });
         }
 
-        // ========================================
+        
         // FAILED / ABANDONED
-        // ========================================
-
         const failedStatus =
             transaction.status ===
                 "abandoned"
@@ -513,32 +477,23 @@ export const verifyPayment = async (
 };
 
 
-/**
- * Paystack webhook
- */
+
 export const handlePaystackWebhook = async (req, res) => {
     try {
         const signature =
             req.headers["x-paystack-signature"];
 
-        // ========================================
-        // CHECK SIGNATURE
-        // ========================================
-
-        if (!signature) {
+        
+        // CHECK SIGNATURE  
+      if (!signature) {
             return res.status(401).json({
                 success: false,
                 message: "Missing Paystack signature.",
             });
         }
 
-        // ========================================
+       
         // VERIFY WEBHOOK SIGNATURE
-        // ========================================
-
-        // This route uses express.raw(),
-        // so req.body must be a Buffer.
-
         const rawBody = req.body;
 
         if (!Buffer.isBuffer(rawBody)) {
@@ -567,10 +522,8 @@ export const handlePaystackWebhook = async (req, res) => {
             });
         }
 
-        // ========================================
+        
         // PARSE BODY
-        // ========================================
-
         let payload;
 
         try {
@@ -597,10 +550,8 @@ export const handlePaystackWebhook = async (req, res) => {
             data?.reference
         );
 
-        // ========================================
+      
         // GET REFERENCE
-        // ========================================
-
         const reference = data?.reference;
 
         if (!reference) {
@@ -611,10 +562,8 @@ export const handlePaystackWebhook = async (req, res) => {
             });
         }
 
-        // ========================================
+       
         // FIND PAYMENT
-        // ========================================
-
         const payment = await Payment.findOne({
             gatewayReference: reference,
             gateway: "paystack",
@@ -632,10 +581,8 @@ export const handlePaystackWebhook = async (req, res) => {
             });
         }
 
-        // ========================================
+        
         // ALREADY SUCCESSFUL
-        // ========================================
-
         if (payment.status === "successful") {
             return res.status(200).json({
                 success: true,
@@ -644,10 +591,8 @@ export const handlePaystackWebhook = async (req, res) => {
             });
         }
 
-        // ========================================
+       
         // HANDLE FAILED PAYMENT
-        // ========================================
-
         if (event === "charge.failed") {
             await handleFailedPayment(
                 payment,
@@ -665,10 +610,8 @@ export const handlePaystackWebhook = async (req, res) => {
                     "Failed payment recorded.",
             });
         }
-        // ========================================
+        
         // IGNORE OTHER NON-SUCCESS EVENTS
-        // ========================================
-
         if (event !== "charge.success") {
             return res.status(200).json({
                 success: true,
@@ -676,10 +619,8 @@ export const handlePaystackWebhook = async (req, res) => {
             });
         }
 
-        // ========================================
+      
         // VERIFY AMOUNT
-        // ========================================
-
         const expectedAmount =
             Number(payment.amount) * 100;
 
@@ -717,10 +658,8 @@ export const handlePaystackWebhook = async (req, res) => {
             });
         }
 
-        // ========================================
+       
         // VERIFY CURRENCY
-        // ========================================
-
         if (
             data.currency &&
             data.currency.toUpperCase() !== "NGN"
@@ -748,19 +687,15 @@ export const handlePaystackWebhook = async (req, res) => {
             });
         }
 
-        // ========================================
+       
         // COMPLETE SUCCESSFUL PAYMENT
-        // ========================================
-
         await completeSuccessfulPayment(
             payment._id,
             data
         );
 
-        // ========================================
+        
         // SUCCESS RESPONSE
-        // ========================================
-
         return res.status(200).json({
             success: true,
             message:
@@ -773,11 +708,7 @@ export const handlePaystackWebhook = async (req, res) => {
             error
         );
 
-        /*
-         * Return 500 when processing genuinely fails.
-         * This allows Paystack to retry the webhook.
-         */
-
+    
         return res.status(500).json({
             success: false,
             message:
@@ -787,16 +718,7 @@ export const handlePaystackWebhook = async (req, res) => {
 };
 
 
-/**
- * Paystack callback
- *
- * Paystack redirects the member here after checkout.
- *
- * We do NOT mark the payment successful here.
- *
- * We simply redirect the member back to the frontend
- * with the payment reference.
- */
+
 export const handlePaystackCallback = async (
     req,
     res
@@ -836,9 +758,6 @@ export const handlePaystackCallback = async (
 
 
 
-/**
- * Internal: verify pending Paystack payments
- */
 export const verifyPendingPaymentsInternal = async (req, res) => {
     try {
         const internalSecret = req.headers["x-internal-secret"];

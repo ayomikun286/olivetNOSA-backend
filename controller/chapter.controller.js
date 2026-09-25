@@ -7,11 +7,7 @@ import {
   errorResponse,
 } from "../utils/response.js";
 
-
-// =====================================================
 // GET ALL CHAPTERS
-// =====================================================
-
 export const getChapters = async (req, res) => {
   try {
     const chapters = await Chapter.find({ isActive: true })
@@ -37,9 +33,7 @@ export const getChapters = async (req, res) => {
 };
 
 
-// =====================================================
-// GET MY CHAPTER obligation and members
-// =====================================================
+
 
 export const getMyChapter = async (req, res) => {
   try {
@@ -69,9 +63,6 @@ export const getMyChapter = async (req, res) => {
     const chapter = user.chapter;
 
 
-    // =====================================================
-    // VERIFY CHAPTER LEADERSHIP
-    // =====================================================
 
     if (
       !chapter.leader ||
@@ -85,9 +76,7 @@ export const getMyChapter = async (req, res) => {
     }
 
 
-    // =====================================================
-    // GET CHAPTER MEMBERS
-    // =====================================================
+   
 
     const members = await User.find({
       chapter: chapter._id,
@@ -107,9 +96,7 @@ export const getMyChapter = async (req, res) => {
       .lean();
 
 
-    // =====================================================
-    // GET CHAPTER OBLIGATIONS
-    // =====================================================
+   
 
     const assignments = await ObligationAssignment.find({
       user: user._id,
@@ -130,10 +117,6 @@ export const getMyChapter = async (req, res) => {
       (assignment) => assignment.obligation
     );
 
-
-    // =====================================================
-// GET RECENT CHAPTER PAYMENT ACTIVITY
-// =====================================================
 
 const assignmentIds = validAssignments.map(
   (assignment) => assignment._id
@@ -164,9 +147,7 @@ const recentActivity = await Payment.find({
   .lean();
 
 
-    // =====================================================
-    // CALCULATE FINANCIAL SUMMARY
-    // =====================================================
+    
 
     const totalDue = validAssignments.reduce(
       (total, assignment) =>
@@ -187,10 +168,7 @@ const recentActivity = await Payment.find({
 
 
 
-    // =====================================================
-    // RESPONSE
-    // =====================================================
-
+    
     return successResponse(
       res,
       "Chapter information fetched successfully.",

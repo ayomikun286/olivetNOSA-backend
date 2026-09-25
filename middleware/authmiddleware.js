@@ -25,12 +25,7 @@ export const protect = async (req, res, next) => {
       });
     }
 
-    // if (user.status !== "active") {
-    //   return res.status(403).json({
-    //     ok: false,
-    //     message: "Your account is not active.",
-    //   });
-    // }
+  
 
     if (!user.isEmailVerified) {
       return res.status(403).json({

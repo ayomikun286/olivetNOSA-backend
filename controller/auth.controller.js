@@ -16,19 +16,15 @@ import {
 } from "../utils/response.js";
 import { error } from "console";
 
-// notification //
 import { createNotification } from "../services/notificationService.js";
 import { NOTIFICATION_MESSAGES } from "../constants/notificationMessages.js";
 
-
-
-// COOKIE CONFIGURATION
 const cookieOptions = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
   sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
   path: "/",
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  maxAge: 7 * 24 * 60 * 60 * 1000, 
 };
 
 
@@ -36,7 +32,7 @@ const cookieOptions = {
 
 
 
-// REGISTER
+
 export const Signup = async (req, res) => {
   console.log("working")
 
@@ -410,7 +406,7 @@ export const Signup = async (req, res) => {
 
 
 
-// VERIFY EMAIL
+
 export const verifyEmail = async (req, res) => {
   try {
     const { token } = req.query;
@@ -554,7 +550,7 @@ export const verifyEmail = async (req, res) => {
   }
 };
 
-//  resent verification 
+
 export const resendVerifyEmailLink = async (req, res) => {
   try {
     const { email } = req.body;
@@ -659,10 +655,6 @@ export const resendVerifyEmailLink = async (req, res) => {
 
 
 
-
-
-
-// forget password
 export const forgetPassword = async (req, res) => {
   try {
     const { email } = req.body;
@@ -792,7 +784,6 @@ export const forgetPassword = async (req, res) => {
 };
 
 
-// rest password
 export const resetPassword = async (req, res) => {
   try {
     const {
@@ -939,7 +930,6 @@ export const checkVerificationStatus = async (req, res) => {
 
 
 
-// LOGIN
 export const Login = async (req, res) => {
   try {
     const {
@@ -1150,7 +1140,7 @@ export const Login = async (req, res) => {
 };
 
 
-// user details 
+
 export const getCurrentUser = async (req, res) => {
   const user = await User.findById(req.user.id)
     .select("-password")
@@ -1174,6 +1164,7 @@ export const getCurrentUser = async (req, res) => {
     alumniId: user.alumniId,
     chapter: user.chapter,
     yearSet: user.yearSet,
+   
     createdAt: user.createdAt
 
 
@@ -1181,9 +1172,8 @@ export const getCurrentUser = async (req, res) => {
   });
 };
 
-// ========================================
-// GET MEMBER PROFILE
-// ========================================
+
+
 
 export const getMemberProfile = async (req, res) => {
   try {
@@ -1215,7 +1205,7 @@ export const getMemberProfile = async (req, res) => {
         chapter: user.chapter,
 
         profile: user.profile,
-
+       
         status: user.status,
         isEmailVerified: user.isEmailVerified,
       }
@@ -1233,7 +1223,7 @@ export const getMemberProfile = async (req, res) => {
 
 
 
-// UPDATE MEMBER PROFILE
+
 export const updateMemberProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
@@ -1319,7 +1309,7 @@ export const updateMemberProfile = async (req, res) => {
 };
 
 
-// LOGOUT
+
 export const logout = async (req, res) => {
   try {
 

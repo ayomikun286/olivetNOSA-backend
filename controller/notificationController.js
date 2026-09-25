@@ -1,8 +1,5 @@
 import Notification from "../models/Notification.js";
 
-/**
- * Get current user's notifications
- */
 
 export const getMyNotifications = async (req, res) => {
   try {
@@ -35,9 +32,7 @@ export const getMyNotifications = async (req, res) => {
   }
 };
 
-/**
- * Get unread notification count
- */
+
 export const getUnreadNotificationCount = async (req, res) => {
     try {
         const unreadCount = await Notification.countDocuments({
@@ -59,9 +54,7 @@ export const getUnreadNotificationCount = async (req, res) => {
     }
 };
 
-/**
- * Mark one notification as read
- */
+
 export const markNotificationAsRead = async (req, res) => {
     try {
         const notification = await Notification.findOneAndUpdate(
@@ -98,9 +91,8 @@ export const markNotificationAsRead = async (req, res) => {
     }
 };
 
-/**
- * Mark all notifications as read
- */
+
+
 export const markAllNotificationsAsRead = async (req, res) => {
     try {
         await Notification.updateMany(

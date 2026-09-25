@@ -8,10 +8,8 @@ import {
 import { createAuditLog } from "../services/auditLog.service.js";
 import { createNotification } from "../services/notificationService.js";
 
-// ========================================
-// CREATE OBLIGATION
-// ========================================
 
+// CREATE OBLIGATION
 export const createObligation = async (req, res) => {
   try {
     const {
@@ -151,10 +149,8 @@ export const createObligation = async (req, res) => {
   }
 };
 
-// ========================================
-// GET ALL OBLIGATIONS
-// ========================================
 
+// GET ALL OBLIGATIONS
 export const getObligations = async (req, res) => {
   try {
     const { category, year, isActive } = req.query;
@@ -186,10 +182,8 @@ export const getObligations = async (req, res) => {
   }
 };
 
-// ========================================
-// GET SINGLE OBLIGATION
-// ========================================
 
+// get single obligation 
 export const getObligation = async (req, res) => {
   try {
     const { id } = req.params;
@@ -220,9 +214,7 @@ export const getObligation = async (req, res) => {
   }
 };
 
-// ========================================
-// UPDATE OBLIGATION
-// ========================================
+
 
 export const updateObligation = async (req, res) => {
   try {
@@ -374,9 +366,7 @@ export const updateObligation = async (req, res) => {
   }
 };
 
-// ========================================
-// TOGGLE OBLIGATION STATUS
-// ========================================
+
 
 export const toggleObligationStatus = async (req, res) => {
   try {
