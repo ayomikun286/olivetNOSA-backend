@@ -22,10 +22,54 @@ import {
   updateMemorial,
   deleteMemorial,
 } from "../controller/memorial.controller.js";
-
+import {
+  getAdminMemorialSubmissions,
+  getAdminMemorialSubmissionById,
+  reviewMemorialSubmission,
+} from "../controller/memorialSubmission.controller.js";
 import memorialUpload from "../middleware/memorialUpload.middleware.js";
 
+
+
+
+
 const router = express.Router();
+// ========================================
+// MEMORIAL SUBMISSIONS
+// ========================================
+
+router.get(
+  "/memorial-submissions",
+  protect,
+  requireRole(
+    "admin",
+    "superAdmin"
+  ),
+  getAdminMemorialSubmissions
+);
+
+
+router.get(
+  "/memorial-submissions/:id",
+  protect,
+  requireRole(
+    "admin",
+    "superAdmin"
+  ),
+  getAdminMemorialSubmissionById
+);
+
+
+router.patch(
+  "/memorial-submissions/:id/review",
+  protect,
+  requireRole(
+    "admin",
+    "superAdmin"
+  ),
+  reviewMemorialSubmission
+);
+
 
 
 // ========================================

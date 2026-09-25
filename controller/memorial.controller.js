@@ -82,12 +82,17 @@ export const getPublishedMemorials = async (req, res) => {
     const {
       search,
       schoolSet,
+      yearsAttended,
       graduationYear,
     } = req.query;
 
     const filter = {
       isPublished: true,
     };
+
+    // ----------------------------------------
+    // SEARCH BY NAME
+    // ----------------------------------------
 
     if (search?.trim()) {
       filter.fullName = {
@@ -96,9 +101,31 @@ export const getPublishedMemorials = async (req, res) => {
       };
     }
 
+    // ----------------------------------------
+    // SCHOOL / GRADUATING SET
+    // ----------------------------------------
+
     if (schoolSet?.trim()) {
-      filter.schoolSet = schoolSet.trim();
+      filter.schoolSet = {
+        $regex: `^${schoolSet.trim()}$`,
+        $options: "i",
+      };
     }
+
+    // ----------------------------------------
+    // YEARS ATTENDED
+    // ----------------------------------------
+
+    if (yearsAttended?.trim()) {
+      filter.yearsAttended = {
+        $regex: yearsAttended.trim(),
+        $options: "i",
+      };
+    }
+
+    // ----------------------------------------
+    // GRADUATION YEAR
+    // ----------------------------------------
 
     if (graduationYear) {
       const parsedYear = Number(graduationYear);
@@ -107,6 +134,10 @@ export const getPublishedMemorials = async (req, res) => {
         filter.graduationYear = parsedYear;
       }
     }
+
+    // ----------------------------------------
+    // GET MEMORIALS
+    // ----------------------------------------
 
     const memorials = await Memorial.find(filter)
       .select(

@@ -19,6 +19,7 @@ import obligationRoutes from "./routes/obligationRoutes.js";
 import obligationAssignmentRoutes from "./routes/obligationAssignmentRoutes.js"
 import newsEventRoutes from "./routes/newsEvent.routes.js";
 import memorial from "./routes/memorial.routes.js";
+import memorialSubmissionRoutes from "./routes/memorialSubmission.routes.js";
 import dns from "dns";
 
 dns.setServers(["8.8.8.8", "1.1.1.1"]);
@@ -61,6 +62,7 @@ app.use( obligationAssignmentRoutes);
 app.use("/api/notifications", Notification);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/directory", directoryRoutes);
+app.use("/api/memorial-submissions", memorialSubmissionRoutes);
 
 
     
