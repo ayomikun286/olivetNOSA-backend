@@ -1196,7 +1196,7 @@ export const getMemberProfile = async (req, res) => {
         lastName: user.lastName,
         email: user.email,
         phone: user.phone,
-
+        role: user.role,
         enrollmentYear: user.enrollmentYear,
         graduationYear: user.graduationYear,
 
@@ -1312,6 +1312,8 @@ export const updateMemberProfile = async (req, res) => {
 
 export const logout = async (req, res) => {
   try {
+
+   
 
     res.cookie("token", "", {
       ...cookieOptions,

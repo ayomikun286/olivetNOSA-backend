@@ -145,10 +145,6 @@ memorialSubmissionSchema.index({
 });
 
 memorialSubmissionSchema.index({
-  status: 1,
-});
-
-memorialSubmissionSchema.index({
   createdAt: -1,
 });
 
