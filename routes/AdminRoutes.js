@@ -29,7 +29,13 @@ import {
 } from "../controller/memorialSubmission.controller.js";
 import memorialUpload from "../middleware/memorialUpload.middleware.js";
 
-
+import {
+  getAdminCalendarEvents,
+  getAdminCalendarEventById,
+  createCalendarEvent,
+  updateCalendarEvent,
+  deleteCalendarEvent,
+} from "../controller/calendar.controller.js";
 
 
 
@@ -277,5 +283,68 @@ router.delete(
   ),
   deleteMemorial
 );
+
+
+
+
+
+
+
+
+
+// ========================================
+// CALENDAR MANAGEMENT
+// ========================================
+
+router.get(
+  "/calendar",
+  protect,
+  requireRole(
+    "admin",
+    "superAdmin"
+  ),
+  getAdminCalendarEvents
+);
+
+router.get(
+  "/calendar/:id",
+  protect,
+  requireRole(
+    "admin",
+    "superAdmin"
+  ),
+  getAdminCalendarEventById
+);
+
+router.post(
+  "/calendar",
+  protect,
+  requireRole(
+    "admin",
+    "superAdmin"
+  ),
+  createCalendarEvent
+);
+
+router.patch(
+  "/calendar/:id",
+  protect,
+  requireRole(
+    "admin",
+    "superAdmin"
+  ),
+  updateCalendarEvent
+);
+
+router.delete(
+  "/calendar/:id",
+  protect,
+  requireRole(
+    "admin",
+    "superAdmin"
+  ),
+  deleteCalendarEvent
+);
+
 
 export default router;

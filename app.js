@@ -12,7 +12,7 @@ import paymentRoutes from "./routes/paymentRoutes.js";
 import yearSetRoutes from "./routes/yearSet.routes.js";
 import userRoutes from "./routes/auth.js"
 import cookieParser from "cookie-parser";
-
+import calendarRoutes from "./routes/calendar.routes.js";
 import directoryRoutes from "./routes/directory.routes.js";
 import Notification from "./routes/notificationRoutes.js";
 import obligationRoutes from "./routes/obligationRoutes.js";
@@ -63,7 +63,7 @@ app.use("/api/notifications", Notification);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/directory", directoryRoutes);
 app.use("/api/memorial-submissions", memorialSubmissionRoutes);
-
+app.use("/api/calendar", calendarRoutes );
 
     
 
