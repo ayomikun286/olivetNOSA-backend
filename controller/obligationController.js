@@ -238,6 +238,13 @@ export const updateObligation = async (req, res) => {
       }
     }
 
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No valid fields were provided for update.",
+      });
+    }
+
     if (
       updates.amount !== undefined &&
       updates.amount < 0

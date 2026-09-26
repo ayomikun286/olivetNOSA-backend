@@ -8,8 +8,9 @@ import {
   toggleObligationStatus,
 } from "../controller/obligationController.js";
 
-import {protect} from "../middleware/authmiddleware.js";
+import { protect } from "../middleware/authmiddleware.js";
 import requireRole from "../middleware/roleMiddleware.js";
+
 const router = express.Router();
 
 // ========================================
@@ -18,14 +19,35 @@ const router = express.Router();
 
 router.use(protect);
 
-router.post("/", protect, createObligation);
+// Admin / SuperAdmin only
+router.post(
+  "/",
+  requireRole("admin", "superAdmin"),
+  createObligation
+);
 
-router.get("/", getObligations);
+router.get(
+  "/",
+  requireRole("admin", "superAdmin"),
+  getObligations
+);
 
-router.get("/:id", getObligation);
+router.get(
+  "/:id",
+  requireRole("admin", "superAdmin"),
+  getObligation
+);
 
-router.patch("/:id", updateObligation);
+router.patch(
+  "/:id",
+  requireRole("admin", "superAdmin"),
+  updateObligation
+);
 
-router.patch("/:id/status", toggleObligationStatus);
+router.patch(
+  "/:id/status",
+  requireRole("admin", "superAdmin"),
+  toggleObligationStatus
+);
 
 export default router;

@@ -12,6 +12,10 @@ import {
   assignChapterLeaderController,
   
 } from "../controller/leadershipController.js";
+import {
+    getAdminPayments,
+    getAdminPaymentById,
+} from "../controller/paymentController.js";
 import upload from "../middleware/upload.middleware.js";
 import { protect } from "../middleware/authmiddleware.js";
 import requireRole from "../middleware/roleMiddleware.js";
@@ -346,5 +350,32 @@ router.delete(
   deleteCalendarEvent
 );
 
+
+
+// ========================================
+// PAYMENT MANAGEMENT
+// ========================================
+
+router.get(
+    "/payments",
+    protect,
+    requireRole(
+        "admin",
+        "treasurer",
+        "superAdmin"
+    ),
+    getAdminPayments
+);
+
+router.get(
+    "/payments/:paymentId",
+    protect,
+    requireRole(
+        "admin",
+        "treasurer",
+        "superAdmin"
+    ),
+    getAdminPaymentById
+);
 
 export default router;

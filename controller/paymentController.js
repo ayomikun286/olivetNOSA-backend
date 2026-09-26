@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import crypto from "crypto";
 import Payment from "../models/Payment.js";
 import ObligationAssignment from "../models/ObligationAssignment.js";
@@ -163,6 +164,7 @@ export const initializePayment = async (
             });
         }
 
+
       
         // AMOUNT TOO HIGH
         if (requestedAmount > outstanding) {
@@ -176,6 +178,11 @@ export const initializePayment = async (
             });
         }
 
+        if (requestedAmount <= 0) {
+            throw new Error(
+                "Invalid payment amount."
+            );
+        }
        
         // GENERATE UNIQUE REFERENCE
         const reference =
@@ -788,6 +795,323 @@ export const verifyPendingPaymentsInternal = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: "Pending payment verification failed.",
+        });
+    }
+};
+
+
+
+
+export const getAdminPayments = async (req, res) => {
+    try {
+        const {
+            page = 1,
+            limit = 20,
+            search = "",
+            status = "",
+            gateway = "",
+            paymentMethod = "",
+            startDate = "",
+            endDate = "",
+        } = req.query;
+
+        const pageNumber = Math.max(Number(page) || 1, 1);
+        const limitNumber = Math.min(
+            Math.max(Number(limit) || 20, 1),
+            100
+        );
+
+        const skip =
+            (pageNumber - 1) * limitNumber;
+
+        const query = {};
+
+        // ========================================
+        // STATUS
+        // ========================================
+
+        if (status) {
+            query.status = status;
+        }
+
+        // ========================================
+        // GATEWAY
+        // ========================================
+
+        if (gateway) {
+            query.gateway = gateway;
+        }
+
+        // ========================================
+        // PAYMENT METHOD
+        // ========================================
+
+        if (paymentMethod) {
+            query.paymentMethod = paymentMethod;
+        }
+
+        // ========================================
+        // DATE FILTER
+        // ========================================
+
+        if (startDate || endDate) {
+            query.createdAt = {};
+
+            if (startDate) {
+                query.createdAt.$gte =
+                    new Date(`${startDate}T00:00:00.000Z`);
+            }
+
+            if (endDate) {
+                query.createdAt.$lte =
+                    new Date(`${endDate}T23:59:59.999Z`);
+            }
+        }
+
+        // ========================================
+        // SEARCH
+        // ========================================
+
+        if (search.trim()) {
+            const searchRegex =
+                new RegExp(search.trim(), "i");
+
+            const users = await mongoose
+                .model("User")
+                .find({
+                    $or: [
+                        { email: searchRegex },
+                        { alumniId: searchRegex },
+                        { firstName: searchRegex },
+                        { middleName: searchRegex },
+                        { lastName: searchRegex },
+                    ],
+                })
+                .select("_id")
+                .lean();
+
+            const userIds = users.map(
+                (user) => user._id
+            );
+
+            query.$or = [
+                {
+                    gatewayReference:
+                        searchRegex,
+                },
+                {
+                    user: {
+                        $in: userIds,
+                    },
+                },
+            ];
+        }
+
+        // ========================================
+        // QUERY
+        // ========================================
+
+        const [
+            payments,
+            total,
+        ] = await Promise.all([
+            Payment.find(query)
+                .populate({
+                    path: "user",
+                    select:
+                        "firstName middleName lastName email alumniId",
+                })
+                .populate({
+                    path: "obligationAssignment",
+                    select:
+                        "amountDue amountPaid status dueDate obligation",
+                    populate: {
+                        path: "obligation",
+                        select:
+                            "name category year",
+                    },
+                })
+                .sort({
+                    createdAt: -1,
+                })
+                .skip(skip)
+                .limit(limitNumber)
+                .lean(),
+
+            Payment.countDocuments(query),
+        ]);
+
+        // ========================================
+        // SUMMARY
+        // ========================================
+
+        const summary = await Payment.aggregate([
+            {
+                $match: query,
+            },
+            {
+                $group: {
+                    _id: null,
+
+                    totalPayments: {
+                        $sum: 1,
+                    },
+
+                    successful: {
+                        $sum: {
+                            $cond: [
+                                {
+                                    $eq: [
+                                        "$status",
+                                        "successful",
+                                    ],
+                                },
+                                1,
+                                0,
+                            ],
+                        },
+                    },
+
+                    pending: {
+                        $sum: {
+                            $cond: [
+                                {
+                                    $eq: [
+                                        "$status",
+                                        "pending",
+                                    ],
+                                },
+                                1,
+                                0,
+                            ],
+                        },
+                    },
+
+                    failed: {
+                        $sum: {
+                            $cond: [
+                                {
+                                    $in: [
+                                        "$status",
+                                        [
+                                            "failed",
+                                            "cancelled",
+                                        ],
+                                    ],
+                                },
+                                1,
+                                0,
+                            ],
+                        },
+                    },
+
+                    totalReceived: {
+                        $sum: {
+                            $cond: [
+                                {
+                                    $eq: [
+                                        "$status",
+                                        "successful",
+                                    ],
+                                },
+                                "$amount",
+                                0,
+                            ],
+                        },
+                    },
+                },
+            },
+        ]);
+
+        const summaryData =
+            summary[0] || {
+                totalPayments: 0,
+                successful: 0,
+                pending: 0,
+                failed: 0,
+                totalReceived: 0,
+            };
+
+        res.status(200).json({
+            success: true,
+
+            data: {
+                payments,
+
+                summary: summaryData,
+
+                pagination: {
+                    page: pageNumber,
+                    limit: limitNumber,
+                    total,
+                    totalPages: Math.ceil(
+                        total / limitNumber
+                    ),
+                },
+            },
+        });
+    } catch (error) {
+        console.error(
+            "Get admin payments error:",
+            error
+        );
+
+        res.status(500).json({
+            success: false,
+            message:
+                "Failed to load admin payments.",
+        });
+    }
+};
+
+
+export const getAdminPaymentById = async (
+    req,
+    res
+) => {
+    try {
+        const { paymentId } = req.params;
+
+        const payment =
+            await Payment.findById(paymentId)
+                .populate({
+                    path: "user",
+                    select:
+                        "firstName middleName lastName email phone alumniId yearSet chapter",
+                })
+                .populate({
+                    path: "obligationAssignment",
+                    select:
+                        "amountDue amountPaid status dueDate obligation",
+                    populate: {
+                        path: "obligation",
+                        select:
+                            "name category year description",
+                    },
+                })
+                .lean();
+
+        if (!payment) {
+            return res.status(404).json({
+                success: false,
+                message: "Payment not found.",
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            payment,
+        });
+    } catch (error) {
+        console.error(
+            "Get admin payment error:",
+            error
+        );
+
+        return res.status(500).json({
+            success: false,
+            message:
+                "Failed to load payment details.",
         });
     }
 };
