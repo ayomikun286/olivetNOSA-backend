@@ -62,7 +62,7 @@ export const getMyYearSet = async (req, res) => {
     })
       .populate({
         path: "obligation",
-        select: "name description category amount year dueDate",
+        select: "name description category amount year dueDate isActive",
         match: {
           category: "yearSet",
         },
@@ -97,23 +97,36 @@ export const getMyYearSet = async (req, res) => {
       .limit(10)
       .lean();
 
-    const totalDue = validAssignments.reduce(
-      (total, assignment) =>
-        total + Number(assignment.amountDue || 0),
-      0
-    );
+  const activeAssignments = validAssignments.filter(
+  (assignment) => assignment.obligation?.isActive === true
+);
 
-    const amountPaid = validAssignments.reduce(
-      (total, assignment) =>
-        total + Number(assignment.amountPaid || 0),
-      0
-    );
+// Current obligations only
+const totalDue = activeAssignments.reduce(
+  (total, assignment) =>
+    total + Number(assignment.amountDue || 0),
+  0
+);
 
-    const outstanding = Math.max(
-      totalDue - amountPaid,
-      0
-    );
+// All historical + current payments
+const amountPaid = validAssignments.reduce(
+  (total, assignment) =>
+    total + Number(assignment.amountPaid || 0),
+  0
+);
 
+// Only active obligation payments reduce
+// the current outstanding balance.
+const activeAmountPaid = activeAssignments.reduce(
+  (total, assignment) =>
+    total + Number(assignment.amountPaid || 0),
+  0
+);
+
+const outstanding = Math.max(
+  totalDue - activeAmountPaid,
+  0
+);
     // ========================================
     // RESPONSE
     // ========================================

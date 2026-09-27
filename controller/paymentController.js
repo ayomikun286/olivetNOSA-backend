@@ -5,7 +5,7 @@ import ObligationAssignment from "../models/ObligationAssignment.js";
 import { paystackRequest } from "../config/paystack.js";
 import { completeSuccessfulPayment } from "../services/paymentService.js";
 import { verifyPendingPayments } from "../services/pendingPaymentVerificationService.js";
-import {handleFailedPayment} from "../services/paymentService.js";
+import { handleFailedPayment } from "../services/paymentService.js";
 
 
 
@@ -93,7 +93,7 @@ export const initializePayment = async (
             amount,
         } = req.body;
 
-       
+
 
         if (!obligationAssignmentId) {
             return res.status(400).json({
@@ -116,7 +116,7 @@ export const initializePayment = async (
             });
         }
 
-        
+
 
         const assignment =
             await ObligationAssignment.findOne({
@@ -125,7 +125,7 @@ export const initializePayment = async (
             }).populate({
                 path: "obligation",
                 select:
-                    "name category year description",
+                    "name category year description isActive",
             });
 
         if (!assignment) {
@@ -136,7 +136,15 @@ export const initializePayment = async (
             });
         }
 
-       
+        if (!assignment.obligation?.isActive) {
+            return res.status(400).json({
+                success: false,
+                message:
+                    "This obligation is currently inactive and cannot receive payments.",
+            });
+        }
+
+
         // CALCULATE OUTSTANDING
         const amountDue =
             Number(
@@ -154,7 +162,7 @@ export const initializePayment = async (
                 0
             );
 
-       
+
         // ALREADY PAID
         if (outstanding <= 0) {
             return res.status(400).json({
@@ -165,7 +173,7 @@ export const initializePayment = async (
         }
 
 
-      
+
         // AMOUNT TOO HIGH
         if (requestedAmount > outstanding) {
             return res.status(400).json({
@@ -183,7 +191,7 @@ export const initializePayment = async (
                 "Invalid payment amount."
             );
         }
-       
+
         // GENERATE UNIQUE REFERENCE
         const reference =
             `NOSA-${Date.now()}-${Math.random()
@@ -191,9 +199,9 @@ export const initializePayment = async (
                 .substring(2, 8)
                 .toUpperCase()}`;
 
-       
+
         // CREATE PENDING PAYMENT
-         const payment = await Payment.create({
+        const payment = await Payment.create({
             user: userId,
 
             obligationAssignment:
@@ -223,7 +231,7 @@ export const initializePayment = async (
             },
         });
 
-      
+
         // INITIALIZE PAYSTACK
         const paystackData =
             await paystackRequest(
@@ -261,7 +269,7 @@ export const initializePayment = async (
                 }
             );
 
-      
+
         // RESPONSE
         res.status(200).json({
             success: true,
@@ -323,8 +331,8 @@ export const verifyPayment = async (
             });
         }
 
-       
-        
+
+
         // FIND OUR PAYMENT FIRST
         const payment =
             await Payment.findOne({
@@ -346,7 +354,7 @@ export const verifyPayment = async (
             });
         }
 
-        
+
         // ALREADY PROCESSED
         if (
             payment.status ===
@@ -362,7 +370,7 @@ export const verifyPayment = async (
             });
         }
 
-       
+
         // ASK PAYSTACK FOR REAL STATUS
         const paystackResponse =
             await paystackRequest(
@@ -376,7 +384,7 @@ export const verifyPayment = async (
 
         const transaction = paystackResponse.data;
 
-       
+
         // VERIFY AMOUNT
         const expectedAmount =
             Number(payment.amount) * 100;
@@ -408,7 +416,7 @@ export const verifyPayment = async (
             });
         }
 
-        
+
         // SUCCESSFUL PAYMENT
         if (
             transaction.status ===
@@ -434,7 +442,7 @@ export const verifyPayment = async (
             });
         }
 
-        
+
         // FAILED / ABANDONED
         const failedStatus =
             transaction.status ===
@@ -490,16 +498,16 @@ export const handlePaystackWebhook = async (req, res) => {
         const signature =
             req.headers["x-paystack-signature"];
 
-        
+
         // CHECK SIGNATURE  
-      if (!signature) {
+        if (!signature) {
             return res.status(401).json({
                 success: false,
                 message: "Missing Paystack signature.",
             });
         }
 
-       
+
         // VERIFY WEBHOOK SIGNATURE
         const rawBody = req.body;
 
@@ -529,7 +537,7 @@ export const handlePaystackWebhook = async (req, res) => {
             });
         }
 
-        
+
         // PARSE BODY
         let payload;
 
@@ -557,7 +565,7 @@ export const handlePaystackWebhook = async (req, res) => {
             data?.reference
         );
 
-      
+
         // GET REFERENCE
         const reference = data?.reference;
 
@@ -569,7 +577,7 @@ export const handlePaystackWebhook = async (req, res) => {
             });
         }
 
-       
+
         // FIND PAYMENT
         const payment = await Payment.findOne({
             gatewayReference: reference,
@@ -588,7 +596,7 @@ export const handlePaystackWebhook = async (req, res) => {
             });
         }
 
-        
+
         // ALREADY SUCCESSFUL
         if (payment.status === "successful") {
             return res.status(200).json({
@@ -598,7 +606,7 @@ export const handlePaystackWebhook = async (req, res) => {
             });
         }
 
-       
+
         // HANDLE FAILED PAYMENT
         if (event === "charge.failed") {
             await handleFailedPayment(
@@ -617,7 +625,7 @@ export const handlePaystackWebhook = async (req, res) => {
                     "Failed payment recorded.",
             });
         }
-        
+
         // IGNORE OTHER NON-SUCCESS EVENTS
         if (event !== "charge.success") {
             return res.status(200).json({
@@ -626,7 +634,7 @@ export const handlePaystackWebhook = async (req, res) => {
             });
         }
 
-      
+
         // VERIFY AMOUNT
         const expectedAmount =
             Number(payment.amount) * 100;
@@ -665,7 +673,7 @@ export const handlePaystackWebhook = async (req, res) => {
             });
         }
 
-       
+
         // VERIFY CURRENCY
         if (
             data.currency &&
@@ -694,14 +702,14 @@ export const handlePaystackWebhook = async (req, res) => {
             });
         }
 
-       
+
         // COMPLETE SUCCESSFUL PAYMENT
         await completeSuccessfulPayment(
             payment._id,
             data
         );
 
-        
+
         // SUCCESS RESPONSE
         return res.status(200).json({
             success: true,
@@ -715,7 +723,7 @@ export const handlePaystackWebhook = async (req, res) => {
             error
         );
 
-    
+
         return res.status(500).json({
             success: false,
             message:
