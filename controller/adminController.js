@@ -126,38 +126,53 @@ export const getAdminDashboard = async (req, res) => {
     ]);
 
 
-    const financialResult = await ObligationAssignment.aggregate([
-      {
-        $group: {
-          _id: null,
-
-          totalObligations: {
-            $sum: "$amountDue",
-          },
-
-          totalCollected: {
-            $sum: "$amountPaid",
-          },
-
-          totalOutstanding: {
-            $sum: {
+   const financialResult = await ObligationAssignment.aggregate([
+  {
+    $lookup: {
+      from: "obligations",
+      localField: "obligation",
+      foreignField: "_id",
+      as: "obligation",
+    },
+  },
+  {
+    $unwind: "$obligation",
+  },
+  {
+    $match: {
+      "obligation.isActive": true,
+    },
+  },
+  {
+    $group: {
+      _id: null,
+      totalObligations: {
+        $sum: "$amountDue",
+      },
+      totalOutstanding: {
+        $sum: {
+          $max: [
+            {
               $subtract: [
                 "$amountDue",
                 "$amountPaid",
               ],
             },
-          },
+            0,
+          ],
         },
       },
-    ]);
+    },
+  },
+]);
 
-    const financialSummary = financialResult[0] || {};
+const financialSummary = financialResult[0] || {};
 
-    const totalObligations =
-      financialSummary.totalObligations || 0;
+const totalObligations =
+  financialSummary.totalObligations || 0;
 
-    const totalOutstanding =
-      financialSummary.totalOutstanding || 0;
+const totalOutstanding =
+  financialSummary.totalOutstanding || 0;
 
 
 
@@ -367,8 +382,7 @@ const collectionByCategory = await Payment.aggregate([
           "amountDue amountPaid status",
         populate: {
           path: "obligation",
-          select:
-            "name category year",
+          select: "name category year isActive",
         },
       })
       .sort({

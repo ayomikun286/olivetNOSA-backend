@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import crypto from "crypto";
 import Payment from "../models/Payment.js";
 import ObligationAssignment from "../models/ObligationAssignment.js";
-import { paystackRequest } from "../config/paystack.js";
+import Obligation from "../models/Obligation.js"; import { paystackRequest } from "../config/paystack.js";
 import { completeSuccessfulPayment } from "../services/paymentService.js";
 import { verifyPendingPayments } from "../services/pendingPaymentVerificationService.js";
 import { handleFailedPayment } from "../services/paymentService.js";
@@ -824,6 +824,7 @@ export const getAdminPayments = async (req, res) => {
         } = req.query;
 
         const pageNumber = Math.max(Number(page) || 1, 1);
+
         const limitNumber = Math.min(
             Math.max(Number(limit) || 20, 1),
             100
@@ -867,12 +868,16 @@ export const getAdminPayments = async (req, res) => {
 
             if (startDate) {
                 query.createdAt.$gte =
-                    new Date(`${startDate}T00:00:00.000Z`);
+                    new Date(
+                        `${startDate}T00:00:00.000Z`
+                    );
             }
 
             if (endDate) {
                 query.createdAt.$lte =
-                    new Date(`${endDate}T23:59:59.999Z`);
+                    new Date(
+                        `${endDate}T23:59:59.999Z`
+                    );
             }
         }
 
@@ -882,17 +887,30 @@ export const getAdminPayments = async (req, res) => {
 
         if (search.trim()) {
             const searchRegex =
-                new RegExp(search.trim(), "i");
+                new RegExp(
+                    search.trim(),
+                    "i"
+                );
 
             const users = await mongoose
                 .model("User")
                 .find({
                     $or: [
-                        { email: searchRegex },
-                        { alumniId: searchRegex },
-                        { firstName: searchRegex },
-                        { middleName: searchRegex },
-                        { lastName: searchRegex },
+                        {
+                            email: searchRegex,
+                        },
+                        {
+                            alumniId: searchRegex,
+                        },
+                        {
+                            firstName: searchRegex,
+                        },
+                        {
+                            middleName: searchRegex,
+                        },
+                        {
+                            lastName: searchRegex,
+                        },
                     ],
                 })
                 .select("_id")
@@ -916,7 +934,7 @@ export const getAdminPayments = async (req, res) => {
         }
 
         // ========================================
-        // QUERY
+        // PAYMENTS + TOTAL
         // ========================================
 
         const [
@@ -936,7 +954,7 @@ export const getAdminPayments = async (req, res) => {
                     populate: {
                         path: "obligation",
                         select:
-                            "name category year",
+                            "name category year isActive",
                     },
                 })
                 .sort({
@@ -957,6 +975,7 @@ export const getAdminPayments = async (req, res) => {
             {
                 $match: query,
             },
+
             {
                 $group: {
                     _id: null,
@@ -1040,7 +1059,163 @@ export const getAdminPayments = async (req, res) => {
                 totalReceived: 0,
             };
 
-        res.status(200).json({
+        // ========================================
+        // COLLECTION BY OBLIGATION CATEGORY
+        // ========================================
+        //
+        // Only successful payments count as
+        // actual collection.
+        //
+        // Existing date, gateway and payment-method
+        // filters still apply.
+        //
+        // The status filter is intentionally ignored
+        // here because "collection" means money
+        // successfully received.
+        //
+        // ========================================
+
+        const collectionResult =
+            await Payment.aggregate([
+                {
+                    $match: {
+                        ...query,
+                        status: "successful",
+                    },
+                },
+
+                // ====================================
+                // GET OBLIGATION ASSIGNMENT
+                // ====================================
+
+                {
+                    $lookup: {
+                        from:
+                            ObligationAssignment
+                                .collection
+                                .name,
+
+                        localField:
+                            "obligationAssignment",
+
+                        foreignField: "_id",
+
+                        as: "assignment",
+                    },
+                },
+
+                {
+                    $unwind: "$assignment",
+                },
+
+                // ====================================
+                // GET OBLIGATION
+                // ====================================
+
+                {
+                    $lookup: {
+                        from:
+                            Obligation
+                                .collection
+                                .name,
+
+                        localField:
+                            "assignment.obligation",
+
+                        foreignField: "_id",
+
+                        as: "obligation",
+                    },
+                },
+
+                {
+                    $unwind: "$obligation",
+                },
+
+                // ====================================
+                // GROUP BY CATEGORY
+                // ====================================
+
+                {
+                    $group: {
+                        _id:
+                            "$obligation.category",
+
+                        amount: {
+                            $sum: "$amount",
+                        },
+
+                        transactions: {
+                            $sum: 1,
+                        },
+                    },
+                },
+            ]);
+
+        // ========================================
+        // NORMALIZED COLLECTION BREAKDOWN
+        // ========================================
+
+        const collectionBreakdown = {
+            individual: {
+                amount: 0,
+                transactions: 0,
+            },
+
+            yearSet: {
+                amount: 0,
+                transactions: 0,
+            },
+
+            chapter: {
+                amount: 0,
+                transactions: 0,
+            },
+
+            total: {
+                amount: 0,
+                transactions: 0,
+            },
+        };
+
+        // ========================================
+        // MAP AGGREGATION RESULT
+        // ========================================
+
+        collectionResult.forEach((item) => {
+            if (
+                item._id === "individual" ||
+                item._id === "yearSet" ||
+                item._id === "chapter"
+            ) {
+                const amount =
+                    Number(item.amount || 0);
+
+                const transactions =
+                    Number(
+                        item.transactions || 0
+                    );
+
+                collectionBreakdown[
+                    item._id
+                ] = {
+                    amount,
+                    transactions,
+                };
+
+                collectionBreakdown.total.amount +=
+                    amount;
+
+                collectionBreakdown.total.transactions +=
+                    transactions;
+            }
+        });
+
+        // ========================================
+        // RESPONSE
+        // ========================================
+
+        return res.status(200).json({
             success: true,
 
             data: {
@@ -1048,13 +1223,17 @@ export const getAdminPayments = async (req, res) => {
 
                 summary: summaryData,
 
+                collectionBreakdown,
+
                 pagination: {
                     page: pageNumber,
                     limit: limitNumber,
                     total,
-                    totalPages: Math.ceil(
-                        total / limitNumber
-                    ),
+                    totalPages:
+                        Math.ceil(
+                            total /
+                                limitNumber
+                        ),
                 },
             },
         });
@@ -1064,7 +1243,7 @@ export const getAdminPayments = async (req, res) => {
             error
         );
 
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             message:
                 "Failed to load admin payments.",
@@ -1093,8 +1272,7 @@ export const getAdminPaymentById = async (
                         "amountDue amountPaid status dueDate obligation",
                     populate: {
                         path: "obligation",
-                        select:
-                            "name category year description",
+                        select: "name category year description isActive",
                     },
                 })
                 .lean();
