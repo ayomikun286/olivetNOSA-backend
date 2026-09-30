@@ -24,7 +24,7 @@ const cookieOptions = {
   secure: process.env.NODE_ENV === "production",
   sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
   path: "/",
-  maxAge: 7 * 24 * 60 * 60 * 1000, 
+  maxAge: 7 * 24 * 60 * 60 * 1000,
 };
 
 
@@ -292,7 +292,7 @@ export const Signup = async (req, res) => {
     });
 
 
-     // notification//
+    // notification//
     const notification = NOTIFICATION_MESSAGES.account.welcome;
 
     await createNotification({
@@ -320,60 +320,368 @@ export const Signup = async (req, res) => {
     try {
       await sendEmail({
         to: emailValue,
-        subject: "Verify your OlivetNOSA Alumni Account",
+        subject: "Verify Your OlivetGOSA Account",
         html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px;">
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8" />
+            <meta
+                name="viewport"
+                content="width=device-width, initial-scale=1.0"
+            />
+            <title>Verify Your OlivetGOSA Account</title>
+        </head>
 
-        <h2>Welcome to OlivetNOSA, ${user.firstName}!</h2>
-
-        <p>
-          Thank you for creating your OlivetNOSA Alumni account.
-        </p>
-
-        <p>
-          Please click the button below to verify your email address:
-        </p>
-
-        <div style="margin: 30px 0;">
-          <a
-            href="${verificationLink}"
+        <body
             style="
-              display: inline-block;
-              padding: 14px 24px;
-              background: #000;
-              color: #fff;
-              text-decoration: none;
-              border-radius: 8px;
-              font-weight: bold;
+                margin: 0;
+                padding: 0;
+                background-color: #EAF1F8;
+                font-family: Arial, Helvetica, sans-serif;
+                color: #0B294D;
             "
-          >
-            Verify My Email
-          </a>
-        </div>
+        >
 
-        <p>
-          Or copy and paste this link in your browser:<br />
-          <a href="${verificationLink}">${verificationLink}</a>
-        </p>
+            <!-- Main Wrapper -->
+            <table
+                width="100%"
+                cellpadding="0"
+                cellspacing="0"
+                border="0"
+                style="background-color: #EAF1F8; padding: 40px 15px;"
+            >
+                <tr>
+                    <td align="center">
 
-        <p>
-          This verification link will expire in 30 minutes.
-        </p>
+                        <!-- Email Container -->
+                        <table
+                            width="100%"
+                            cellpadding="0"
+                            cellspacing="0"
+                            border="0"
+                            style="
+                                max-width: 620px;
+                                background-color: #ffffff;
+                                border-radius: 12px;
+                                overflow: hidden;
+                            "
+                        >
 
-        <p>
-          If you did not create this account, you can safely ignore this email.
-        </p>
+                            <!-- Header -->
+                            <tr>
+                                <td
+                                    style="
+                                        background-color: #0B294D;
+                                        padding: 30px 35px;
+                                        text-align: center;
+                                    "
+                                >
+                                    <!-- Logo / Crest -->
+                                    <img
+                                        src="https://olivetbhsnosa.org/images/olivet-crest.png"
+                                        alt="OlivetGOSA"
+                                        width="70"
+                                        style="
+                                            display: block;
+                                            margin: 0 auto 15px;
+                                            max-width: 70px;
+                                        "
+                                    />
 
-        <p>
-          Regards,<br />
-          <strong>OlivetNOSA Alumni</strong>
-        </p>
+                                    <div
+                                        style="
+                                            color: #ffffff;
+                                            font-size: 22px;
+                                            font-weight: bold;
+                                            letter-spacing: 0.5px;
+                                        "
+                                    >
+                                        OlivetGOSA
+                                    </div>
 
-      </div>
-    `,
+                                    <div
+                                        style="
+                                            color: #C9A227;
+                                            font-size: 11px;
+                                            font-weight: bold;
+                                            letter-spacing: 2px;
+                                            margin-top: 7px;
+                                            text-transform: uppercase;
+                                        "
+                                    >
+                                        Global Old Students' Association
+                                    </div>
+                                </td>
+                            </tr>
+
+                            <!-- Gold Divider -->
+                            <tr>
+                                <td
+                                    style="
+                                        height: 4px;
+                                        background-color: #C9A227;
+                                        font-size: 0;
+                                        line-height: 0;
+                                    "
+                                >
+                                    &nbsp;
+                                </td>
+                            </tr>
+
+                            <!-- Content -->
+                            <tr>
+                                <td
+                                    style="
+                                        padding: 40px 35px;
+                                    "
+                                >
+
+                                    <p
+                                        style="
+                                            margin: 0 0 8px;
+                                            color: #C9A227;
+                                            font-size: 12px;
+                                            font-weight: bold;
+                                            letter-spacing: 1.5px;
+                                            text-transform: uppercase;
+                                        "
+                                    >
+                                        Welcome to OlivetGOSA
+                                    </p>
+
+                                    <h1
+                                        style="
+                                            margin: 0 0 20px;
+                                            color: #0B294D;
+                                            font-size: 28px;
+                                            line-height: 1.25;
+                                        "
+                                    >
+                                        Verify your email address
+                                    </h1>
+
+                                    <p
+                                        style="
+                                            margin: 0 0 18px;
+                                            color: #4B6075;
+                                            font-size: 15px;
+                                            line-height: 1.7;
+                                        "
+                                    >
+                                        Hello ${user.firstName},
+                                    </p>
+
+                                    <p
+                                        style="
+                                            margin: 0 0 18px;
+                                            color: #4B6075;
+                                            font-size: 15px;
+                                            line-height: 1.7;
+                                        "
+                                    >
+                                        Thank you for creating your
+                                        <strong style="color: #123B6D;">
+                                            OlivetGOSA
+                                        </strong>
+                                        alumni account.
+                                    </p>
+
+                                    <p
+                                        style="
+                                            margin: 0 0 28px;
+                                            color: #4B6075;
+                                            font-size: 15px;
+                                            line-height: 1.7;
+                                        "
+                                    >
+                                        Please verify your email address to
+                                        confirm your account and continue with
+                                        your membership registration.
+                                    </p>
+
+                                    <!-- CTA -->
+                                    <table
+                                        width="100%"
+                                        cellpadding="0"
+                                        cellspacing="0"
+                                        border="0"
+                                    >
+                                        <tr>
+                                            <td align="center">
+
+                                                <a
+                                                    href="${verificationLink}"
+                                                    style="
+                                                        display: inline-block;
+                                                        background-color: #123B6D;
+                                                        color: #ffffff;
+                                                        text-decoration: none;
+                                                        font-size: 14px;
+                                                        font-weight: bold;
+                                                        padding: 15px 30px;
+                                                        border-radius: 7px;
+                                                    "
+                                                >
+                                                    Verify My Email
+                                                </a>
+
+                                            </td>
+                                        </tr>
+                                    </table>
+
+                                    <!-- Expiry Notice -->
+                                    <div
+                                        style="
+                                            margin-top: 30px;
+                                            padding: 15px 18px;
+                                            background-color: #EAF1F8;
+                                            border-left: 3px solid #C9A227;
+                                            border-radius: 4px;
+                                        "
+                                    >
+                                        <p
+                                            style="
+                                                margin: 0;
+                                                color: #4B6075;
+                                                font-size: 13px;
+                                                line-height: 1.6;
+                                            "
+                                        >
+                                            <strong style="color: #0B294D;">
+                                                Important:
+                                            </strong>
+                                            This verification link will expire
+                                            in 30 minutes.
+                                        </p>
+                                    </div>
+
+                                    <!-- Fallback Link -->
+                                    <p
+                                        style="
+                                            margin: 30px 0 8px;
+                                            color: #4B6075;
+                                            font-size: 13px;
+                                            line-height: 1.6;
+                                        "
+                                    >
+                                        If the button above does not work,
+                                        copy and paste the following link into
+                                        your browser:
+                                    </p>
+
+                                    <p
+                                        style="
+                                            margin: 0;
+                                            word-break: break-all;
+                                            font-size: 12px;
+                                            line-height: 1.6;
+                                        "
+                                    >
+                                        <a
+                                            href="${verificationLink}"
+                                            style="
+                                                color: #123B6D;
+                                                text-decoration: underline;
+                                            "
+                                        >
+                                            ${verificationLink}
+                                        </a>
+                                    </p>
+
+                                    <!-- Security -->
+                                    <p
+                                        style="
+                                            margin: 30px 0 0;
+                                            padding-top: 25px;
+                                            border-top: 1px solid #E5EAF0;
+                                            color: #6B7C8F;
+                                            font-size: 12px;
+                                            line-height: 1.6;
+                                        "
+                                    >
+                                        If you did not create an OlivetGOSA
+                                        account, you can safely ignore this
+                                        email. No further action is required.
+                                    </p>
+
+                                </td>
+                            </tr>
+
+                            <!-- Footer -->
+                            <tr>
+                                <td
+                                    style="
+                                        background-color: #0B294D;
+                                        padding: 25px 35px;
+                                        text-align: center;
+                                    "
+                                >
+                                    <p
+                                        style="
+                                            margin: 0;
+                                            color: #ffffff;
+                                            font-size: 13px;
+                                            font-weight: bold;
+                                        "
+                                    >
+                                        OlivetGOSA
+                                    </p>
+
+                                    <p
+                                        style="
+                                            margin: 7px 0 0;
+                                            color: rgba(255,255,255,0.65);
+                                            font-size: 11px;
+                                            line-height: 1.6;
+                                        "
+                                    >
+                                        Global Old Students' Association
+                                        <br />
+                                        Olivet Baptist High School
+                                    </p>
+
+                                    <p
+                                        style="
+                                            margin: 15px 0 0;
+                                            color: #C9A227;
+                                            font-size: 10px;
+                                            letter-spacing: 1px;
+                                        "
+                                    >
+                                        CUM CHRISTO PROGREDERE
+                                    </p>
+                                </td>
+                            </tr>
+
+                        </table>
+
+                        <!-- Bottom Text -->
+                        <p
+                            style="
+                                margin: 20px 0 0;
+                                color: #7A8A9A;
+                                font-size: 10px;
+                                text-align: center;
+                            "
+                        >
+                            This is an automated email from OlivetGOSA.
+                            Please do not reply directly to this message.
+                        </p>
+
+                    </td>
+                </tr>
+            </table>
+
+        </body>
+        </html>
+        `,
       });
     } catch (emailErr) {
-      console.error("Failed to deliver verification email via provider:", emailErr);
+      console.error(
+        "Failed to deliver verification email via provider:",
+        emailErr
+      );
     }
 
 
@@ -501,7 +809,7 @@ export const verifyEmail = async (req, res) => {
 
 
 
-    
+
     const authToken = jwt.sign(
       {
         id: user._id,
@@ -604,30 +912,336 @@ export const resendVerifyEmailLink = async (req, res) => {
 
     await sendEmail({
       to: normalizedEmail,
-      subject: "Verify your OlivetNOSA Alumni Account",
+      subject: "Verify Your OlivetGOSA Account",
       html: `
-        <h2>Verify your email address</h2>
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8" />
+            <meta
+                name="viewport"
+                content="width=device-width, initial-scale=1.0"
+            />
+            <title>Verify Your OlivetGOSA Account</title>
+        </head>
 
-        <p>
-          Please click the button below to verify your
-          OlivetNOSA account.
-        </p>
+        <body
+            style="
+                margin: 0;
+                padding: 0;
+                background-color: #EAF1F8;
+                font-family: Arial, Helvetica, sans-serif;
+                color: #0B294D;
+            "
+        >
 
-        <p>
-          <a href="${verificationUrl}">
-            Verify My Email
-          </a>
-        </p>
+            <table
+                width="100%"
+                cellpadding="0"
+                cellspacing="0"
+                border="0"
+                style="background-color: #EAF1F8; padding: 40px 15px;"
+            >
+                <tr>
+                    <td align="center">
 
-        <p>
-          This verification link will expire in 30 minutes.
-        </p>
-      `,
+                        <!-- EMAIL CONTAINER -->
+                        <table
+                            width="100%"
+                            cellpadding="0"
+                            cellspacing="0"
+                            border="0"
+                            style="
+                                max-width: 620px;
+                                background-color: #ffffff;
+                                border-radius: 12px;
+                                overflow: hidden;
+                            "
+                        >
+
+                            <!-- HEADER -->
+                            <tr>
+                                <td
+                                    style="
+                                        background-color: #0B294D;
+                                        padding: 30px 35px;
+                                        text-align: center;
+                                    "
+                                >
+                                    <div
+                                        style="
+                                            color: #ffffff;
+                                            font-size: 24px;
+                                            font-weight: bold;
+                                            letter-spacing: 0.5px;
+                                        "
+                                    >
+                                        OlivetGOSA
+                                    </div>
+
+                                    <div
+                                        style="
+                                            color: #C9A227;
+                                            font-size: 11px;
+                                            font-weight: bold;
+                                            letter-spacing: 2px;
+                                            margin-top: 7px;
+                                            text-transform: uppercase;
+                                        "
+                                    >
+                                        Global Old Students' Association
+                                    </div>
+                                </td>
+                            </tr>
+
+                            <!-- GOLD DIVIDER -->
+                            <tr>
+                                <td
+                                    style="
+                                        height: 4px;
+                                        background-color: #C9A227;
+                                        font-size: 0;
+                                        line-height: 0;
+                                    "
+                                >
+                                    &nbsp;
+                                </td>
+                            </tr>
+
+                            <!-- CONTENT -->
+                            <tr>
+                                <td style="padding: 40px 35px;">
+
+                                    <p
+                                        style="
+                                            margin: 0 0 8px;
+                                            color: #C9A227;
+                                            font-size: 12px;
+                                            font-weight: bold;
+                                            letter-spacing: 1.5px;
+                                            text-transform: uppercase;
+                                        "
+                                    >
+                                        Email Verification
+                                    </p>
+
+                                    <h1
+                                        style="
+                                            margin: 0 0 20px;
+                                            color: #0B294D;
+                                            font-size: 28px;
+                                            line-height: 1.25;
+                                        "
+                                    >
+                                        Verify your email address
+                                    </h1>
+
+                                    <p
+                                        style="
+                                            margin: 0 0 18px;
+                                            color: #4B6075;
+                                            font-size: 15px;
+                                            line-height: 1.7;
+                                        "
+                                    >
+                                        Thank you for creating your
+                                        <strong style="color: #123B6D;">
+                                            OlivetGOSA
+                                        </strong>
+                                        account.
+                                    </p>
+
+                                    <p
+                                        style="
+                                            margin: 0 0 28px;
+                                            color: #4B6075;
+                                            font-size: 15px;
+                                            line-height: 1.7;
+                                        "
+                                    >
+                                        Please verify your email address to
+                                        confirm your account and continue with
+                                        your membership registration.
+                                    </p>
+
+                                    <!-- BUTTON -->
+                                    <table
+                                        width="100%"
+                                        cellpadding="0"
+                                        cellspacing="0"
+                                        border="0"
+                                    >
+                                        <tr>
+                                            <td align="center">
+
+                                                <a
+                                                    href="${verificationUrl}"
+                                                    style="
+                                                        display: inline-block;
+                                                        background-color: #123B6D;
+                                                        color: #ffffff;
+                                                        text-decoration: none;
+                                                        font-size: 14px;
+                                                        font-weight: bold;
+                                                        padding: 15px 30px;
+                                                        border-radius: 7px;
+                                                    "
+                                                >
+                                                    Verify My Email
+                                                </a>
+
+                                            </td>
+                                        </tr>
+                                    </table>
+
+                                    <!-- EXPIRY -->
+                                    <div
+                                        style="
+                                            margin-top: 30px;
+                                            padding: 15px 18px;
+                                            background-color: #EAF1F8;
+                                            border-left: 3px solid #C9A227;
+                                            border-radius: 4px;
+                                        "
+                                    >
+                                        <p
+                                            style="
+                                                margin: 0;
+                                                color: #4B6075;
+                                                font-size: 13px;
+                                                line-height: 1.6;
+                                            "
+                                        >
+                                            <strong style="color: #0B294D;">
+                                                Important:
+                                            </strong>
+                                            This verification link will expire
+                                            in 30 minutes.
+                                        </p>
+                                    </div>
+
+                                    <!-- FALLBACK LINK -->
+                                    <p
+                                        style="
+                                            margin: 30px 0 8px;
+                                            color: #4B6075;
+                                            font-size: 13px;
+                                            line-height: 1.6;
+                                        "
+                                    >
+                                        If the button does not work, copy and
+                                        paste the following link into your
+                                        browser:
+                                    </p>
+
+                                    <p
+                                        style="
+                                            margin: 0;
+                                            word-break: break-all;
+                                            font-size: 12px;
+                                            line-height: 1.6;
+                                        "
+                                    >
+                                        <a
+                                            href="${verificationUrl}"
+                                            style="
+                                                color: #123B6D;
+                                                text-decoration: underline;
+                                            "
+                                        >
+                                            ${verificationUrl}
+                                        </a>
+                                    </p>
+
+                                    <!-- SECURITY -->
+                                    <p
+                                        style="
+                                            margin: 30px 0 0;
+                                            padding-top: 25px;
+                                            border-top: 1px solid #E5EAF0;
+                                            color: #6B7C8F;
+                                            font-size: 12px;
+                                            line-height: 1.6;
+                                        "
+                                    >
+                                        If you did not create an OlivetGOSA
+                                        account, you can safely ignore this
+                                        email. No further action is required.
+                                    </p>
+
+                                </td>
+                            </tr>
+
+                            <!-- FOOTER -->
+                            <tr>
+                                <td
+                                    style="
+                                        background-color: #0B294D;
+                                        padding: 25px 35px;
+                                        text-align: center;
+                                    "
+                                >
+                                    <p
+                                        style="
+                                            margin: 0;
+                                            color: #ffffff;
+                                            font-size: 13px;
+                                            font-weight: bold;
+                                        "
+                                    >
+                                        OlivetGOSA
+                                    </p>
+
+                                    <p
+                                        style="
+                                            margin: 7px 0 0;
+                                            color: rgba(255,255,255,0.65);
+                                            font-size: 11px;
+                                            line-height: 1.6;
+                                        "
+                                    >
+                                        Global Old Students' Association
+                                        <br />
+                                        Olivet Baptist High School
+                                    </p>
+
+                                    <p
+                                        style="
+                                            margin: 15px 0 0;
+                                            color: #C9A227;
+                                            font-size: 10px;
+                                            letter-spacing: 1px;
+                                        "
+                                    >
+                                        CUM CHRISTO PROGREDERE
+                                    </p>
+                                </td>
+                            </tr>
+
+                        </table>
+
+                        <!-- AUTOMATED EMAIL NOTICE -->
+                        <p
+                            style="
+                                margin: 20px 0 0;
+                                color: #7A8A9A;
+                                font-size: 10px;
+                                text-align: center;
+                            "
+                        >
+                            This is an automated email from OlivetGOSA.
+                            Please do not reply directly to this message.
+                        </p>
+
+                    </td>
+                </tr>
+            </table>
+
+        </body>
+        </html>
+    `,
     });
 
-    // ------------------------------------------
-    // RESPONSE
-    // ------------------------------------------
 
     return successResponse(
       res,
@@ -718,45 +1332,342 @@ export const forgetPassword = async (req, res) => {
 
 
     // RESET URL
-    const resetUrl =
-      `${process.env.FRONTEND_URL}/portal/reset-password?token=${resetToken}`;
+    const resetUrl = `${process.env.FRONTEND_URL}/portal/reset-password?token=${resetToken}`;
     await sendEmail({
       to: normalizedEmail,
-      subject: "Verify your OlivetNOSA Alumni Account",
+      subject: "Reset Your OlivetGOSA Password",
       html: `
-  <h2>Reset Your OlivetNOSA Password</h2>
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8" />
+            <meta
+                name="viewport"
+                content="width=device-width, initial-scale=1.0"
+            />
+            <title>Reset Your OlivetGOSA Password</title>
+        </head>
 
-  <p>
-    We received a request to reset the password for your
-    OlivetNOSA account.
-  </p>
+        <body
+            style="
+                margin: 0;
+                padding: 0;
+                background-color: #EAF1F8;
+                font-family: Arial, Helvetica, sans-serif;
+                color: #0B294D;
+            "
+        >
 
-  <p>
-    If you made this request, click the button below to
-    create a new password and regain access to your account.
-  </p>
+            <table
+                width="100%"
+                cellpadding="0"
+                cellspacing="0"
+                border="0"
+                style="
+                    background-color: #EAF1F8;
+                    padding: 40px 15px;
+                "
+            >
+                <tr>
+                    <td align="center">
 
-  <p>
-    <a href="${resetUrl}">
-      Reset My Password
-    </a>
-  </p>
+                        <!-- EMAIL CONTAINER -->
+                        <table
+                            width="100%"
+                            cellpadding="0"
+                            cellspacing="0"
+                            border="0"
+                            style="
+                                max-width: 620px;
+                                background-color: #ffffff;
+                                border-radius: 12px;
+                                overflow: hidden;
+                            "
+                        >
 
-  <p>
-    For your security, this password reset link will expire
-    in 30 minutes.
-  </p>
+                            <!-- HEADER -->
+                            <tr>
+                                <td
+                                    style="
+                                        background-color: #0B294D;
+                                        padding: 30px 35px;
+                                        text-align: center;
+                                    "
+                                >
+                                    <div
+                                        style="
+                                            color: #ffffff;
+                                            font-size: 24px;
+                                            font-weight: bold;
+                                            letter-spacing: 0.5px;
+                                        "
+                                    >
+                                        OlivetGOSA
+                                    </div>
 
-  <p>
-    If you did not request a password reset, you can safely
-    ignore this email. Your password will remain unchanged.
-  </p>
+                                    <div
+                                        style="
+                                            color: #C9A227;
+                                            font-size: 11px;
+                                            font-weight: bold;
+                                            letter-spacing: 2px;
+                                            margin-top: 7px;
+                                            text-transform: uppercase;
+                                        "
+                                    >
+                                        Global Old Students' Association
+                                    </div>
+                                </td>
+                            </tr>
 
-  <p>
-    Thank you,<br />
-    <strong>OlivetNOSA</strong>
-  </p>
-`,
+                            <!-- GOLD DIVIDER -->
+                            <tr>
+                                <td
+                                    style="
+                                        height: 4px;
+                                        background-color: #C9A227;
+                                        font-size: 0;
+                                        line-height: 0;
+                                    "
+                                >
+                                    &nbsp;
+                                </td>
+                            </tr>
+
+                            <!-- CONTENT -->
+                            <tr>
+                                <td style="padding: 40px 35px;">
+
+                                    <p
+                                        style="
+                                            margin: 0 0 8px;
+                                            color: #C9A227;
+                                            font-size: 12px;
+                                            font-weight: bold;
+                                            letter-spacing: 1.5px;
+                                            text-transform: uppercase;
+                                        "
+                                    >
+                                        Account Security
+                                    </p>
+
+                                    <h1
+                                        style="
+                                            margin: 0 0 20px;
+                                            color: #0B294D;
+                                            font-size: 28px;
+                                            line-height: 1.25;
+                                        "
+                                    >
+                                        Reset your password
+                                    </h1>
+
+                                    <p
+                                        style="
+                                            margin: 0 0 18px;
+                                            color: #4B6075;
+                                            font-size: 15px;
+                                            line-height: 1.7;
+                                        "
+                                    >
+                                        We received a request to reset the
+                                        password for your
+                                        <strong style="color: #123B6D;">
+                                            OlivetGOSA
+                                        </strong>
+                                        account.
+                                    </p>
+
+                                    <p
+                                        style="
+                                            margin: 0 0 28px;
+                                            color: #4B6075;
+                                            font-size: 15px;
+                                            line-height: 1.7;
+                                        "
+                                    >
+                                        If you made this request, click the
+                                        button below to create a new password
+                                        and regain access to your account.
+                                    </p>
+
+                                    <!-- BUTTON -->
+                                    <table
+                                        width="100%"
+                                        cellpadding="0"
+                                        cellspacing="0"
+                                        border="0"
+                                    >
+                                        <tr>
+                                            <td align="center">
+
+                                                <a
+                                                    href="${resetUrl}"
+                                                    style="
+                                                        display: inline-block;
+                                                        background-color: #123B6D;
+                                                        color: #ffffff;
+                                                        text-decoration: none;
+                                                        font-size: 14px;
+                                                        font-weight: bold;
+                                                        padding: 15px 30px;
+                                                        border-radius: 7px;
+                                                    "
+                                                >
+                                                    Reset My Password
+                                                </a>
+
+                                            </td>
+                                        </tr>
+                                    </table>
+
+                                    <!-- EXPIRY -->
+                                    <div
+                                        style="
+                                            margin-top: 30px;
+                                            padding: 15px 18px;
+                                            background-color: #EAF1F8;
+                                            border-left: 3px solid #C9A227;
+                                            border-radius: 4px;
+                                        "
+                                    >
+                                        <p
+                                            style="
+                                                margin: 0;
+                                                color: #4B6075;
+                                                font-size: 13px;
+                                                line-height: 1.6;
+                                            "
+                                        >
+                                            <strong style="color: #0B294D;">
+                                                Important:
+                                            </strong>
+                                            This password reset link will
+                                            expire in 30 minutes.
+                                        </p>
+                                    </div>
+
+                                    <!-- FALLBACK LINK -->
+                                    <p
+                                        style="
+                                            margin: 30px 0 8px;
+                                            color: #4B6075;
+                                            font-size: 13px;
+                                            line-height: 1.6;
+                                        "
+                                    >
+                                        If the button does not work, copy and
+                                        paste the following link into your
+                                        browser:
+                                    </p>
+
+                                    <p
+                                        style="
+                                            margin: 0;
+                                            word-break: break-all;
+                                            font-size: 12px;
+                                            line-height: 1.6;
+                                        "
+                                    >
+                                        <a
+                                            href="${resetUrl}"
+                                            style="
+                                                color: #123B6D;
+                                                text-decoration: underline;
+                                            "
+                                        >
+                                            ${resetUrl}
+                                        </a>
+                                    </p>
+
+                                    <!-- SECURITY NOTICE -->
+                                    <p
+                                        style="
+                                            margin: 30px 0 0;
+                                            padding-top: 25px;
+                                            border-top: 1px solid #E5EAF0;
+                                            color: #6B7C8F;
+                                            font-size: 12px;
+                                            line-height: 1.6;
+                                        "
+                                    >
+                                        If you did not request a password
+                                        reset, you can safely ignore this
+                                        email. Your password will remain
+                                        unchanged.
+                                    </p>
+
+                                </td>
+                            </tr>
+
+                            <!-- FOOTER -->
+                            <tr>
+                                <td
+                                    style="
+                                        background-color: #0B294D;
+                                        padding: 25px 35px;
+                                        text-align: center;
+                                    "
+                                >
+                                    <p
+                                        style="
+                                            margin: 0;
+                                            color: #ffffff;
+                                            font-size: 13px;
+                                            font-weight: bold;
+                                        "
+                                    >
+                                        OlivetGOSA
+                                    </p>
+
+                                    <p
+                                        style="
+                                            margin: 7px 0 0;
+                                            color: rgba(255,255,255,0.65);
+                                            font-size: 11px;
+                                            line-height: 1.6;
+                                        "
+                                    >
+                                        Global Old Students' Association
+                                        <br />
+                                        Olivet Baptist High School
+                                    </p>
+
+                                    <p
+                                        style="
+                                            margin: 15px 0 0;
+                                            color: #C9A227;
+                                            font-size: 10px;
+                                            letter-spacing: 1px;
+                                        "
+                                    >
+                                        CUM CHRISTO PROGREDERE
+                                    </p>
+                                </td>
+                            </tr>
+
+                        </table>
+
+                        <!-- AUTOMATED EMAIL NOTICE -->
+                        <p
+                            style="
+                                margin: 20px 0 0;
+                                color: #7A8A9A;
+                                font-size: 10px;
+                                text-align: center;
+                            "
+                        >
+                            This is an automated email from OlivetGOSA.
+                            Please do not reply directly to this message.
+                        </p>
+
+                    </td>
+                </tr>
+            </table>
+
+        </body>
+        </html>
+    `,
     });
 
     // ------------------------------------------
@@ -1164,7 +2075,7 @@ export const getCurrentUser = async (req, res) => {
     alumniId: user.alumniId,
     chapter: user.chapter,
     yearSet: user.yearSet,
-   
+
     createdAt: user.createdAt
 
 
@@ -1205,7 +2116,7 @@ export const getMemberProfile = async (req, res) => {
         chapter: user.chapter,
 
         profile: user.profile,
-       
+
         status: user.status,
         isEmailVerified: user.isEmailVerified,
       }
@@ -1313,7 +2224,7 @@ export const updateMemberProfile = async (req, res) => {
 export const logout = async (req, res) => {
   try {
 
-   
+
 
     res.cookie("token", "", {
       ...cookieOptions,
@@ -1468,7 +2379,7 @@ export const uploadProfilePhoto = async (req, res) => {
     const uploadResult = await new Promise((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
         {
-          folder: "olivetnosa/profile-photos",
+          folder: "olivetgosa/profile-photos",
           resource_type: "image",
           transformation: [
             {

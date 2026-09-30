@@ -31,15 +31,15 @@ export const NOTIFICATION_MESSAGES = {
         approved: {
             title: "Membership Approved",
             message:
-                "Your OlivetNOSA membership has been approved. Your member account is now active.",
-            link: "/portal/member/dashboard/dashboard",
+                "Your OlivetGOSA membership has been approved. Your member account is now active.",
+            link: "/portal/member/dashboard",
         },
 
         obligation: {
             created: (amount, obligationName) => ({
                 title: "New Payment Obligation",
                 message: `A new payment obligation, ${obligationName}, of ₦${amount.toLocaleString()} has been added to your account. Please review the details and make payment when due.`,
-                link: "/dashboard/obligations",
+                link: "/portal/member/obligations",
             }),
             
         

@@ -183,42 +183,286 @@ export const completeSuccessfulPayment = async (
                 await sendEmail({
                     to: user.email,
 
-                    subject:
-                        "Payment Successful - Olivet NOSA",
+                    subject: "Payment Successful – OlivetGOSA",
 
                     html: `
-                        <h2>Payment Successful</h2>
+    <div style="
+      margin: 0;
+      padding: 40px 16px;
+      background-color: #f4f7fb;
+      font-family: Arial, Helvetica, sans-serif;
+      color: #333333;
+    ">
 
-                        <p>
-                            Hello ${user.firstName || "Member"},
-                        </p>
+      <div style="
+        max-width: 620px;
+        margin: 0 auto;
+        background: #ffffff;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid #e3e8ef;
+        box-shadow: 0 4px 16px rgba(18, 59, 109, 0.08);
+      ">
 
-                        <p>
-                            Your payment of
-                            <strong>
-                                ₦${payment.amount.toLocaleString()}
-                            </strong>
-                            has been successfully received.
-                        </p>
+        <!-- HEADER -->
+        <div style="
+          background: #123B6D;
+          padding: 28px 30px;
+          text-align: center;
+        ">
 
-                        <p>
-                            <strong>Reference:</strong>
-                            ${payment.gatewayReference}
-                        </p>
+          <div style="
+            display: inline-block;
+            width: 64px;
+            height: 64px;
+            background: #ffffff;
+            border-radius: 50%;
+            padding: 6px;
+            box-sizing: border-box;
+          ">
+            <img
+              src="https://olivetbhsnosa.org/images/olivet-crest.png"
+              alt="Olivet Baptist High School Crest"
+              width="52"
+              height="52"
+              style="
+                display: block;
+                width: 52px;
+                height: 52px;
+                object-fit: contain;
+                margin: 0 auto;
+              "
+            />
+          </div>
 
-                        <p>
-                            <strong>Payment Method:</strong>
-                            ${payment.paymentMethod}
-                        </p>
+          <h1 style="
+            margin: 14px 0 4px;
+            color: #ffffff;
+            font-size: 24px;
+            line-height: 1.3;
+            font-weight: 700;
+          ">
+            OlivetGOSA
+          </h1>
 
-                        <p>
-                            Thank you for your payment.
-                        </p>
+          <p style="
+            margin: 0;
+            color: #dbe8f5;
+            font-size: 13px;
+          ">
+            Global Old Students' Association
+          </p>
 
-                        <p>
-                            <strong>Olivet NOSA</strong>
-                        </p>
-                    `,
+        </div>
+
+
+        <!-- CONTENT -->
+        <div style="
+          padding: 38px 36px;
+        ">
+
+          <!-- SUCCESS ICON -->
+          <div style="
+            text-align: center;
+            margin-bottom: 20px;
+          ">
+            <div style="
+              display: inline-block;
+              width: 54px;
+              height: 54px;
+              line-height: 54px;
+              border-radius: 50%;
+              background: #eaf7ef;
+              color: #218739;
+              font-size: 28px;
+              font-weight: bold;
+            ">
+              ✓
+            </div>
+          </div>
+
+          <h2 style="
+            margin: 0 0 12px;
+            text-align: center;
+            color: #123B6D;
+            font-size: 22px;
+          ">
+            Payment Successful
+          </h2>
+
+          <p style="
+            margin: 0 0 24px;
+            text-align: center;
+            font-size: 14px;
+            line-height: 1.7;
+            color: #666666;
+          ">
+            Your payment has been successfully received and recorded
+            by OlivetGOSA.
+          </p>
+
+
+          <!-- PAYMENT AMOUNT -->
+          <div style="
+            margin: 24px 0;
+            padding: 22px;
+            background: #f4f7fb;
+            border-left: 4px solid #C9A227;
+            border-radius: 6px;
+            text-align: center;
+          ">
+
+            <p style="
+              margin: 0 0 7px;
+              font-size: 12px;
+              font-weight: 700;
+              color: #6b7280;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            ">
+              Amount Paid
+            </p>
+
+            <p style="
+              margin: 0;
+              font-size: 28px;
+              font-weight: 700;
+              color: #123B6D;
+            ">
+              ₦${payment.amount.toLocaleString()}
+            </p>
+
+          </div>
+
+
+          <!-- PAYMENT DETAILS -->
+          <div style="
+            margin: 28px 0;
+            border: 1px solid #e3e8ef;
+            border-radius: 8px;
+            overflow: hidden;
+          ">
+
+            <div style="
+              padding: 14px 18px;
+              background: #f8fafc;
+              border-bottom: 1px solid #e3e8ef;
+            ">
+              <strong style="
+                color: #123B6D;
+                font-size: 14px;
+              ">
+                Payment Details
+              </strong>
+            </div>
+
+            <div style="
+              padding: 16px 18px;
+            ">
+
+              <p style="
+                margin: 0 0 12px;
+                font-size: 13px;
+                line-height: 1.6;
+              ">
+                <strong>Reference:</strong><br />
+                <span style="color: #555555;">
+                  ${payment.gatewayReference}
+                </span>
+              </p>
+
+              <p style="
+                margin: 0;
+                font-size: 13px;
+                line-height: 1.6;
+              ">
+                <strong>Payment Method:</strong><br />
+                <span style="color: #555555;">
+                  ${payment.paymentMethod}
+                </span>
+              </p>
+
+            </div>
+
+          </div>
+
+
+          <p style="
+            margin: 24px 0 0;
+            font-size: 14px;
+            line-height: 1.7;
+            color: #555555;
+          ">
+            Hello <strong>${user.firstName || "Member"}</strong>,
+            thank you for fulfilling your payment obligation and
+            supporting the OlivetGOSA community.
+          </p>
+
+          <p style="
+            margin: 24px 0 0;
+            font-size: 13px;
+            line-height: 1.7;
+            color: #777777;
+          ">
+            Please keep this email and your payment reference for
+            your records.
+          </p>
+
+          <p style="
+            margin: 30px 0 0;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #555555;
+          ">
+            Warm regards,<br />
+            <strong style="color: #123B6D;">
+              OlivetGOSA Administration
+            </strong>
+          </p>
+
+        </div>
+
+
+        <!-- FOOTER -->
+        <div style="
+          background: #0B294D;
+          padding: 22px 30px;
+          text-align: center;
+        ">
+
+          <p style="
+            margin: 0 0 6px;
+            color: #ffffff;
+            font-size: 13px;
+            font-weight: 700;
+          ">
+            OlivetGOSA
+          </p>
+
+          <p style="
+            margin: 0;
+            color: #b9c9da;
+            font-size: 12px;
+            line-height: 1.6;
+          ">
+            Global Old Students' Association
+          </p>
+
+          <p style="
+            margin: 10px 0 0;
+            color: #8fa7bf;
+            font-size: 11px;
+          ">
+            This is an automated payment notification.
+            Please do not reply directly to this email.
+          </p>
+
+        </div>
+
+      </div>
+
+    </div>
+  `,
                 });
             }
         } catch (emailError) {
@@ -297,44 +541,305 @@ export const handleFailedPayment = async (
         if (user?.email) {
             await sendEmail({
                 to: user.email,
-                subject: "Payment Failed - Olivet NOSA",
+
+                subject: "Payment Failed – OlivetGOSA",
+
                 html: `
-                    <h2>Payment Failed</h2>
+    <div style="
+      margin: 0;
+      padding: 40px 16px;
+      background-color: #f4f7fb;
+      font-family: Arial, Helvetica, sans-serif;
+      color: #333333;
+    ">
 
-                    <p>
-                        Hello ${user.firstName || "Member"},
-                    </p>
+      <div style="
+        max-width: 620px;
+        margin: 0 auto;
+        background: #ffffff;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid #e3e8ef;
+        box-shadow: 0 4px 16px rgba(18, 59, 109, 0.08);
+      ">
 
-                    <p>
-                        Your payment of
-                        <strong>
-                            ₦${payment.amount.toLocaleString()}
-                        </strong>
-                        was not successful.
-                    </p>
+        <!-- HEADER -->
+        <div style="
+          background: #123B6D;
+          padding: 28px 30px;
+          text-align: center;
+        ">
 
-                    <p>
-                        <strong>Reference:</strong>
-                        ${payment.gatewayReference}
-                    </p>
+          <div style="
+            display: inline-block;
+            width: 64px;
+            height: 64px;
+            background: #ffffff;
+            border-radius: 50%;
+            padding: 6px;
+            box-sizing: border-box;
+          ">
+            <img
+              src="https://olivetbhsnosa.org/images/olivet-crest.png"
+              alt="Olivet Baptist High School Crest"
+              width="52"
+              height="52"
+              style="
+                display: block;
+                width: 52px;
+                height: 52px;
+                object-fit: contain;
+                margin: 0 auto;
+              "
+            />
+          </div>
 
-                    <p>
-                        <strong>Reason:</strong>
-                        ${
-                            transaction?.gateway_response ||
-                            "Payment was not successful."
-                        }
-                    </p>
+          <h1 style="
+            margin: 14px 0 4px;
+            color: #ffffff;
+            font-size: 24px;
+            line-height: 1.3;
+            font-weight: 700;
+          ">
+            OlivetGOSA
+          </h1>
 
-                    <p>
-                        Please try the payment again from your
-                        payment history.
-                    </p>
+          <p style="
+            margin: 0;
+            color: #dbe8f5;
+            font-size: 13px;
+          ">
+            Global Old Students' Association
+          </p>
 
-                    <p>
-                        <strong>Olivet NOSA</strong>
-                    </p>
-                `,
+        </div>
+
+
+        <!-- CONTENT -->
+        <div style="
+          padding: 38px 36px;
+        ">
+
+          <!-- STATUS ICON -->
+          <div style="
+            text-align: center;
+            margin-bottom: 20px;
+          ">
+            <div style="
+              display: inline-block;
+              width: 54px;
+              height: 54px;
+              line-height: 54px;
+              border-radius: 50%;
+              background: #fff1f1;
+              color: #c0392b;
+              font-size: 28px;
+              font-weight: bold;
+            ">
+              ×
+            </div>
+          </div>
+
+
+          <h2 style="
+            margin: 0 0 12px;
+            text-align: center;
+            color: #123B6D;
+            font-size: 22px;
+          ">
+            Payment Unsuccessful
+          </h2>
+
+          <p style="
+            margin: 0 0 24px;
+            text-align: center;
+            font-size: 14px;
+            line-height: 1.7;
+            color: #666666;
+          ">
+            Unfortunately, your payment could not be completed.
+            No successful payment has been recorded for this transaction.
+          </p>
+
+
+          <!-- AMOUNT -->
+          <div style="
+            margin: 24px 0;
+            padding: 22px;
+            background: #f4f7fb;
+            border-left: 4px solid #C9A227;
+            border-radius: 6px;
+            text-align: center;
+          ">
+
+            <p style="
+              margin: 0 0 7px;
+              font-size: 12px;
+              font-weight: 700;
+              color: #6b7280;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            ">
+              Payment Amount
+            </p>
+
+            <p style="
+              margin: 0;
+              font-size: 28px;
+              font-weight: 700;
+              color: #123B6D;
+            ">
+              ₦${payment.amount.toLocaleString()}
+            </p>
+
+          </div>
+
+
+          <!-- PAYMENT DETAILS -->
+          <div style="
+            margin: 28px 0;
+            border: 1px solid #e3e8ef;
+            border-radius: 8px;
+            overflow: hidden;
+          ">
+
+            <div style="
+              padding: 14px 18px;
+              background: #f8fafc;
+              border-bottom: 1px solid #e3e8ef;
+            ">
+              <strong style="
+                color: #123B6D;
+                font-size: 14px;
+              ">
+                Payment Details
+              </strong>
+            </div>
+
+            <div style="
+              padding: 16px 18px;
+            ">
+
+              <p style="
+                margin: 0 0 12px;
+                font-size: 13px;
+                line-height: 1.6;
+              ">
+                <strong>Reference:</strong><br />
+                <span style="color: #555555;">
+                  ${payment.gatewayReference}
+                </span>
+              </p>
+
+              <p style="
+                margin: 0;
+                font-size: 13px;
+                line-height: 1.6;
+              ">
+                <strong>Reason:</strong><br />
+                <span style="color: #555555;">
+                  ${transaction?.gateway_response ||
+                    "Payment was not successful."
+                    }
+                </span>
+              </p>
+
+            </div>
+
+          </div>
+
+
+          <!-- NEXT STEP -->
+          <div style="
+            margin: 26px 0;
+            padding: 16px 18px;
+            background: #f4f7fb;
+            border-radius: 7px;
+          ">
+
+            <p style="
+              margin: 0;
+              font-size: 14px;
+              line-height: 1.7;
+              color: #555555;
+            ">
+              <strong style="color: #123B6D;">
+                What to do next
+              </strong><br />
+
+              Please return to your payment history and try the
+              payment again. If the problem continues, contact the
+              OlivetGOSA administration for assistance.
+            </p>
+
+          </div>
+
+
+          <p style="
+            margin: 24px 0 0;
+            font-size: 14px;
+            line-height: 1.7;
+            color: #555555;
+          ">
+            Hello <strong>${user.firstName || "Member"}</strong>,
+            we were unable to complete this payment.
+          </p>
+
+          <p style="
+            margin: 30px 0 0;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #555555;
+          ">
+            Warm regards,<br />
+            <strong style="color: #123B6D;">
+              OlivetGOSA Administration
+            </strong>
+          </p>
+
+        </div>
+
+
+        <!-- FOOTER -->
+        <div style="
+          background: #0B294D;
+          padding: 22px 30px;
+          text-align: center;
+        ">
+
+          <p style="
+            margin: 0 0 6px;
+            color: #ffffff;
+            font-size: 13px;
+            font-weight: 700;
+          ">
+            OlivetGOSA
+          </p>
+
+          <p style="
+            margin: 0;
+            color: #b9c9da;
+            font-size: 12px;
+            line-height: 1.6;
+          ">
+            Global Old Students' Association
+          </p>
+
+          <p style="
+            margin: 10px 0 0;
+            color: #8fa7bf;
+            font-size: 11px;
+          ">
+            This is an automated payment notification.
+            Please do not reply directly to this email.
+          </p>
+
+        </div>
+
+      </div>
+
+    </div>
+  `,
             });
         }
     } catch (emailError) {
@@ -348,7 +853,7 @@ export const handleFailedPayment = async (
 };
 
 
-export  const mapPaystackPaymentMethod = (
+export const mapPaystackPaymentMethod = (
     channel
 ) => {
     switch (channel) {

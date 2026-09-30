@@ -48,7 +48,7 @@ const generateAlumniId = async (yearSetId, chapterId, session) => {
   const sequence = String(counter.sequence).padStart(4, "0");
 
   // 6. Generate Alumni ID
-  const alumniId = `NOSA${yearSet.year}${chapter.code}${sequence}`;
+  const alumniId = `GOSA${yearSet.year}${chapter.code}${sequence}`;
 
   // 7. Return the generated ID
   return alumniId;
