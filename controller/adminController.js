@@ -37,6 +37,313 @@ export const approveMemberController = async (req, res) => {
       req.user._id
     );
 
+    // ========================================
+    // SEND ACCOUNT APPROVAL EMAIL
+    // ========================================
+
+    await sendEmail({
+      to: result.user.email,
+      subject: "Your OlivetGOSA Account Has Been Approved",
+      html: `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8" />
+          <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0"
+          />
+          <title>OlivetGOSA Account Approved</title>
+        </head>
+
+        <body
+          style="
+            margin: 0;
+            padding: 0;
+            background-color: #EAF1F8;
+            font-family: Arial, Helvetica, sans-serif;
+            color: #0B294D;
+          "
+        >
+
+          <table
+            width="100%"
+            cellpadding="0"
+            cellspacing="0"
+            border="0"
+            style="background-color: #EAF1F8; padding: 40px 15px;"
+          >
+            <tr>
+              <td align="center">
+
+                <table
+                  width="100%"
+                  cellpadding="0"
+                  cellspacing="0"
+                  border="0"
+                  style="
+                    max-width: 620px;
+                    background-color: #ffffff;
+                    border-radius: 12px;
+                    overflow: hidden;
+                  "
+                >
+
+                  <!-- HEADER -->
+                  <tr>
+                    <td
+                      style="
+                        background-color: #0B294D;
+                        padding: 30px 35px;
+                        text-align: center;
+                      "
+                    >
+                      <div
+                        style="
+                          color: #ffffff;
+                          font-size: 24px;
+                          font-weight: bold;
+                        "
+                      >
+                        OlivetGOSA
+                      </div>
+
+                      <div
+                        style="
+                          color: #C9A227;
+                          font-size: 11px;
+                          font-weight: bold;
+                          letter-spacing: 2px;
+                          margin-top: 7px;
+                          text-transform: uppercase;
+                        "
+                      >
+                        Global Old Students' Association
+                      </div>
+                    </td>
+                  </tr>
+
+                  <!-- GOLD DIVIDER -->
+                  <tr>
+                    <td
+                      style="
+                        height: 4px;
+                        background-color: #C9A227;
+                        font-size: 0;
+                        line-height: 0;
+                      "
+                    >
+                      &nbsp;
+                    </td>
+                  </tr>
+
+                  <!-- CONTENT -->
+                  <tr>
+                    <td style="padding: 40px 35px;">
+
+                      <p
+                        style="
+                          margin: 0 0 8px;
+                          color: #C9A227;
+                          font-size: 12px;
+                          font-weight: bold;
+                          letter-spacing: 1.5px;
+                          text-transform: uppercase;
+                        "
+                      >
+                        Account Approved
+                      </p>
+
+                      <h1
+                        style="
+                          margin: 0 0 20px;
+                          color: #0B294D;
+                          font-size: 28px;
+                          line-height: 1.25;
+                        "
+                      >
+                        Welcome to OlivetGOSA
+                      </h1>
+
+                      <p
+                        style="
+                          margin: 0 0 18px;
+                          color: #4B6075;
+                          font-size: 15px;
+                          line-height: 1.7;
+                        "
+                      >
+                        Hello
+                        <strong style="color: #123B6D;">
+                          ${result.user.firstName || "Member"}
+                        </strong>,
+                      </p>
+
+                      <p
+                        style="
+                          margin: 0 0 25px;
+                          color: #4B6075;
+                          font-size: 15px;
+                          line-height: 1.7;
+                        "
+                      >
+                        Your OlivetGOSA membership account has been
+                        reviewed and approved. You can now access
+                        your member portal and begin using your
+                        account.
+                      </p>
+
+                      <!-- ALUMNI ID -->
+                      <div
+                        style="
+                          margin-bottom: 28px;
+                          padding: 18px;
+                          background-color: #EAF1F8;
+                          border-radius: 8px;
+                          text-align: center;
+                        "
+                      >
+                        <p
+                          style="
+                            margin: 0 0 6px;
+                            color: #6B7C8F;
+                            font-size: 11px;
+                            font-weight: bold;
+                            letter-spacing: 1px;
+                            text-transform: uppercase;
+                          "
+                        >
+                          Your Alumni ID
+                        </p>
+
+                        <p
+                          style="
+                            margin: 0;
+                            color: #123B6D;
+                            font-size: 22px;
+                            font-weight: bold;
+                          "
+                        >
+                          ${result.alumniId || "Assigned in your account"}
+                        </p>
+                      </div>
+
+                      <!-- CTA -->
+                      <table
+                        width="100%"
+                        cellpadding="0"
+                        cellspacing="0"
+                        border="0"
+                      >
+                        <tr>
+                          <td align="center">
+                            <a
+                              href="${process.env.FRONTEND_URL}/portal/login"
+                              style="
+                                display: inline-block;
+                                background-color: #123B6D;
+                                color: #ffffff;
+                                text-decoration: none;
+                                font-size: 14px;
+                                font-weight: bold;
+                                padding: 15px 30px;
+                                border-radius: 7px;
+                              "
+                            >
+                              Login to Your Account
+                            </a>
+                          </td>
+                        </tr>
+                      </table>
+
+                      <p
+                        style="
+                          margin: 28px 0 0;
+                          color: #6B7C8F;
+                          font-size: 12px;
+                          line-height: 1.6;
+                          text-align: center;
+                        "
+                      >
+                        Keep your Alumni ID safe. You can use it
+                        to access your OlivetGOSA account.
+                      </p>
+
+                    </td>
+                  </tr>
+
+                  <!-- FOOTER -->
+                  <tr>
+                    <td
+                      style="
+                        background-color: #0B294D;
+                        padding: 25px 35px;
+                        text-align: center;
+                      "
+                    >
+                      <p
+                        style="
+                          margin: 0;
+                          color: #ffffff;
+                          font-size: 13px;
+                          font-weight: bold;
+                        "
+                      >
+                        OlivetGOSA
+                      </p>
+
+                      <p
+                        style="
+                          margin: 7px 0 0;
+                          color: rgba(255,255,255,0.65);
+                          font-size: 11px;
+                          line-height: 1.6;
+                        "
+                      >
+                        Global Old Students' Association
+                        <br />
+                        Olivet Baptist High School
+                      </p>
+
+                      <p
+                        style="
+                          margin: 15px 0 0;
+                          color: #C9A227;
+                          font-size: 10px;
+                          letter-spacing: 1px;
+                        "
+                      >
+                        CUM CHRISTO PROGREDERE
+                      </p>
+                    </td>
+                  </tr>
+
+                </table>
+
+                <p
+                  style="
+                    margin: 20px 0 0;
+                    color: #7A8A9A;
+                    font-size: 10px;
+                    text-align: center;
+                  "
+                >
+                  This is an automated email from OlivetGOSA.
+                  Please do not reply directly to this message.
+                </p>
+
+              </td>
+            </tr>
+          </table>
+
+        </body>
+        </html>
+      `,
+    });
+
+    // ========================================
+    // OBLIGATION NOTIFICATIONS
+    // ========================================
 
     for (const assignment of result.obligationAssignments || []) {
       await createNotification({
@@ -49,8 +356,12 @@ export const approveMemberController = async (req, res) => {
       });
     }
 
-    // notification//
-    const notification = NOTIFICATION_MESSAGES.account.approved;
+    // ========================================
+    // ACCOUNT APPROVED NOTIFICATION
+    // ========================================
+
+    const notification =
+      NOTIFICATION_MESSAGES.account.approved;
 
     await createNotification({
       userId: userId,
@@ -59,6 +370,10 @@ export const approveMemberController = async (req, res) => {
       message: notification.message,
       link: notification.link,
     });
+
+    // ========================================
+    // AUDIT LOG
+    // ========================================
 
     await createAuditLog({
       actor: req.user._id,
@@ -82,12 +397,15 @@ export const approveMemberController = async (req, res) => {
         obligationsAssigned: result.obligationsAssigned,
       },
     });
+
   } catch (error) {
     console.error("Approve member error:", error);
 
     return res.status(400).json({
       success: false,
-      message: error.message || "Failed to approve member.",
+      message:
+        error.message ||
+        "Failed to approve member.",
     });
   }
 };
