@@ -5,7 +5,7 @@ const auditLogSchema = new mongoose.Schema(
     actor: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      default: null,
       index: true,
     },
 
@@ -59,11 +59,29 @@ const auditLogSchema = new mongoose.Schema(
   }
 );
 
-auditLogSchema.index({ actor: 1, createdAt: -1 });
-auditLogSchema.index({ targetUser: 1, createdAt: -1 });
-auditLogSchema.index({ resource: 1, resourceId: 1 });
-auditLogSchema.index({ action: 1, createdAt: -1 });
+auditLogSchema.index({
+  actor: 1,
+  createdAt: -1,
+});
 
-const AuditLog = mongoose.model("AuditLog", auditLogSchema);
+auditLogSchema.index({
+  targetUser: 1,
+  createdAt: -1,
+});
+
+auditLogSchema.index({
+  resource: 1,
+  resourceId: 1,
+});
+
+auditLogSchema.index({
+  action: 1,
+  createdAt: -1,
+});
+
+const AuditLog = mongoose.model(
+  "AuditLog",
+  auditLogSchema
+);
 
 export default AuditLog;

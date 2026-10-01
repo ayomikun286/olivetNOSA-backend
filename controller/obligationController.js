@@ -239,12 +239,20 @@ export const updateObligation = async (req, res) => {
       }
     }
 
+    // ========================================
+    // VALIDATE UPDATE FIELDS
+    // ========================================
+
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({
         success: false,
         message: "No valid fields were provided for update.",
       });
     }
+
+    // ========================================
+    // VALIDATE AMOUNT
+    // ========================================
 
     if (
       updates.amount !== undefined &&
@@ -255,6 +263,10 @@ export const updateObligation = async (req, res) => {
         message: "Amount cannot be negative.",
       });
     }
+
+    // ========================================
+    // VALIDATE PAYMENT PLANS
+    // ========================================
 
     if (updates.paymentPlans?.length) {
       for (const plan of updates.paymentPlans) {
@@ -279,6 +291,10 @@ export const updateObligation = async (req, res) => {
       }
     }
 
+    // ========================================
+    // FIND OBLIGATION
+    // ========================================
+
     const obligation = await Obligation.findById(id);
 
     if (!obligation) {
@@ -288,6 +304,10 @@ export const updateObligation = async (req, res) => {
       });
     }
 
+    // ========================================
+    // CAPTURE BEFORE STATE FOR AUDIT
+    // ========================================
+
     const before = {
       name: obligation.name,
       description: obligation.description,
@@ -296,13 +316,37 @@ export const updateObligation = async (req, res) => {
       paymentPlans: obligation.paymentPlans,
       year: obligation.year,
       dueDate: obligation.dueDate,
-      isOptional:obligation.isOptional,
+      isOptional: obligation.isOptional,
       isActive: obligation.isActive,
     };
+
+    // ========================================
+    // UPDATE OBLIGATION
+    // ========================================
 
     Object.assign(obligation, updates);
 
     await obligation.save();
+
+    // ========================================
+    // SYNC ASSIGNMENT DUE DATES
+    // ========================================
+    // If the obligation due date changes,
+    // update the due date on all existing
+    // member assignments for this obligation.
+
+    if (updates.dueDate !== undefined) {
+      await ObligationAssignment.updateMany(
+        {
+          obligation: obligation._id,
+        },
+        {
+          $set: {
+            dueDate: obligation.dueDate,
+          },
+        }
+      );
+    }
 
     // ========================================
     // NOTIFY ASSIGNED MEMBERS
@@ -354,12 +398,16 @@ export const updateObligation = async (req, res) => {
           paymentPlans: obligation.paymentPlans,
           year: obligation.year,
           dueDate: obligation.dueDate,
-          isOptional:obligation.isOptional,
+          isOptional: obligation.isOptional,
           isActive: obligation.isActive,
         },
       },
       req,
     });
+
+    // ========================================
+    // RESPONSE
+    // ========================================
 
     return res.status(200).json({
       success: true,
