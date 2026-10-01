@@ -13,15 +13,15 @@ import { createNotification } from "../services/notificationService.js";
 export const createObligation = async (req, res) => {
   try {
     const {
-      name,
-      description,
-      category,
-      amount,
-      paymentPlans,
-      year,
-      dueDate,
-    } = req.body;
-
+  name,
+  description,
+  category,
+  amount,
+  paymentPlans,
+  year,
+  dueDate,
+  isOptional,
+} = req.body;
     // VALIDATION
     if (!name || !category || amount === undefined || !year) {
       return res.status(400).json({
@@ -58,16 +58,16 @@ export const createObligation = async (req, res) => {
 
     // CREATE OBLIGATION
     const obligation = await Obligation.create({
-      name,
-      description,
-      category,
-      amount,
-      paymentPlans: paymentPlans || [],
-      year,
-      dueDate: dueDate || null,
-      createdBy: req.user._id,
-    });
-
+  name,
+  description,
+  category,
+  amount,
+  paymentPlans: paymentPlans || [],
+  year,
+  dueDate: dueDate || null,
+  isOptional: isOptional === true,
+  createdBy: req.user._id,
+});
     // ASSIGN INDIVIDUAL OBLIGATION
     let obligationsAssigned = 0;
 
@@ -228,6 +228,7 @@ export const updateObligation = async (req, res) => {
       "paymentPlans",
       "year",
       "dueDate",
+      "isOptional",
     ];
 
     const updates = {};
@@ -295,6 +296,7 @@ export const updateObligation = async (req, res) => {
       paymentPlans: obligation.paymentPlans,
       year: obligation.year,
       dueDate: obligation.dueDate,
+      isOptional:obligation.isOptional,
       isActive: obligation.isActive,
     };
 
@@ -352,6 +354,7 @@ export const updateObligation = async (req, res) => {
           paymentPlans: obligation.paymentPlans,
           year: obligation.year,
           dueDate: obligation.dueDate,
+          isOptional:obligation.isOptional,
           isActive: obligation.isActive,
         },
       },

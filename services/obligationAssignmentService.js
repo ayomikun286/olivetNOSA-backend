@@ -2,19 +2,7 @@ import Obligation from "../models/Obligation.js";
 import ObligationAssignment from "../models/ObligationAssignment.js";
 import User from "../models/User.js";
 
-/**
- * ============================================================
- * ASSIGN CURRENT-YEAR INDIVIDUAL OBLIGATIONS TO ONE USER
- * ============================================================
- *
- * Used when:
- * - A new member becomes active
- * - An existing member needs their current-year obligations synced
- *
- * IMPORTANT:
- * Only current-year active individual obligations are assigned.
- * Previous-year obligations are NEVER automatically assigned.
- */
+
 export const assignIndividualObligationsToUser = async (
   userId,
   assignedBy = null,
@@ -31,7 +19,7 @@ export const assignIndividualObligationsToUser = async (
     year: currentYear,
     isActive: true,
   })
-    .select("_id amount dueDate name year")
+    .select("_id amount dueDate name year isOptional")
     .lean()
     .session(session);
 
@@ -110,25 +98,7 @@ export const assignIndividualObligationsToUser = async (
   };
 };
 
-/**
- * ============================================================
- * ASSIGN ONE INDIVIDUAL OBLIGATION TO ALL ELIGIBLE MEMBERS
- * ============================================================
- *
- * Used when an admin creates a new individual obligation.
- *
- * IMPORTANT:
- * The obligation MUST:
- * - Be individual
- * - Belong to the current year
- * - Be active
- *
- * Only:
- * - active members
- * - verified members
- *
- * receive the assignment.
- */
+
 export const assignIndividualObligationToMembers = async (
   obligationId,
   assignedBy = null,
@@ -146,7 +116,7 @@ export const assignIndividualObligationToMembers = async (
     year: currentYear,
     isActive: true,
   })
-    .select("_id amount dueDate name year")
+    .select("_id amount dueDate name year isOptional")
     .lean()
     .session(session);
 

@@ -7,7 +7,7 @@ export const getMyObligations = async (req, res) => {
     })
       .populate(
         "obligation",
-        "name description category amount year dueDate isActive"
+        "name description category amount year dueDate isActive isOptional"
       )
       .sort({ createdAt: -1 })
       .lean();

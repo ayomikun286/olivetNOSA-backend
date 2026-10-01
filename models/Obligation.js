@@ -80,6 +80,10 @@ const obligationSchema = new mongoose.Schema(
       default: null,
     },
 
+    isOptional: {
+  type: Boolean,
+  default: false,
+},
     // ========================================
     // STATUS
     // ========================================
