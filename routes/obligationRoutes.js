@@ -6,6 +6,7 @@ import {
   getObligation,
   updateObligation,
   toggleObligationStatus,
+  runDailyMembershipJob
 } from "../controller/obligationController.js";
 
 import { protect } from "../middleware/authmiddleware.js";
@@ -48,6 +49,12 @@ router.patch(
   "/:id/status",
   requireRole("admin", "superAdmin"),
   toggleObligationStatus
+);
+
+
+router.get(
+  "/internal/daily-membership",
+  runDailyMembershipJob
 );
 
 export default router;

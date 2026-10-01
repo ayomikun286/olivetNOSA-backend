@@ -7,6 +7,8 @@ import {
 
 import { createAuditLog } from "../services/auditLog.service.js";
 import { createNotification } from "../services/notificationService.js";
+import { processObligationReminders } from "../services/obligationReminder.service.js";
+import { processMembershipSuspensions } from "../services/membershipStatus.service.js";
 
 
 // CREATE OBLIGATION
@@ -514,6 +516,40 @@ export const toggleObligationStatus = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to update obligation status.",
+    });
+  }
+};
+
+
+
+
+
+
+export const runDailyMembershipJob = async (req, res) => {
+  try {
+    const secret = req.headers["x-internal-secret"];
+
+    if (!secret || secret !== process.env.INTERNAL_PAYMENT_SECRET) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized.",
+      });
+    }
+
+    const reminderResult = await processObligationReminders();
+    const suspensionResult = await processMembershipSuspensions();
+
+    return res.status(200).json({
+      success: true,
+      reminders: reminderResult,
+      suspensions: suspensionResult,
+    });
+  } catch (error) {
+    console.error("Daily membership job error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Daily membership job failed.",
     });
   }
 };
