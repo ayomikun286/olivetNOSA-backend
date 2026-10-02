@@ -16,10 +16,11 @@ import calendarRoutes from "./routes/calendar.routes.js";
 import directoryRoutes from "./routes/directory.routes.js";
 import Notification from "./routes/notificationRoutes.js";
 import obligationRoutes from "./routes/obligationRoutes.js";
-import obligationAssignmentRoutes from "./routes/obligationAssignmentRoutes.js"
+import obligationAssignmentRoutes from "./routes/obligationAssignmentRoutes.js";
 import newsEventRoutes from "./routes/newsEvent.routes.js";
 import memorial from "./routes/memorial.routes.js";
 import memorialSubmissionRoutes from "./routes/memorialSubmission.routes.js";
+import memberDuesStatus from "./routes/membershipStatus.route.js";
 import dns from "dns";
 
 dns.setServers(["8.8.8.8", "1.1.1.1"]);
@@ -64,6 +65,7 @@ app.use("/api/payments", paymentRoutes);
 app.use("/api/directory", directoryRoutes);
 app.use("/api/memorial-submissions", memorialSubmissionRoutes);
 app.use("/api/calendar", calendarRoutes );
+app.use("/api/membership-status", memberDuesStatus);
 
     
 
