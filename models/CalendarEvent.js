@@ -55,10 +55,32 @@ const calendarEventSchema = new mongoose.Schema(
     },
 
     location: {
-      type: String,
-      enum: ["Virtual", "Physical", "TBD"],
-      default: "TBD",
-    },
+  type: String,
+  enum: ["Virtual", "Physical", "TBD"],
+  default: "TBD",
+},
+
+locationDetails: {
+  type: String,
+  trim: true,
+  default: "",
+  maxlength: 300,
+},
+
+
+meetingPlatform: {
+  type: String,
+  trim: true,
+  default: "",
+  maxlength: 100,
+},
+
+meetingLink: {
+  type: String,
+  trim: true,
+  default: "",
+  maxlength: 500,
+},
 
     // ========================================
     // CATEGORY

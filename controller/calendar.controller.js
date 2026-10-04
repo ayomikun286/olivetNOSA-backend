@@ -33,6 +33,31 @@ const VALID_STATUSES = [
 const parseEventDate = (value) => {
   if (!value) return null;
 
+  // Calendar dates are date-only values.
+  // Store them at UTC midnight so the date never shifts
+  // because of the server/user timezone.
+  if (typeof value === "string") {
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+    if (match) {
+      const [, year, month, day] = match;
+
+      const parsedDate = new Date(
+        Date.UTC(
+          Number(year),
+          Number(month) - 1,
+          Number(day)
+        )
+      );
+
+      if (Number.isNaN(parsedDate.getTime())) {
+        return null;
+      }
+
+      return parsedDate;
+    }
+  }
+
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
@@ -41,6 +66,13 @@ const parseEventDate = (value) => {
 
   return date;
 };
+
+
+
+
+
+
+
 
 // ============================================================
 // MEMBER: GET CALENDAR EVENTS
@@ -57,12 +89,17 @@ export const getCalendarEvents = async (req, res) => {
 
     const filter = {};
 
+
+
     // ----------------------------------------
-    // YEAR FILTER
+    // YEAR / MONTH FILTER
     // ----------------------------------------
 
-    if (year !== undefined) {
-      const parsedYear = Number(year);
+    if (year !== undefined || month !== undefined) {
+      const parsedYear =
+        year !== undefined
+          ? Number(year)
+          : new Date().getUTCFullYear();
 
       if (
         Number.isNaN(parsedYear) ||
@@ -75,64 +112,52 @@ export const getCalendarEvents = async (req, res) => {
         });
       }
 
-      const startOfYear = new Date(
-        parsedYear,
-        0,
-        1
-      );
+      // Month supplied
+      if (month !== undefined) {
+        const parsedMonth = Number(month);
 
-      const startOfNextYear = new Date(
-        parsedYear + 1,
-        0,
-        1
-      );
+        if (
+          Number.isNaN(parsedMonth) ||
+          parsedMonth < 1 ||
+          parsedMonth > 12
+        ) {
+          return res.status(400).json({
+            success: false,
+            message: "Month must be between 1 and 12.",
+          });
+        }
 
-      filter.date = {
-        $gte: startOfYear,
-        $lt: startOfNextYear,
-      };
-    }
+        filter.date = {
+          $gte: new Date(
+            Date.UTC(
+              parsedYear,
+              parsedMonth - 1,
+              1
+            )
+          ),
 
-    // ----------------------------------------
-    // MONTH FILTER
-    // ----------------------------------------
-
-    if (month !== undefined) {
-      const parsedMonth = Number(month);
-
-      if (
-        Number.isNaN(parsedMonth) ||
-        parsedMonth < 1 ||
-        parsedMonth > 12
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Month must be between 1 and 12.",
-        });
+          $lt: new Date(
+            Date.UTC(
+              parsedYear,
+              parsedMonth,
+              1
+            )
+          ),
+        };
       }
 
-      const selectedYear =
-        year !== undefined
-          ? Number(year)
-          : new Date().getFullYear();
+      // Only year supplied
+      else {
+        filter.date = {
+          $gte: new Date(
+            Date.UTC(parsedYear, 0, 1)
+          ),
 
-      const startOfMonth = new Date(
-        selectedYear,
-        parsedMonth - 1,
-        1
-      );
-
-      const startOfNextMonth = new Date(
-        selectedYear,
-        parsedMonth,
-        1
-      );
-
-      filter.date = {
-        $gte: startOfMonth,
-        $lt: startOfNextMonth,
-      };
+          $lt: new Date(
+            Date.UTC(parsedYear + 1, 0, 1)
+          ),
+        };
+      }
     }
 
     // ----------------------------------------
@@ -176,12 +201,15 @@ export const getCalendarEvents = async (req, res) => {
 
     const events = await CalendarEvent.find(filter)
       .select(
-        "title description date time host participants location category status originalDate"
+        "title description date time host participants locationDetails location category status originalDate meetingPlatform meetingLink"
       )
       .sort({
         date: 1,
         createdAt: 1,
       });
+
+
+      // console.log("Retrieved events:", events);
 
     return res.status(200).json({
       success: true,
@@ -227,7 +255,7 @@ export const getCalendarEventById = async (
         $ne: "cancelled",
       },
     }).select(
-      "title description date time host participants location category status originalDate"
+      "title description date time host participants locationDetails location category status originalDate meetingPlatform meetingLink"
     );
 
     if (!event) {
@@ -277,11 +305,14 @@ export const getAdminCalendarEvents = async (
     const filter = {};
 
     // ----------------------------------------
-    // YEAR
+    // YEAR / MONTH FILTER
     // ----------------------------------------
 
-    if (year !== undefined) {
-      const parsedYear = Number(year);
+    if (year !== undefined || month !== undefined) {
+      const parsedYear =
+        year !== undefined
+          ? Number(year)
+          : new Date().getUTCFullYear();
 
       if (
         Number.isNaN(parsedYear) ||
@@ -294,50 +325,53 @@ export const getAdminCalendarEvents = async (
         });
       }
 
-      filter.date = {
-        $gte: new Date(parsedYear, 0, 1),
-        $lt: new Date(parsedYear + 1, 0, 1),
-      };
-    }
+      // Month supplied
+      if (month !== undefined) {
+        const parsedMonth = Number(month);
 
-    // ----------------------------------------
-    // MONTH
-    // ----------------------------------------
+        if (
+          Number.isNaN(parsedMonth) ||
+          parsedMonth < 1 ||
+          parsedMonth > 12
+        ) {
+          return res.status(400).json({
+            success: false,
+            message: "Month must be between 1 and 12.",
+          });
+        }
 
-    if (month !== undefined) {
-      const parsedMonth = Number(month);
+        filter.date = {
+          $gte: new Date(
+            Date.UTC(
+              parsedYear,
+              parsedMonth - 1,
+              1
+            )
+          ),
 
-      if (
-        Number.isNaN(parsedMonth) ||
-        parsedMonth < 1 ||
-        parsedMonth > 12
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Month must be between 1 and 12.",
-        });
+          $lt: new Date(
+            Date.UTC(
+              parsedYear,
+              parsedMonth,
+              1
+            )
+          ),
+        };
       }
 
-      const selectedYear =
-        year !== undefined
-          ? Number(year)
-          : new Date().getFullYear();
+      // Only year supplied
+      else {
+        filter.date = {
+          $gte: new Date(
+            Date.UTC(parsedYear, 0, 1)
+          ),
 
-      filter.date = {
-        $gte: new Date(
-          selectedYear,
-          parsedMonth - 1,
-          1
-        ),
-        $lt: new Date(
-          selectedYear,
-          parsedMonth,
-          1
-        ),
-      };
+          $lt: new Date(
+            Date.UTC(parsedYear + 1, 0, 1)
+          ),
+        };
+      }
     }
-
     // ----------------------------------------
     // CATEGORY
     // ----------------------------------------
@@ -492,10 +526,7 @@ export const getAdminCalendarEventById = async (
 // ADMIN: CREATE CALENDAR EVENT
 // ============================================================
 
-export const createCalendarEvent = async (
-  req,
-  res
-) => {
+export const createCalendarEvent = async (req, res) => {
   try {
     const {
       title,
@@ -505,6 +536,9 @@ export const createCalendarEvent = async (
       host,
       participants,
       location,
+      locationDetails,
+      meetingPlatform,
+      meetingLink,
       category,
       status,
     } = req.body;
@@ -544,14 +578,9 @@ export const createCalendarEvent = async (
     // CATEGORY VALIDATION
     // ----------------------------------------
 
-    const selectedCategory =
-      category?.trim() || "Event";
+    const selectedCategory = category?.trim() || "Event";
 
-    if (
-      !VALID_CATEGORIES.includes(
-        selectedCategory
-      )
-    ) {
+    if (!VALID_CATEGORIES.includes(selectedCategory)) {
       return res.status(400).json({
         success: false,
         message: "Invalid calendar category.",
@@ -562,35 +591,49 @@ export const createCalendarEvent = async (
     // LOCATION VALIDATION
     // ----------------------------------------
 
-    const selectedLocation =
-      location?.trim() || "TBD";
+    const selectedLocation = location?.trim() || "TBD";
 
-    if (
-      !VALID_LOCATIONS.includes(
-        selectedLocation
-      )
-    ) {
+    if (!VALID_LOCATIONS.includes(selectedLocation)) {
       return res.status(400).json({
         success: false,
         message: "Invalid calendar location.",
       });
     }
 
+
     // ----------------------------------------
-    // STATUS VALIDATION
+    // LOCATION DETAILS
     // ----------------------------------------
 
-    const selectedStatus =
-      status?.trim() || "scheduled";
+    const selectedLocationDetails = locationDetails?.trim() || "";
+    const selectedMeetingPlatform = meetingPlatform?.trim() || ""
+    const selectedMeetingLink = meetingLink?.trim() || "";
 
-    if (
-      !VALID_STATUSES.includes(selectedStatus)
-    ) {
+    const selectedStatus = status?.trim() || "scheduled";
+
+    if (!VALID_STATUSES.includes(selectedStatus)) {
       return res.status(400).json({
         success: false,
         message: "Invalid calendar status.",
       });
     }
+
+
+
+    if (selectedLocation === "Virtual" && !selectedMeetingLink) {
+  return res.status(400).json({
+    success: false,
+    message: "Meeting link is required for virtual events.",
+  });
+}
+
+
+if (selectedLocation === "Physical" && !selectedLocationDetails) {
+  return res.status(400).json({
+    success: false,
+    message: "Location details are required for physical events.",
+  });
+}
 
     // ----------------------------------------
     // CREATE
@@ -599,8 +642,7 @@ export const createCalendarEvent = async (
     const event = await CalendarEvent.create({
       title: title.trim(),
 
-      description:
-        description?.trim() || "",
+      description: description?.trim() || "",
 
       date: parsedDate,
 
@@ -608,10 +650,15 @@ export const createCalendarEvent = async (
 
       host: host?.trim() || "",
 
-      participants:
-        participants?.trim() || "",
+      participants: participants?.trim() || "",
 
       location: selectedLocation,
+
+      locationDetails: selectedLocationDetails,
+      
+      meetingPlatform: selectedMeetingPlatform,
+
+      meetingLink: selectedMeetingLink,
 
       category: selectedCategory,
 
@@ -626,15 +673,11 @@ export const createCalendarEvent = async (
 
     return res.status(201).json({
       success: true,
-      message:
-        "Calendar event created successfully.",
+      message: "Calendar event created successfully.",
       data: event,
     });
   } catch (error) {
-    console.error(
-      "Create calendar event error:",
-      error
-    );
+    console.error("Create calendar event error:", error);
 
     return res.status(500).json({
       success: false,
@@ -648,12 +691,13 @@ export const createCalendarEvent = async (
 // ADMIN: UPDATE CALENDAR EVENT
 // ============================================================
 
-export const updateCalendarEvent = async (
-  req,
-  res
-) => {
+export const updateCalendarEvent = async (req, res) => {
   try {
     const { id } = req.params;
+
+    // ----------------------------------------
+    // ID VALIDATION
+    // ----------------------------------------
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
@@ -662,8 +706,7 @@ export const updateCalendarEvent = async (
       });
     }
 
-    const event =
-      await CalendarEvent.findById(id);
+    const event = await CalendarEvent.findById(id);
 
     if (!event) {
       return res.status(404).json({
@@ -680,6 +723,9 @@ export const updateCalendarEvent = async (
       host,
       participants,
       location,
+      locationDetails,
+      meetingPlatform,
+      meetingLink,
       category,
       status,
     } = req.body;
@@ -689,11 +735,10 @@ export const updateCalendarEvent = async (
     // ----------------------------------------
 
     if (title !== undefined) {
-      if (!title.trim()) {
+      if (!title?.trim()) {
         return res.status(400).json({
           success: false,
-          message:
-            "Event title cannot be empty.",
+          message: "Event title cannot be empty.",
         });
       }
 
@@ -705,8 +750,7 @@ export const updateCalendarEvent = async (
     // ----------------------------------------
 
     if (description !== undefined) {
-      event.description =
-        description.trim();
+      event.description = description?.trim() || "";
     }
 
     // ----------------------------------------
@@ -714,8 +758,7 @@ export const updateCalendarEvent = async (
     // ----------------------------------------
 
     if (date !== undefined) {
-      const parsedDate =
-        parseEventDate(date);
+      const parsedDate = parseEventDate(date);
 
       if (!parsedDate) {
         return res.status(400).json({
@@ -724,12 +767,11 @@ export const updateCalendarEvent = async (
         });
       }
 
-      // Preserve original date
-      // only the first time the date changes.
+      // Preserve original date only the first
+      // time the event is rescheduled.
       if (
         event.date &&
-        event.date.getTime() !==
-          parsedDate.getTime() &&
+        event.date.getTime() !== parsedDate.getTime() &&
         !event.originalDate
       ) {
         event.originalDate = event.date;
@@ -737,10 +779,11 @@ export const updateCalendarEvent = async (
 
       event.date = parsedDate;
 
+      // Mark as rescheduled when the current date
+      // differs from the original date.
       if (
         event.originalDate &&
-        event.originalDate.getTime() !==
-          parsedDate.getTime()
+        event.originalDate.getTime() !== parsedDate.getTime()
       ) {
         event.status = "rescheduled";
       }
@@ -751,7 +794,7 @@ export const updateCalendarEvent = async (
     // ----------------------------------------
 
     if (time !== undefined) {
-      event.time = time.trim();
+      event.time = time?.trim() || "";
     }
 
     // ----------------------------------------
@@ -759,7 +802,7 @@ export const updateCalendarEvent = async (
     // ----------------------------------------
 
     if (host !== undefined) {
-      event.host = host.trim();
+      event.host = host?.trim() || "";
     }
 
     // ----------------------------------------
@@ -767,8 +810,7 @@ export const updateCalendarEvent = async (
     // ----------------------------------------
 
     if (participants !== undefined) {
-      event.participants =
-        participants.trim();
+      event.participants = participants?.trim() || "";
     }
 
     // ----------------------------------------
@@ -776,19 +818,35 @@ export const updateCalendarEvent = async (
     // ----------------------------------------
 
     if (location !== undefined) {
-      if (
-        !VALID_LOCATIONS.includes(
-          location
-        )
-      ) {
+      const selectedLocation = location?.trim() || "TBD";
+
+      if (!VALID_LOCATIONS.includes(selectedLocation)) {
         return res.status(400).json({
           success: false,
-          message:
-            "Invalid calendar location.",
+          message: "Invalid calendar location.",
         });
       }
 
-      event.location = location;
+      event.location = selectedLocation;
+    }
+
+  if (meetingPlatform !== undefined) {
+      event.meetingPlatform = meetingPlatform?.trim() || "";
+    }
+
+    if (meetingLink !== undefined) {
+      event.meetingLink = meetingLink?.trim() || "";
+    }
+
+
+
+    // ----------------------------------------
+    // LOCATION DETAILS
+    // ----------------------------------------
+
+    if (locationDetails !== undefined) {
+      event.locationDetails =
+        locationDetails?.trim() || "";
     }
 
     // ----------------------------------------
@@ -796,19 +854,16 @@ export const updateCalendarEvent = async (
     // ----------------------------------------
 
     if (category !== undefined) {
-      if (
-        !VALID_CATEGORIES.includes(
-          category
-        )
-      ) {
+      const selectedCategory = category?.trim();
+
+      if (!VALID_CATEGORIES.includes(selectedCategory)) {
         return res.status(400).json({
           success: false,
-          message:
-            "Invalid calendar category.",
+          message: "Invalid calendar category.",
         });
       }
 
-      event.category = category;
+      event.category = selectedCategory;
     }
 
     // ----------------------------------------
@@ -816,17 +871,16 @@ export const updateCalendarEvent = async (
     // ----------------------------------------
 
     if (status !== undefined) {
-      if (
-        !VALID_STATUSES.includes(status)
-      ) {
+      const selectedStatus = status?.trim();
+
+      if (!VALID_STATUSES.includes(selectedStatus)) {
         return res.status(400).json({
           success: false,
-          message:
-            "Invalid calendar status.",
+          message: "Invalid calendar status.",
         });
       }
 
-      event.status = status;
+      event.status = selectedStatus;
     }
 
     // ----------------------------------------
@@ -841,17 +895,17 @@ export const updateCalendarEvent = async (
 
     await event.save();
 
+    // ----------------------------------------
+    // RESPONSE
+    // ----------------------------------------
+
     return res.status(200).json({
       success: true,
-      message:
-        "Calendar event updated successfully.",
+      message: "Calendar event updated successfully.",
       data: event,
     });
   } catch (error) {
-    console.error(
-      "Update calendar event error:",
-      error
-    );
+    console.error("Update calendar event error:", error);
 
     return res.status(500).json({
       success: false,
