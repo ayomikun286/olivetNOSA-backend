@@ -950,11 +950,11 @@ export const getAdminPayments = async (req, res) => {
                 .populate({
                     path: "obligationAssignment",
                     select:
-                        "amountDue amountPaid status dueDate obligation",
+                        "amountDue amountPaid status dueDate obligation isOptional",
                     populate: {
                         path: "obligation",
                         select:
-                            "name category year isActive",
+                            "name category year isActive isOptional",
                     },
                 })
                 .sort({
@@ -1059,157 +1059,194 @@ export const getAdminPayments = async (req, res) => {
                 totalReceived: 0,
             };
 
-        // ========================================
-        // COLLECTION BY OBLIGATION CATEGORY
-        // ========================================
-        //
-        // Only successful payments count as
-        // actual collection.
-        //
-        // Existing date, gateway and payment-method
-        // filters still apply.
-        //
-        // The status filter is intentionally ignored
-        // here because "collection" means money
-        // successfully received.
-        //
-        // ========================================
+      // ========================================
+// COLLECTION BY OBLIGATION TYPE + CATEGORY
+// ========================================
+//
+// Only successful payments count as actual
+// collection.
+//
+// IMPORTANT:
+// summary.totalReceived is already the
+// authoritative total received amount.
+// collectionBreakdown is only used to show
+// mandatory vs optional + category breakdown.
+//
+// ========================================
 
-        const collectionResult =
-            await Payment.aggregate([
-                {
-                    $match: {
-                        ...query,
-                        status: "successful",
-                    },
-                },
+const collectionResult = await Payment.aggregate([
+    {
+        $match: {
+            ...query,
+            status: "successful",
+        },
+    },
 
-                // ====================================
-                // GET OBLIGATION ASSIGNMENT
-                // ====================================
+    // ====================================
+    // GET OBLIGATION ASSIGNMENT
+    // ====================================
+    {
+        $lookup: {
+            from:
+                ObligationAssignment
+                    .collection
+                    .name,
+            localField:
+                "obligationAssignment",
+            foreignField: "_id",
+            as: "assignment",
+        },
+    },
 
-                {
-                    $lookup: {
-                        from:
-                            ObligationAssignment
-                                .collection
-                                .name,
+    {
+        $unwind: "$assignment",
+    },
 
-                        localField:
-                            "obligationAssignment",
+    // ====================================
+    // GET OBLIGATION
+    // ====================================
+    {
+        $lookup: {
+            from:
+                Obligation
+                    .collection
+                    .name,
+            localField:
+                "assignment.obligation",
+            foreignField: "_id",
+            as: "obligation",
+        },
+    },
 
-                        foreignField: "_id",
+    {
+        $unwind: "$obligation",
+    },
 
-                        as: "assignment",
-                    },
-                },
-
-                {
-                    $unwind: "$assignment",
-                },
-
-                // ====================================
-                // GET OBLIGATION
-                // ====================================
-
-                {
-                    $lookup: {
-                        from:
-                            Obligation
-                                .collection
-                                .name,
-
-                        localField:
-                            "assignment.obligation",
-
-                        foreignField: "_id",
-
-                        as: "obligation",
-                    },
-                },
-
-                {
-                    $unwind: "$obligation",
-                },
-
-                // ====================================
-                // GROUP BY CATEGORY
-                // ====================================
-
-                {
-                    $group: {
-                        _id:
-                            "$obligation.category",
-
-                        amount: {
-                            $sum: "$amount",
+    // ====================================
+    // GROUP BY OPTIONAL / MANDATORY
+    // + OBLIGATION CATEGORY
+    // ====================================
+    {
+        $group: {
+            _id: {
+                type: {
+                    $cond: [
+                        {
+                            $eq: [
+                                "$obligation.isOptional",
+                                true,
+                            ],
                         },
-
-                        transactions: {
-                            $sum: 1,
-                        },
-                    },
+                        "optional",
+                        "mandatory",
+                    ],
                 },
-            ]);
 
-        // ========================================
-        // NORMALIZED COLLECTION BREAKDOWN
-        // ========================================
-
-        const collectionBreakdown = {
-            individual: {
-                amount: 0,
-                transactions: 0,
+                category:
+                    "$obligation.category",
             },
 
-            yearSet: {
-                amount: 0,
-                transactions: 0,
+            amount: {
+                $sum: "$amount",
             },
 
-            chapter: {
-                amount: 0,
-                transactions: 0,
+            transactions: {
+                $sum: 1,
             },
+        },
+    },
+]);
 
-            total: {
-                amount: 0,
-                transactions: 0,
-            },
-        };
+// ========================================
+// NORMALIZED COLLECTION BREAKDOWN
+// ========================================
 
-        // ========================================
-        // MAP AGGREGATION RESULT
-        // ========================================
+const createCollectionBucket = () => ({
+    amount: 0,
+    transactions: 0,
 
-        collectionResult.forEach((item) => {
-            if (
-                item._id === "individual" ||
-                item._id === "yearSet" ||
-                item._id === "chapter"
-            ) {
-                const amount =
-                    Number(item.amount || 0);
+    individual: {
+        amount: 0,
+        transactions: 0,
+    },
 
-                const transactions =
-                    Number(
-                        item.transactions || 0
-                    );
+    yearSet: {
+        amount: 0,
+        transactions: 0,
+    },
 
-                collectionBreakdown[
-                    item._id
-                ] = {
-                    amount,
-                    transactions,
-                };
+    chapter: {
+        amount: 0,
+        transactions: 0,
+    },
+});
 
-                collectionBreakdown.total.amount +=
-                    amount;
+const collectionBreakdown = {
+    mandatory: createCollectionBucket(),
+    optional: createCollectionBucket(),
 
-                collectionBreakdown.total.transactions +=
-                    transactions;
-            }
-        });
+    // IMPORTANT:
+    // Do NOT calculate this separately.
+    // totalReceived below is the source of truth.
+    total: {
+        amount: Number(
+            summaryData.totalReceived || 0
+        ),
+        transactions: Number(
+            summaryData.successful || 0
+        ),
+    },
+};
+
+// ========================================
+// MAP AGGREGATED RESULTS
+// ========================================
+
+for (const item of collectionResult) {
+    const type =
+        item._id?.type === "optional"
+            ? "optional"
+            : "mandatory";
+
+    const category =
+        item._id?.category;
+
+    const amount =
+        Number(item.amount || 0);
+
+    const transactions =
+        Number(item.transactions || 0);
+
+    // ====================================
+    // TYPE TOTAL
+    // ====================================
+
+    collectionBreakdown[type].amount +=
+        amount;
+
+    collectionBreakdown[type].transactions +=
+        transactions;
+
+    // ====================================
+    // CATEGORY TOTAL
+    // ====================================
+
+    if (
+        [
+            "individual",
+            "yearSet",
+            "chapter",
+        ].includes(category)
+    ) {
+        collectionBreakdown[type][
+            category
+        ].amount += amount;
+
+        collectionBreakdown[type][
+            category
+        ].transactions += transactions;
+    }
+}
 
         // ========================================
         // RESPONSE

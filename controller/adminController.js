@@ -459,6 +459,7 @@ export const getAdminDashboard = async (req, res) => {
       {
         $match: {
           "obligation.isActive": true,
+           "obligation.isOptional": { $ne: true },
         },
       },
       {
@@ -486,8 +487,7 @@ export const getAdminDashboard = async (req, res) => {
 
     const financialSummary = financialResult[0] || {};
 
-    const totalObligations =
-      financialSummary.totalObligations || 0;
+    const totalObligations =  financialSummary.totalObligations || 0;
 
     const totalOutstanding =
       financialSummary.totalOutstanding || 0;
