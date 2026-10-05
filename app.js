@@ -24,6 +24,9 @@ import memberDuesStatus from "./routes/membershipStatus.route.js";
 import leaderShipRoutes from "./routes/leadership.route.js";
 import dns from "dns";
 
+
+import financialReportRoutes from "./routes/admin/financialReportRoutes.js";
+
 dns.setServers(["8.8.8.8", "1.1.1.1"]);
 dns.setDefaultResultOrder("ipv4first");
 const app = express();
@@ -68,6 +71,7 @@ app.use("/api/memorial-submissions", memorialSubmissionRoutes);
 app.use("/api/calendar", calendarRoutes );
 app.use("/api/membership-status", memberDuesStatus);
 app.use("/api", leaderShipRoutes);
+app.use("/api/admin/financial-reports", financialReportRoutes);
     
 
 const startServer = async () => {
