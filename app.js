@@ -21,6 +21,7 @@ import newsEventRoutes from "./routes/newsEvent.routes.js";
 import memorial from "./routes/memorial.routes.js";
 import memorialSubmissionRoutes from "./routes/memorialSubmission.routes.js";
 import memberDuesStatus from "./routes/membershipStatus.route.js";
+import leaderShipRoutes from "./routes/leadership.route.js";
 import dns from "dns";
 
 dns.setServers(["8.8.8.8", "1.1.1.1"]);
@@ -66,7 +67,7 @@ app.use("/api/directory", directoryRoutes);
 app.use("/api/memorial-submissions", memorialSubmissionRoutes);
 app.use("/api/calendar", calendarRoutes );
 app.use("/api/membership-status", memberDuesStatus);
-
+app.use("/api", leaderShipRoutes);
     
 
 const startServer = async () => {

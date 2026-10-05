@@ -7,11 +7,7 @@ import {
   createAdminMemberController
 } from "../controller/adminController.js";
 import {createNewsEvent, getAdminNewsEvents, updateNewsEvent,deleteNewsEvent,} from "../controller/newsEvent.controller.js"
-import {
-  assignYearSetLeaderController,
-  assignChapterLeaderController,
-  
-} from "../controller/leadershipController.js";
+
 import {
     getAdminPayments,
     getAdminPaymentById,
@@ -124,29 +120,7 @@ router.get(
   getAdminMembersController
 );
 
-// ========================================
-// LEADERSHIP
-// ========================================
 
-router.patch(
-  "/members/year-set-leader",
-  protect,
-  requireRole(
-    "admin",
-    "superAdmin"
-  ),
-  assignYearSetLeaderController
-);
-
-router.patch(
-  "/members/chapter-leader",
-  protect,
-  requireRole(
-    "admin",
-    "superAdmin"
-  ),
-  assignChapterLeaderController
-);
 
 
 
