@@ -150,9 +150,20 @@ export const updateMemberFinancialStatus = async (
     updateQuery.session(session);
   }
 
-  await updateQuery;
+ await updateQuery;
 
-  return financialStatus;
+console.log("CALCULATED FINANCIAL STATUS:", financialStatus);
+
+const updatedUser = await User.findById(userId)
+  .select("financialStatus")
+  .lean();
+
+console.log(
+  "DATABASE FINANCIAL STATUS:",
+  updatedUser?.financialStatus
+);
+
+return financialStatus;
 };
 
 

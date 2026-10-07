@@ -2058,6 +2058,8 @@ export const getCurrentUser = async (req, res) => {
     .populate("chapter", "_id name code country leader")
     .populate("yearSet", "_id year name leader");
 
+
+
   if (!user) {
     return errorResponse(res, "User not found.", 404);
   }
