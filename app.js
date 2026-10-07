@@ -54,6 +54,7 @@ app.use(session(sessionConfig));
  app.get("/", (req, res) => {
       res.send("Welcome to the NOSA Alumni API");
     });
+    
 
 app.use("/api/chapters", chapterRoutes);
 app.use("/api/yearSet", yearSetRoutes);

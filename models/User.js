@@ -79,6 +79,12 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
 
+    financialStatus: {
+  type: String,
+  enum: ["financial", "non_financial"],
+  default: "non_financial",
+},
+
     // ========================================
     // MEMBER PROFILE
     // ========================================

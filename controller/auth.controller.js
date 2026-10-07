@@ -2075,6 +2075,7 @@ export const getCurrentUser = async (req, res) => {
     alumniId: user.alumniId,
     chapter: user.chapter,
     yearSet: user.yearSet,
+    financialStatus:user.financialStatus,
 
     createdAt: user.createdAt
 
@@ -2110,6 +2111,7 @@ export const getMemberProfile = async (req, res) => {
         role: user.role,
         enrollmentYear: user.enrollmentYear,
         graduationYear: user.graduationYear,
+        financialStatus: user.financialStatus,
 
         alumniId: user.alumniId,
         yearSet: user.yearSet,

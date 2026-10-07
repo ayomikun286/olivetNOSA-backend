@@ -6,123 +6,108 @@ import Payment from "../models/Payment.js";
 |--------------------------------------------------------------------------
 | Date Helpers
 |--------------------------------------------------------------------------
+| Report months are defined in Lagos time (WAT, UTC+1, no DST), so a
+| payment at 00:30 on the 1st in Lagos belongs to the NEW month.
+|--------------------------------------------------------------------------
 */
 
-const getMonthDateRange = (year, month) => {
-  const startDate = new Date(
-    Date.UTC(year, month - 1, 1)
-  );
+const LAGOS_OFFSET_MS = 60 * 60 * 1000;
 
-  const endDate = new Date(
-    Date.UTC(year, month, 1)
-  );
-
-  return {
-    startDate,
-    endDate,
-  };
-};
+const getMonthDateRange = (year, month) => ({
+  startDate: new Date(Date.UTC(year, month - 1, 1) - LAGOS_OFFSET_MS),
+  endDate: new Date(Date.UTC(year, month, 1) - LAGOS_OFFSET_MS),
+});
 
 /*
 |--------------------------------------------------------------------------
-| Collection Rate
+| Helpers
 |--------------------------------------------------------------------------
 */
 
 const calculateRate = (collected, expected) => {
-  if (!expected || expected <= 0) {
-    return 0;
-  }
+  if (!expected || expected <= 0) return 0;
 
-  return Math.min(
-    100,
-    Number(
-      ((collected / expected) * 100).toFixed(2)
-    )
-  );
+  return Math.min(100, Number(((collected / expected) * 100).toFixed(2)));
 };
+
+const sum = (items, key) =>
+  items.reduce((total, item) => total + Number(item[key] || 0), 0);
+
+const calculateGroupTotals = (items) => {
+  const expected = sum(items, "expected");
+  const collected = sum(items, "collected");
+
+  return {
+    expected,
+    collected, // capped at amountDue per assignment
+    cashReceived: sum(items, "cashReceived"), // raw cash incl. overpayments
+    outstanding: sum(items, "outstanding"),
+    overdue: sum(items, "overdue"),
+    collectionRate: calculateRate(collected, expected),
+  };
+};
+
+const EMPTY_GROUP = calculateGroupTotals([]);
 
 /*
 |--------------------------------------------------------------------------
 | Generate Financial Report Snapshot
 |--------------------------------------------------------------------------
 |
-| Financial reports are based on ANNUAL obligations.
+| DEFINITIONS (all for the selected financial year, as of report month-end)
 |
-| For a selected month/year:
+| Mandatory   = obligation.isOptional !== true
+| Active      = obligation.isActive !== false   (single definition, used everywhere)
 |
-| - Expected = all assignments for that financial year
-| - Collected = successful payments received up to the report month-end
-| - Outstanding = Expected - Collected
-| - Overdue = unpaid amount whose due date has passed
-| - Cash This Month = successful payments whose paidAt falls
-|   inside the selected month
+| summary.totalExpected     = expected on ACTIVE MANDATORY obligations
+| summary.totalOutstanding  = outstanding on ACTIVE MANDATORY obligations
+| summary.totalOverdue      = overdue on ACTIVE MANDATORY obligations
+| summary.totalCollected    = cash received on ALL MANDATORY obligations
+|                             (active + inactive, historical cash)
+| summary.collectedOnActive = capped collected on ACTIVE MANDATORY obligations
+| summary.collectionRate    = collectedOnActive / totalExpected
+|                             (same population, so the rate is meaningful)
 |
-| Optional obligations are visible in both the obligation breakdown
-| and category breakdown, but are excluded from the main financial
-| summary totals.
+| categoryBreakdown buckets per category:
+|   mandatory = active mandatory
+|   inactive  = inactive mandatory   (historical cash only)
+|   optional  = all optional         (never part of summary totals)
 |
-| Inactive obligations remain visible for history but are excluded
-| from current financial totals/overdue calculations.
+| => mandatory.cashReceived + inactive.cashReceived summed over categories
+|    equals summary.totalCollected.
 |
 |--------------------------------------------------------------------------
 */
 
-export const generateFinancialReportSnapshot = async ({
-  month,
-  year,
-}) => {
+export const generateFinancialReportSnapshot = async ({ month, year }) => {
   /*
-  |--------------------------------------------------------------------------
   | Validate Input
-  |--------------------------------------------------------------------------
   */
 
-  if (
-    !Number.isInteger(month) ||
-    month < 1 ||
-    month > 12
-  ) {
+  if (!Number.isInteger(month) || month < 1 || month > 12) {
     throw new Error("Invalid report month.");
   }
 
-  if (
-    !Number.isInteger(year) ||
-    year < 1900
-  ) {
+  if (!Number.isInteger(year) || year < 1900) {
     throw new Error("Invalid report year.");
   }
 
-  /*
-  |--------------------------------------------------------------------------
-  | Month Range
-  |--------------------------------------------------------------------------
-  */
-
-  const {
-    startDate,
-    endDate,
-  } = getMonthDateRange(year, month);
+  const { startDate, endDate } = getMonthDateRange(year, month);
 
   /*
-  |--------------------------------------------------------------------------
-  | Get Obligations For Selected Financial Year
-  |--------------------------------------------------------------------------
+  | Overdue cut-off: never later than "now", so generating a report
+  | mid-month does not flag items due later this month as overdue.
   */
 
-  const obligations = await Obligation.find({
-    year,
-  })
-    .select(
-      "_id name category amount dueDate isOptional isActive"
-    )
+  const overdueCutoff = new Date(Math.min(endDate.getTime(), Date.now()));
+
+  /*
+  | Obligations for the selected financial year
+  */
+
+  const obligations = await Obligation.find({ year })
+    .select("_id name category amount dueDate isOptional isActive")
     .lean();
-
-  /*
-  |--------------------------------------------------------------------------
-  | No Obligations
-  |--------------------------------------------------------------------------
-  */
 
   if (!obligations.length) {
     return {
@@ -131,6 +116,7 @@ export const generateFinancialReportSnapshot = async ({
         totalCollected: 0,
         totalOutstanding: 0,
         totalOverdue: 0,
+        collectedOnActive: 0,
         collectionRate: 0,
       },
 
@@ -149,667 +135,239 @@ export const generateFinancialReportSnapshot = async ({
     };
   }
 
-  /*
-  |--------------------------------------------------------------------------
-  | Get ALL Assignments For Selected Financial Year
-  |--------------------------------------------------------------------------
-  |
-  | IMPORTANT:
-  |
-  | We do NOT filter assignments by dueDate/month here.
-  |
-  | These are annual obligations.
-  |
-  |--------------------------------------------------------------------------
-  */
-
-  const assignments =
-    await ObligationAssignment.find({
-      obligation: {
-        $in: obligations.map(
-          (obligation) => obligation._id
-        ),
-      },
-    })
-      .select(
-        "_id obligation user amountDue amountPaid status dueDate"
-      )
-      .lean();
-
-  /*
-  |--------------------------------------------------------------------------
-  | Get Successful Payments Up To Report Month-End
-  |--------------------------------------------------------------------------
-  |
-  | These payments determine the annual financial position
-  | as of the selected report month.
-  |
-  |--------------------------------------------------------------------------
-  */
-
-  const assignmentIds = assignments.map(
-    (assignment) => assignment._id
+  const mandatoryObligationIds = new Set(
+    obligations
+      .filter((obligation) => obligation.isOptional !== true)
+      .map((obligation) => obligation._id.toString())
   );
 
-  const paymentsUpToMonthEnd =
-    assignmentIds.length
-      ? await Payment.find({
-          obligationAssignment: {
-            $in: assignmentIds,
-          },
+  /*
+  | Assignments for the year, created before report month-end.
+  | Inactive assignments are intentionally included (historical cash).
+  |
+  | NOTE: requires `timestamps: true` on the ObligationAssignment schema.
+  */
 
-          status: "successful",
+  const assignments = await ObligationAssignment.find({
+    obligation: {
+      $in: obligations.map((obligation) => obligation._id),
+    },
+    createdAt: { $lt: endDate },
+  })
+    .select("_id obligation user amountDue amountPaid status dueDate")
+    .lean();
 
-          paidAt: {
-            $ne: null,
-            $lt: endDate,
-          },
-        })
-          .select(
-            "_id obligationAssignment amount paidAt"
-          )
-          .lean()
-      : [];
+  const assignmentIds = assignments.map((assignment) => assignment._id);
 
-
-      console.log(
-  "REPORT PAYMENTS UP TO MONTH END:",
-  paymentsUpToMonthEnd.map((payment) => ({
-    id: payment._id.toString(),
-    assignment: payment.obligationAssignment?.toString(),
-    amount: payment.amount,
-    paidAt: payment.paidAt,
-    status: payment.status,
-  }))
-);
+  const mandatoryAssignmentIds = new Set(
+    assignments
+      .filter((assignment) =>
+        mandatoryObligationIds.has(assignment.obligation?.toString())
+      )
+      .map((assignment) => assignment._id.toString())
+  );
 
   /*
-  |--------------------------------------------------------------------------
-  | Group Successful Payments By Assignment
-  |--------------------------------------------------------------------------
+  | Successful payments up to report month-end (single query).
+  | Used for both historical totals and "cash this month".
   */
+
+  const paymentsUpToMonthEnd = assignmentIds.length
+    ? await Payment.find({
+        obligationAssignment: { $in: assignmentIds },
+        status: "successful",
+        paidAt: { $ne: null, $lt: endDate },
+      })
+        .select("_id obligationAssignment amount paidAt status")
+        .lean()
+    : [];
 
   const paidByAssignment = new Map();
 
+  let totalCollectedThisMonth = 0;
+
   for (const payment of paymentsUpToMonthEnd) {
-    const assignmentId =
-      payment.obligationAssignment?.toString();
+    const assignmentId = payment.obligationAssignment?.toString();
 
-    if (!assignmentId) {
-      continue;
-    }
+    if (!assignmentId) continue;
 
-    const current =
-      paidByAssignment.get(
-        assignmentId
-      ) || 0;
+    const amount = Number(payment.amount || 0);
 
     paidByAssignment.set(
       assignmentId,
-      current +
-        Number(payment.amount || 0)
+      (paidByAssignment.get(assignmentId) || 0) + amount
     );
+
+    if (
+      payment.paidAt &&
+      new Date(payment.paidAt) >= startDate &&
+      mandatoryAssignmentIds.has(assignmentId)
+    ) {
+      totalCollectedThisMonth += amount;
+    }
   }
 
-
-  console.log(
-  "PAID BY ASSIGNMENT:",
-  Array.from(paidByAssignment.entries())
-);
-
   /*
-  |--------------------------------------------------------------------------
-  | Payment Activity Created During Selected Month
-  |--------------------------------------------------------------------------
-  |
-  | This is transaction activity, not financial collection.
-  |
-  |--------------------------------------------------------------------------
+  | Payment activity created during the selected month
+  | (transaction activity, all obligations incl. optional)
   */
 
-  const paymentsCreatedThisMonth =
-    await Payment.find({
-      status: {
-        $in: [
-          "successful",
-          "pending",
-          "failed",
-          "refunded",
-        ],
-      },
+  const paymentsCreatedThisMonth = assignmentIds.length
+    ? await Payment.find({
+        obligationAssignment: { $in: assignmentIds },
+        status: {
+          $in: ["successful", "pending", "failed", "refunded"],
+        },
+        createdAt: { $gte: startDate, $lt: endDate },
+      })
+        .select("_id obligationAssignment amount status paidAt createdAt")
+        .lean()
+    : [];
 
-      createdAt: {
-        $gte: startDate,
-        $lt: endDate,
-      },
-    })
-      .select(
-        "_id obligationAssignment amount status paidAt createdAt"
-      )
-      .lean();
-
-  /*
-  |--------------------------------------------------------------------------
-  | Payment Counts
-  |--------------------------------------------------------------------------
-  */
-
-  const successfulPayments =
-    paymentsCreatedThisMonth.filter(
-      (payment) =>
-        payment.status === "successful"
-    );
-
-  const pendingPayments =
-    paymentsCreatedThisMonth.filter(
-      (payment) =>
-        payment.status === "pending"
-    );
-
-  const failedPayments =
-    paymentsCreatedThisMonth.filter(
-      (payment) =>
-        payment.status === "failed"
-    );
-
-  const refundedPayments =
-    paymentsCreatedThisMonth.filter(
-      (payment) =>
-        payment.status === "refunded"
-    );
-
-  /*
-  |--------------------------------------------------------------------------
-  | Cash Received During Selected Month
-  |--------------------------------------------------------------------------
-  |
-  | This is the actual cash received during the month.
-  |
-  |--------------------------------------------------------------------------
-  */
-
-  const cashPaymentsThisMonth =
-    await Payment.find({
-      status: "successful",
-
-      paidAt: {
-        $gte: startDate,
-        $lt: endDate,
-      },
-    })
-      .select(
-        "_id obligationAssignment amount paidAt"
-      )
-      .lean();
-
-  const totalCollectedThisMonth =
-    cashPaymentsThisMonth.reduce(
-      (total, payment) =>
-        total +
-        Number(payment.amount || 0),
-      0
-    );
-
-  /*
-  |--------------------------------------------------------------------------
-  | Payment Summary
-  |--------------------------------------------------------------------------
-  */
+  const countByStatus = (status) =>
+    paymentsCreatedThisMonth.filter((payment) => payment.status === status)
+      .length;
 
   const paymentSummary = {
-    totalPayments:
-      paymentsCreatedThisMonth.length,
-
-    successfulPayments:
-      successfulPayments.length,
-
-    pendingPayments:
-      pendingPayments.length,
-
-    failedPayments:
-      failedPayments.length,
-
-    refundedPayments:
-      refundedPayments.length,
-
+    totalPayments: paymentsCreatedThisMonth.length,
+    successfulPayments: countByStatus("successful"),
+    pendingPayments: countByStatus("pending"),
+    failedPayments: countByStatus("failed"),
+    refundedPayments: countByStatus("refunded"),
     totalCollectedThisMonth,
   };
 
   /*
-  |--------------------------------------------------------------------------
-  | Group Assignments By Obligation
-  |--------------------------------------------------------------------------
+  | Group assignments by obligation
   */
 
   const assignmentGroups = new Map();
 
   for (const assignment of assignments) {
-    const obligationId =
-      assignment.obligation?.toString();
+    const obligationId = assignment.obligation?.toString();
 
-    if (!obligationId) {
-      continue;
+    if (!obligationId) continue;
+
+    if (!assignmentGroups.has(obligationId)) {
+      assignmentGroups.set(obligationId, []);
     }
 
-    if (
-      !assignmentGroups.has(
-        obligationId
-      )
-    ) {
-      assignmentGroups.set(
-        obligationId,
-        []
-      );
-    }
-
-    assignmentGroups
-      .get(obligationId)
-      .push(assignment);
+    assignmentGroups.get(obligationId).push(assignment);
   }
 
   /*
-  |--------------------------------------------------------------------------
-  | Obligation Breakdown
-  |--------------------------------------------------------------------------
+  | Obligation breakdown
   */
 
   const obligationBreakdown = [];
 
   for (const obligation of obligations) {
-    const obligationId =
-      obligation._id.toString();
+    const obligationId = obligation._id.toString();
+    const related = assignmentGroups.get(obligationId) || [];
 
-    const relatedAssignments =
-      assignmentGroups.get(
-        obligationId
-      ) || [];
+    if (!related.length) continue;
 
-    /*
-    |--------------------------------------------------------------------------
-    | Skip obligations with no assignments
-    |--------------------------------------------------------------------------
-    */
-
-    if (!relatedAssignments.length) {
-      continue;
-    }
+    const isActive = obligation.isActive !== false;
+    const isOptional = obligation.isOptional === true;
 
     let expected = 0;
     let collected = 0;
+    let cashReceived = 0;
     let outstanding = 0;
     let overdue = 0;
 
-    /*
-    |--------------------------------------------------------------------------
-    | Calculate Assignment Totals
-    |--------------------------------------------------------------------------
-    */
+    for (const assignment of related) {
+      const amountDue = Number(assignment.amountDue || 0);
 
-    for (const assignment of relatedAssignments) {
-      const amountDue =
-        Number(
-          assignment.amountDue || 0
-        );
+      const paid = paidByAssignment.get(assignment._id.toString()) || 0;
 
-      /*
-      |--------------------------------------------------------------------------
-      | Successful payments received by report month-end
-      |--------------------------------------------------------------------------
-      */
-
-      const amountPaidByMonthEnd =
-  paidByAssignment.get(
-    assignment._id.toString()
-  ) || 0;
-
-
-      /*
-      |--------------------------------------------------------------------------
-      | Expected
-      |--------------------------------------------------------------------------
-      */
+      const applied = Math.min(paid, amountDue);
+      const remaining = Math.max(0, amountDue - applied);
 
       expected += amountDue;
+      collected += applied; // capped
+      cashReceived += paid; // raw cash
 
-      /*
-      |--------------------------------------------------------------------------
-      | Collected
-      |--------------------------------------------------------------------------
-      */
+      // Inactive obligations never create current debt
+      if (isActive) {
+        outstanding += remaining;
 
-      const collectedForAssignment =
-        Math.min(
-          amountPaidByMonthEnd,
-          amountDue
-        );
-
-      collected +=
-        collectedForAssignment;
-
-      /*
-      |--------------------------------------------------------------------------
-      | Outstanding
-      |--------------------------------------------------------------------------
-      */
-
-      const remaining =
-        Math.max(
-          0,
-          amountDue -
-            collectedForAssignment
-        );
-
-      outstanding += remaining;
-
-      /*
-      |--------------------------------------------------------------------------
-      | Overdue
-      |--------------------------------------------------------------------------
-      |
-      | Only active obligations can be overdue.
-      |
-      | The obligation is overdue when its due date
-      | has passed as of the report month-end.
-      |
-      |--------------------------------------------------------------------------
-      */
-
-      if (
-        obligation.isActive &&
-        assignment.dueDate &&
-        new Date(
-          assignment.dueDate
-        ) < endDate &&
-        remaining > 0
-      ) {
-        overdue += remaining;
+        if (
+          assignment.dueDate &&
+          new Date(assignment.dueDate) < overdueCutoff &&
+          remaining > 0
+        ) {
+          overdue += remaining;
+        }
       }
     }
 
-/*
-    |--------------------------------------------------------------------------
-    | Add Obligation
-    |--------------------------------------------------------------------------
-    */
-
     obligationBreakdown.push({
-      obligation:
-        obligation._id,
-
-      name:
-        obligation.name,
-
-      category:
-        obligation.category,
-
-      isOptional:
-        obligation.isOptional === true,
-
-      isActive:
-        obligation.isActive !== false,
-
+      obligation: obligation._id,
+      name: obligation.name,
+      category: obligation.category,
+      isOptional,
+      isActive,
       expected,
-
       collected,
-
+      cashReceived,
       outstanding,
-
       overdue,
-
-      collectionRate:
-        calculateRate(
-          collected,
-          expected
-        ),
+      collectionRate: calculateRate(collected, expected),
     });
   }
 
   /*
-  |--------------------------------------------------------------------------
-  | Category Breakdown
-  |--------------------------------------------------------------------------
-  |
-  | Each category is now separated into:
-  |
-  | - mandatory
-  | - optional
-  |
-  | Optional obligations remain visible for reporting,
-  | but do NOT contribute to the main financial summary.
-  |
-  |--------------------------------------------------------------------------
+  | Category breakdown
   */
 
-
-
-  const categoryBreakdown = [];
-
-  for (const category of [
-    "individual",
-    "yearSet",
-    "chapter",
-  ]) {
-    const categoryObligations =
-      obligationBreakdown.filter(
-        (item) =>
-          item.category === category
+  const categoryBreakdown = ["individual", "yearSet", "chapter"].map(
+    (category) => {
+      const items = obligationBreakdown.filter(
+        (item) => item.category === category
       );
-
-
-      console.log(
-  "FINANCIAL CATEGORY BREAKDOWN:",
-  JSON.stringify(
-    categoryBreakdown,
-    null,
-    2
-  )
-);
-    /*
-    |--------------------------------------------------------------------------
-    | Mandatory Active Obligations
-    |--------------------------------------------------------------------------
-    */
-
-    const mandatory =
-      categoryObligations.filter(
-        (item) =>
-          !item.isOptional &&
-          item.isActive
-      );
-
-    /*
-    |--------------------------------------------------------------------------
-    | Optional Active Obligations
-    |--------------------------------------------------------------------------
-    */
-
-    const optional =
-      categoryObligations.filter(
-        (item) =>
-          item.isOptional &&
-          item.isActive
-      );
-
-    /*
-    |--------------------------------------------------------------------------
-    | Calculate Group Totals
-    |--------------------------------------------------------------------------
-    */
-
-    const calculateGroupTotals = (
-      items
-    ) => {
-      const expected =
-        items.reduce(
-          (total, item) =>
-            total + item.expected,
-          0
-        );
-
-      const collected =
-        items.reduce(
-          (total, item) =>
-            total + item.collected,
-          0
-        );
-
-      const outstanding =
-        items.reduce(
-          (total, item) =>
-            total + item.outstanding,
-          0
-        );
-
-      const overdue =
-        items.reduce(
-          (total, item) =>
-            total + item.overdue,
-          0
-        );
 
       return {
-        expected,
-        collected,
-        outstanding,
-        overdue,
-        collectionRate:
-          calculateRate(
-            collected,
-            expected
-          ),
+        category,
+
+        mandatory: calculateGroupTotals(
+          items.filter((item) => !item.isOptional && item.isActive)
+        ),
+
+        inactive: calculateGroupTotals(
+          items.filter((item) => !item.isOptional && !item.isActive)
+        ),
+
+        optional: calculateGroupTotals(items.filter((item) => item.isOptional)),
       };
-    };
-
-    /*
-    |--------------------------------------------------------------------------
-    | Add Category
-    |--------------------------------------------------------------------------
-    */
-
-    categoryBreakdown.push({
-      category,
-
-      mandatory:
-        calculateGroupTotals(
-          mandatory
-        ),
-
-      optional:
-        calculateGroupTotals(
-          optional
-        ),
-    
-
-    });
-
-    
-  }
-
-
- 
-  /*
-  |--------------------------------------------------------------------------
-  | Mandatory Active Obligation Totals
-  |--------------------------------------------------------------------------
-  |
-  | IMPORTANT:
-  |
-  | These totals intentionally use ONLY:
-  |
-  | - mandatory obligations
-  | - active obligations
-  |
-  | Optional obligations are NOT included.
-  |
-  |--------------------------------------------------------------------------
-  */
-
-  const mandatoryObligations =
-    obligationBreakdown.filter(
-      (item) =>
-        !item.isOptional &&
-        item.isActive
-    );
+    }
+  );
 
   /*
-  |--------------------------------------------------------------------------
-  | Total Expected
-  |--------------------------------------------------------------------------
+  | Summary (derived from the breakdown so everything reconciles)
   */
 
-  const totalExpected =
-    mandatoryObligations.reduce(
-      (total, item) =>
-        total + item.expected,
-      0
-    );
+  const mandatoryAll = obligationBreakdown.filter((item) => !item.isOptional);
+  const mandatoryActive = mandatoryAll.filter((item) => item.isActive);
 
-  /*
-  |--------------------------------------------------------------------------
-  | Total Collected YTD / By Report Month-End
-  |--------------------------------------------------------------------------
-  */
+  const totalExpected = sum(mandatoryActive, "expected");
+  const totalOutstanding = sum(mandatoryActive, "outstanding");
+  const totalOverdue = sum(mandatoryActive, "overdue");
 
-  const totalCollected =
-    mandatoryObligations.reduce(
-      (total, item) =>
-        total + item.collected,
-      0
-    );
+  // Historical cash on all mandatory obligations (includes inactive)
+  const totalCollected = sum(mandatoryAll, "cashReceived");
 
-  /*
-  |--------------------------------------------------------------------------
-  | Total Outstanding
-  |--------------------------------------------------------------------------
-  */
-
-  const totalOutstanding =
-    mandatoryObligations.reduce(
-      (total, item) =>
-        total + item.outstanding,
-      0
-    );
-
-  /*
-  |--------------------------------------------------------------------------
-  | Total Overdue
-  |--------------------------------------------------------------------------
-  */
-
-  const totalOverdue =
-    mandatoryObligations.reduce(
-      (total, item) =>
-        total + item.overdue,
-      0
-    );
-
-  /*
-  |--------------------------------------------------------------------------
-  | Final Snapshot
-  |--------------------------------------------------------------------------
-  */
+  // Same population as totalExpected
+  const collectedOnActive = sum(mandatoryActive, "collected");
 
   return {
     summary: {
       totalExpected,
-
-      /*
-      | Collected is cumulative for the
-      | selected financial year up to
-      | the end of the selected month.
-      */
-
       totalCollected,
-
       totalOutstanding,
-
       totalOverdue,
-
-      collectionRate:
-        calculateRate(
-          totalCollected,
-          totalExpected
-        ),
+      collectedOnActive,
+      collectionRate: calculateRate(collectedOnActive, totalExpected),
     },
 
     categoryBreakdown,
@@ -819,3 +377,5 @@ export const generateFinancialReportSnapshot = async ({
     paymentSummary,
   };
 };
+
+export { EMPTY_GROUP };

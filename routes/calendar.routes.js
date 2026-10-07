@@ -9,6 +9,7 @@ import {
   updateCalendarEvent,
   deleteCalendarEvent,
 } from "../controller/calendar.controller.js";
+import {requireFinancialMember} from "../middleware/financialMiddleware.js";
 
 import { protect } from "../middleware/authmiddleware.js";
 import requireRole from "../middleware/roleMiddleware.js";
@@ -22,12 +23,14 @@ const router = express.Router();
 router.get(
   "/",
   protect,
+  requireFinancialMember,
   getCalendarEvents
 );
 
 router.get(
   "/:id",
   protect,
+  requireFinancialMember,
   getCalendarEventById
 );
 

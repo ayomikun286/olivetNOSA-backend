@@ -2,7 +2,6 @@ import Obligation from "../models/Obligation.js";
 import ObligationAssignment from "../models/ObligationAssignment.js";
 import User from "../models/User.js";
 
-
 export const assignIndividualObligationsToUser = async (
   userId,
   assignedBy = null,
@@ -91,6 +90,24 @@ export const assignIndividualObligationsToUser = async (
       session,
       ordered: false,
     });
+
+   const hasMandatoryAssignment = obligations.some(
+  (obligation) =>
+    !obligation.isOptional &&
+    !existingObligationIds.has(obligation._id.toString())
+);
+
+if (hasMandatoryAssignment) {
+  await User.updateOne(
+    { _id: userId, role: "member" },
+    {
+      $set: {
+        financialStatus: "non_financial",
+      },
+    },
+    { session }
+  );
+}
 
   return {
     assigned: createdAssignments.length,
@@ -208,6 +225,25 @@ export const assignIndividualObligationToMembers = async (
       session,
       ordered: false,
     });
+
+    if (obligation.isOptional !== true) {
+  await User.updateMany(
+    {
+      _id: { $in: assignments.map((assignment) => assignment.user) },
+      role: "member",
+    },
+    {
+      $set: {
+        financialStatus: "non_financial",
+      },
+    },
+    { session }
+  );
+}
+
+
+
+    
 
   return {
     assigned: createdAssignments.length,

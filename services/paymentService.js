@@ -3,189 +3,209 @@ import Payment from "../models/Payment.js";
 import ObligationAssignment from "../models/ObligationAssignment.js";
 import { createNotification } from "../services/notificationService.js";
 import { sendEmail } from "../services/email.service.js";
+import Obligation from "../models/Obligation.js";
+import {
+  updateMemberFinancialStatus,
+} from "../services/memberFinancialStatus.service.js";
 import User from "../models/User.js";
 
 
 export const completeSuccessfulPayment = async (
-    paymentId,
-    transaction
+  paymentId,
+  transaction
 ) => {
-    const session = await mongoose.startSession();
+  const session = await mongoose.startSession();
+
+  try {
+    session.startTransaction();
+
+    // ========================================
+    // FIND PAYMENT
+    // ========================================
+
+    const payment = await Payment.findById(paymentId)
+      .session(session);
+
+    if (!payment) {
+      throw new Error(
+        "Payment record not found."
+      );
+    }
+
+    // ========================================
+    // ALREADY PROCESSED
+    // ========================================
+
+    if (payment.status === "successful") {
+      const assignment =
+        await ObligationAssignment.findById(
+          payment.obligationAssignment
+        ).session(session);
+
+      await session.commitTransaction();
+
+      return {
+        payment,
+        assignment,
+      };
+    }
+
+    // ========================================
+    // FIND ASSIGNMENT
+    // ========================================
+
+    const assignment =
+      await ObligationAssignment.findById(
+        payment.obligationAssignment
+      ).session(session);
+
+    if (!assignment) {
+      throw new Error(
+        "Obligation assignment not found."
+      );
+    }
+
+    const obligation = await Obligation.findById(
+      assignment.obligation
+    )
+      .select("year")
+      .session(session);
+
+    if (!obligation) {
+      throw new Error(
+        "Obligation not found."
+      );
+    }
+    // ========================================
+    // FINAL AMOUNT SAFETY CHECK
+    // ========================================
+
+    const amountDue =
+      Number(assignment.amountDue || 0);
+
+    const amountPaid =
+      Number(assignment.amountPaid || 0);
+
+    const paymentAmount =
+      Number(payment.amount || 0);
+
+    const outstanding =
+      Math.max(
+        amountDue - amountPaid,
+        0
+      );
+
+    if (paymentAmount > outstanding) {
+      throw new Error(
+        "Payment exceeds the outstanding obligation balance."
+      );
+    }
+
+    // ========================================
+    // UPDATE PAYMENT
+    // ========================================
+
+    payment.status = "successful";
+
+    payment.paidAt =
+      transaction.paid_at
+        ? new Date(transaction.paid_at)
+        : new Date();
+
+    payment.paymentMethod =
+      mapPaystackPaymentMethod(
+        transaction.channel
+      );
+
+    payment.metadata = {
+      ...payment.metadata,
+
+      paystackTransactionId:
+        transaction.id,
+
+      paystackStatus:
+        transaction.status,
+
+      channel:
+        transaction.channel,
+
+      currency:
+        transaction.currency,
+
+      gatewayResponse:
+        transaction.gateway_response,
+
+      paidAt:
+        transaction.paid_at,
+    };
+
+    await payment.save({
+      session,
+    });
+
+    // ========================================
+    // UPDATE OBLIGATION
+    // ========================================
+
+    const newAmountPaid =
+      amountPaid + paymentAmount;
+
+    assignment.amountPaid =
+      Math.min(
+        newAmountPaid,
+        amountDue
+      );
+
+    assignment.status =
+      assignment.amountPaid >= amountDue
+        ? "paid"
+        : assignment.amountPaid > 0
+          ? "partial"
+          : "pending";
+
+    await assignment.save({
+      session,
+    });
+
+    await updateMemberFinancialStatus(
+      payment.user,
+      obligation.year,
+      session
+    );
+    // ========================================
+    // COMMIT DATABASE TRANSACTION
+    // ========================================
+
+    await session.commitTransaction();
+
+    // ========================================
+    // CREATE PAYMENT NOTIFICATION
+    // ========================================
+
+    await createNotification({
+      userId: payment.user,
+      type: "payment_success",
+      title: "Payment Successful",
+      message: `Your payment of ₦${payment.amount.toLocaleString()} was successful.`,
+      link: "/portal/member/dashboard/payment-history",
+    });
+
+    // ========================================
+    // SEND PAYMENT SUCCESS EMAIL
+    // ========================================
 
     try {
-        session.startTransaction();
+      const user = await User.findById(payment.user)
+        .select("email firstName lastName")
+        .lean();
 
-        // ========================================
-        // FIND PAYMENT
-        // ========================================
+      if (user?.email) {
+        await sendEmail({
+          to: user.email,
 
-        const payment = await Payment.findById(paymentId)
-            .session(session);
+          subject: "Payment Successful – OlivetGOSA",
 
-        if (!payment) {
-            throw new Error(
-                "Payment record not found."
-            );
-        }
-
-        // ========================================
-        // ALREADY PROCESSED
-        // ========================================
-
-        if (payment.status === "successful") {
-            const assignment =
-                await ObligationAssignment.findById(
-                    payment.obligationAssignment
-                ).session(session);
-
-            await session.commitTransaction();
-
-            return {
-                payment,
-                assignment,
-            };
-        }
-
-        // ========================================
-        // FIND ASSIGNMENT
-        // ========================================
-
-        const assignment =
-            await ObligationAssignment.findById(
-                payment.obligationAssignment
-            ).session(session);
-
-        if (!assignment) {
-            throw new Error(
-                "Obligation assignment not found."
-            );
-        }
-
-        // ========================================
-        // FINAL AMOUNT SAFETY CHECK
-        // ========================================
-
-        const amountDue =
-            Number(assignment.amountDue || 0);
-
-        const amountPaid =
-            Number(assignment.amountPaid || 0);
-
-        const paymentAmount =
-            Number(payment.amount || 0);
-
-        const outstanding =
-            Math.max(
-                amountDue - amountPaid,
-                0
-            );
-
-        if (paymentAmount > outstanding) {
-            throw new Error(
-                "Payment exceeds the outstanding obligation balance."
-            );
-        }
-
-        // ========================================
-        // UPDATE PAYMENT
-        // ========================================
-
-        payment.status = "successful";
-
-        payment.paidAt =
-            transaction.paid_at
-                ? new Date(transaction.paid_at)
-                : new Date();
-
-        payment.paymentMethod =
-            mapPaystackPaymentMethod(
-                transaction.channel
-            );
-
-        payment.metadata = {
-            ...payment.metadata,
-
-            paystackTransactionId:
-                transaction.id,
-
-            paystackStatus:
-                transaction.status,
-
-            channel:
-                transaction.channel,
-
-            currency:
-                transaction.currency,
-
-            gatewayResponse:
-                transaction.gateway_response,
-
-            paidAt:
-                transaction.paid_at,
-        };
-
-        await payment.save({
-            session,
-        });
-
-        // ========================================
-        // UPDATE OBLIGATION
-        // ========================================
-
-        const newAmountPaid =
-            amountPaid + paymentAmount;
-
-        assignment.amountPaid =
-            Math.min(
-                newAmountPaid,
-                amountDue
-            );
-
-        assignment.status =
-            assignment.amountPaid >= amountDue
-                ? "paid"
-                : assignment.amountPaid > 0
-                    ? "partial"
-                    : "pending";
-
-        await assignment.save({
-            session,
-        });
-
-        // ========================================
-        // COMMIT DATABASE TRANSACTION
-        // ========================================
-
-        await session.commitTransaction();
-
-        // ========================================
-        // CREATE PAYMENT NOTIFICATION
-        // ========================================
-
-        await createNotification({
-            userId: payment.user,
-            type: "payment_success",
-            title: "Payment Successful",
-            message: `Your payment of ₦${payment.amount.toLocaleString()} was successful.`,
-            link: "/portal/member/dashboard/payment-history",
-        });
-
-        // ========================================
-        // SEND PAYMENT SUCCESS EMAIL
-        // ========================================
-
-        try {
-            const user = await User.findById(payment.user)
-                .select("email firstName lastName")
-                .lean();
-
-            if (user?.email) {
-                await sendEmail({
-                    to: user.email,
-
-                    subject: "Payment Successful – OlivetGOSA",
-
-                    html: `
+          html: `
     <div style="
       margin: 0;
       padding: 40px 16px;
@@ -463,88 +483,88 @@ export const completeSuccessfulPayment = async (
 
     </div>
   `,
-                });
-            }
-        } catch (emailError) {
-            console.error(
-                "Payment success email error:",
-                emailError.message
-            );
-        }
-
-        // ========================================
-        // RETURN RESULT
-        // ========================================
-
-        return {
-            payment,
-            assignment,
-        };
-
-    } catch (error) {
-        await session.abortTransaction();
-        throw error;
-
-    } finally {
-        await session.endSession();
+        });
+      }
+    } catch (emailError) {
+      console.error(
+        "Payment success email error:",
+        emailError.message
+      );
     }
+
+    // ========================================
+    // RETURN RESULT
+    // ========================================
+
+    return {
+      payment,
+      assignment,
+    };
+
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+
+  } finally {
+    await session.endSession();
+  }
 };
 
 
 export const handleFailedPayment = async (
-    payment,
-    transaction,
-    status = "failed"
+  payment,
+  transaction,
+  status = "failed"
 ) => {
-    payment.status = status;
+  payment.status = status;
 
-    payment.metadata = {
-        ...payment.metadata,
+  payment.metadata = {
+    ...payment.metadata,
 
-        paystackStatus:
-            transaction?.status || status,
+    paystackStatus:
+      transaction?.status || status,
 
-        gatewayResponse:
-            transaction?.gateway_response ||
-            "Payment was not successful.",
+    gatewayResponse:
+      transaction?.gateway_response ||
+      "Payment was not successful.",
 
-        failureReason:
-            transaction?.gateway_response ||
-            "Payment was not successful.",
+    failureReason:
+      transaction?.gateway_response ||
+      "Payment was not successful.",
 
-        failedAt: new Date(),
-    };
+    failedAt: new Date(),
+  };
 
-    await payment.save();
+  await payment.save();
 
-    // ========================================
-    // CREATE FAILURE NOTIFICATION
-    // ========================================
+  // ========================================
+  // CREATE FAILURE NOTIFICATION
+  // ========================================
 
-    await createNotification({
-        userId: payment.user,
-        type: "payment_failed",
-        title: "Payment Failed",
-        message: `Your payment of ₦${payment.amount.toLocaleString()} was not successful. Please try again.`,
-        link: "/portal/member/dashboard/payment-history",
-    });
+  await createNotification({
+    userId: payment.user,
+    type: "payment_failed",
+    title: "Payment Failed",
+    message: `Your payment of ₦${payment.amount.toLocaleString()} was not successful. Please try again.`,
+    link: "/portal/member/dashboard/payment-history",
+  });
 
-    // ========================================
-    // SEND FAILURE EMAIL
-    // ========================================
+  // ========================================
+  // SEND FAILURE EMAIL
+  // ========================================
 
-    try {
-        const user = await User.findById(payment.user)
-            .select("email firstName lastName")
-            .lean();
+  try {
+    const user = await User.findById(payment.user)
+      .select("email firstName lastName")
+      .lean();
 
-        if (user?.email) {
-            await sendEmail({
-                to: user.email,
+    if (user?.email) {
+      await sendEmail({
+        to: user.email,
 
-                subject: "Payment Failed – OlivetGOSA",
+        subject: "Payment Failed – OlivetGOSA",
 
-                html: `
+        html: `
     <div style="
       margin: 0;
       padding: 40px 16px;
@@ -739,8 +759,8 @@ export const handleFailedPayment = async (
                 <strong>Reason:</strong><br />
                 <span style="color: #555555;">
                   ${transaction?.gateway_response ||
-                    "Payment was not successful."
-                    }
+          "Payment was not successful."
+          }
                 </span>
               </p>
 
@@ -840,37 +860,37 @@ export const handleFailedPayment = async (
 
     </div>
   `,
-            });
-        }
-    } catch (emailError) {
-        console.error(
-            "Payment failure email error:",
-            emailError.message
-        );
+      });
     }
+  } catch (emailError) {
+    console.error(
+      "Payment failure email error:",
+      emailError.message
+    );
+  }
 
-    return payment;
+  return payment;
 };
 
 
 export const mapPaystackPaymentMethod = (
-    channel
+  channel
 ) => {
-    switch (channel) {
-        case "card":
-            return "card";
+  switch (channel) {
+    case "card":
+      return "card";
 
-        case "bank":
-        case "bank_transfer":
-            return "bank_transfer";
+    case "bank":
+    case "bank_transfer":
+      return "bank_transfer";
 
-        case "ussd":
-            return "ussd";
+    case "ussd":
+      return "ussd";
 
-        case "mobile_money":
-            return "mobile_money";
+    case "mobile_money":
+      return "mobile_money";
 
-        default:
-            return "other";
-    }
+    default:
+      return "other";
+  }
 };

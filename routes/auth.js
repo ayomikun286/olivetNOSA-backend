@@ -18,6 +18,7 @@ import {
 import {protect} from "../middleware/authmiddleware.js";
 import upload from "../middleware/upload.middleware.js";
 import {serverLimiter} from "../middleware/rateLimiter.js";
+import { updateMemberFinancialStatus } from "../services/memberFinancialStatus.service.js";
 const router = express.Router();
 
 
@@ -48,6 +49,29 @@ router.put(
   upload.single("profilePhoto"),
   uploadProfilePhoto
 );
+
+
+router.get("/api/debug/financial/:userId", async (req, res) => {
+  try {
+    const status = await updateMemberFinancialStatus(
+      req.params.userId,
+      2026
+    );
+
+    res.json({
+      ok: true,
+      status,
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      ok: false,
+      message: error.message,
+    });
+  }
+});
+
 
 router.post("/user/resendVerifyEmailLink", serverLimiter, resendVerifyEmailLink)
 router.post("/user/forgetPassword",serverLimiter, forgetPassword);
