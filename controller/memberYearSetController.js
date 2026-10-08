@@ -26,7 +26,7 @@ export const getMyYearSet = async (req, res) => {
 
     const yearSet = user.yearSet;
 
-    // Only the assigned year set leader can access this section
+    // Only the assigned leader can access this dashboard.
     if (
       !yearSet.leader ||
       yearSet.leader.toString() !== user._id.toString()
@@ -47,14 +47,92 @@ export const getMyYearSet = async (req, res) => {
       status: "active",
     })
       .select(
-        "_id firstName middleName lastName alumniId email graduationYear chapter"
+        "_id firstName middleName lastName alumniId email phone graduationYear chapter financialStatus"
       )
       .populate("chapter", "name code")
       .sort({ lastName: 1, firstName: 1 })
       .lean();
 
     // ========================================
+    // MEMBER FINANCIAL SUMMARIES
+    // No individual payment history is fetched.
+    // ========================================
+
+    const memberIds = members.map((member) => member._id);
+
+    const memberAssignments = await ObligationAssignment.find({
+      user: { $in: memberIds },
+    })
+      .populate({
+        path: "obligation",
+        select: "name category amount year isActive isOptional dueDate",
+        match: { category: "individual" },
+      })
+      .lean();
+
+    // Group individual assignments by member.
+    const financialSummaryByMember = new Map();
+
+    for (const member of members) {
+      financialSummaryByMember.set(member._id.toString(), {
+        totalDue: 0,
+        amountPaid: 0,
+        outstanding: 0,
+        optionalDue: 0,
+        optionalPaid: 0,
+        optionalOutstanding: 0,
+      });
+    }
+
+    for (const assignment of memberAssignments) {
+      const obligation = assignment.obligation;
+
+      // Ignore assignments that aren't individual obligations.
+      if (!obligation) continue;
+
+      // Inactive obligations are historical and must not
+      // inflate the member's current outstanding balance.
+      if (obligation.isActive !== true) continue;
+
+      const memberSummary = financialSummaryByMember.get(
+        assignment.user.toString()
+      );
+
+      if (!memberSummary) continue;
+
+      const due = Math.max(Number(assignment.amountDue || 0), 0);
+      const paid = Math.max(Number(assignment.amountPaid || 0), 0);
+      const outstanding = Math.max(due - paid, 0);
+
+      if (obligation.isOptional === true) {
+        memberSummary.optionalDue += due;
+        memberSummary.optionalPaid += paid;
+        memberSummary.optionalOutstanding += outstanding;
+      } else {
+        memberSummary.totalDue += due;
+        memberSummary.amountPaid += paid;
+        memberSummary.outstanding += outstanding;
+      }
+    }
+
+    // Attach the summary to each member.
+    const membersWithFinancials = members.map((member) => ({
+      ...member,
+      financialSummary:
+        financialSummaryByMember.get(member._id.toString()) || {
+          totalDue: 0,
+          amountPaid: 0,
+          outstanding: 0,
+          optionalDue: 0,
+          optionalPaid: 0,
+          optionalOutstanding: 0,
+        },
+    }));
+
+    // ========================================
     // YEAR SET OBLIGATIONS
+    // These remain separate from members'
+    // individual financial obligations.
     // ========================================
 
     const assignments = await ObligationAssignment.find({
@@ -62,10 +140,8 @@ export const getMyYearSet = async (req, res) => {
     })
       .populate({
         path: "obligation",
-        select: "name description category amount year dueDate isActive",
-        match: {
-          category: "yearSet",
-        },
+        select: "name description category amount year dueDate isActive isOptional",
+        match: { category: "yearSet" },
       })
       .lean();
 
@@ -77,6 +153,8 @@ export const getMyYearSet = async (req, res) => {
       (assignment) => assignment._id
     );
 
+    // Keep the existing recent activity for Year Set obligations.
+    // This does not fetch each member's individual payment history.
     const recentPayments = await Payment.find({
       obligationAssignment: { $in: assignmentIds },
       status: "successful",
@@ -97,36 +175,33 @@ export const getMyYearSet = async (req, res) => {
       .limit(10)
       .lean();
 
-  const activeAssignments = validAssignments.filter(
-  (assignment) => assignment.obligation?.isActive === true
-);
+    const activeAssignments = validAssignments.filter(
+      (assignment) => assignment.obligation?.isActive === true
+    );
 
-// Current obligations only
-const totalDue = activeAssignments.reduce(
-  (total, assignment) =>
-    total + Number(assignment.amountDue || 0),
-  0
-);
+    const totalDue = activeAssignments.reduce(
+      (total, assignment) =>
+        total + Number(assignment.amountDue || 0),
+      0
+    );
 
-// All historical + current payments
-const amountPaid = validAssignments.reduce(
-  (total, assignment) =>
-    total + Number(assignment.amountPaid || 0),
-  0
-);
+    const amountPaid = validAssignments.reduce(
+      (total, assignment) =>
+        total + Number(assignment.amountPaid || 0),
+      0
+    );
 
-// Only active obligation payments reduce
-// the current outstanding balance.
-const activeAmountPaid = activeAssignments.reduce(
-  (total, assignment) =>
-    total + Number(assignment.amountPaid || 0),
-  0
-);
+    const activeAmountPaid = activeAssignments.reduce(
+      (total, assignment) =>
+        total + Number(assignment.amountPaid || 0),
+      0
+    );
 
-const outstanding = Math.max(
-  totalDue - activeAmountPaid,
-  0
-);
+    const outstanding = Math.max(
+      totalDue - activeAmountPaid,
+      0
+    );
+
     // ========================================
     // RESPONSE
     // ========================================
@@ -145,15 +220,13 @@ const outstanding = Math.max(
           totalDue,
           amountPaid,
           outstanding,
-          memberCount: members.length,
+          memberCount: membersWithFinancials.length,
         },
 
         obligations: validAssignments,
 
-        members,
+        members: membersWithFinancials,
 
-        // Will be connected when Payment/Transaction
-        // module is created.
         recentActivity: recentPayments,
       }
     );
