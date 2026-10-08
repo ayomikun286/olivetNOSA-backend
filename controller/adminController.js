@@ -413,7 +413,20 @@ export const approveMemberController = async (req, res) => {
 
 export const getAdminDashboard = async (req, res) => {
   try {
-    const currentYear = new Date().getFullYear();
+    const now = new Date();
+    const currentYear = now.getFullYear();
+
+    const startOfMonth = new Date(
+      currentYear,
+      now.getMonth(),
+      1
+    );
+
+    const startOfNextMonth = new Date(
+      currentYear,
+      now.getMonth() + 1,
+      1
+    );
 
 
 
@@ -422,6 +435,7 @@ export const getAdminDashboard = async (req, res) => {
       activeMembers,
       pendingMembers,
       suspendedMembers,
+      monthlyRegistrations,
     ] = await Promise.all([
       User.countDocuments({
         role: "member",
@@ -441,8 +455,15 @@ export const getAdminDashboard = async (req, res) => {
         role: "member",
         status: "suspended",
       }),
-    ]);
 
+      User.countDocuments({
+        role: "member",
+        createdAt: {
+          $gte: startOfMonth,
+          $lt: startOfNextMonth,
+        },
+      }),
+    ]);
 
     const financialResult = await ObligationAssignment.aggregate([
       {
@@ -459,7 +480,7 @@ export const getAdminDashboard = async (req, res) => {
       {
         $match: {
           "obligation.isActive": true,
-           "obligation.isOptional": { $ne: true },
+          "obligation.isOptional": { $ne: true },
         },
       },
       {
@@ -487,7 +508,7 @@ export const getAdminDashboard = async (req, res) => {
 
     const financialSummary = financialResult[0] || {};
 
-    const totalObligations =  financialSummary.totalObligations || 0;
+    const totalObligations = financialSummary.totalObligations || 0;
 
     const totalOutstanding =
       financialSummary.totalOutstanding || 0;
@@ -720,6 +741,7 @@ export const getAdminDashboard = async (req, res) => {
         active: activeMembers,
         pending: pendingMembers,
         suspended: suspendedMembers,
+        monthlyRegistrations,
       },
 
       finance: {

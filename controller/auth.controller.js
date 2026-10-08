@@ -797,6 +797,88 @@ export const verifyEmail = async (req, res) => {
     await user.save();
 
 
+    // ------------------------------------------
+// STAFF REGISTRATION NOTIFICATION
+// ------------------------------------------
+
+try {
+  const staffRecipients = await User.find({
+    role: {
+      $in: ["secretary", "superAdmin"],
+    },
+    status: "active",
+  }).select("email firstName lastName role");
+
+  const recipientEmails = staffRecipients
+    .map((staff) => staff.email)
+    .filter(Boolean);
+
+  const devEmail = process.env.REGISTRATION_NOTIFICATION_EMAIL;
+
+  if (devEmail) {
+    recipientEmails.push(devEmail);
+  }
+
+  const yearSet = await YearSet.findById(user.yearSet)
+    .populate("leader", "email firstName lastName")
+    .lean();
+
+  if (yearSet?.leader?.email) {
+    recipientEmails.push(yearSet.leader.email);
+  }
+
+  const uniqueRecipientEmails = [
+    ...new Set(recipientEmails.map((email) => email.toLowerCase())),
+  ];
+
+  if (uniqueRecipientEmails.length > 0) {
+    const applicantName = [
+      user.firstName,
+      user.middleName,
+      user.lastName,
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    await sendEmail({
+      to: recipientEmails,
+      subject: "New Alumni Registration",
+      html: `
+        <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+          <h2>New Alumni Registration</h2>
+
+          <p>
+            A new alumni applicant has successfully verified their email
+            address and is awaiting membership approval.
+          </p>
+
+          <h3>Applicant Details</h3>
+
+          <ul>
+            <li><strong>Name:</strong> ${applicantName}</li>
+            <li><strong>Email:</strong> ${user.email}</li>
+            <li><strong>Phone:</strong> ${user.phone || "Not provided"}</li>
+            <li><strong>Enrollment Year:</strong> ${user.enrollmentYear}</li>
+            <li><strong>Graduation Year:</strong> ${user.graduationYear}</li>
+            <li><strong>Status:</strong> Pending membership approval</li>
+          </ul>
+
+          <p>
+            Please review the applicant from the admin dashboard.
+          </p>
+        </div>
+      `,
+    });
+  }
+} catch (notificationError) {
+  console.error(
+    "Staff registration notification error:",
+    notificationError
+  );
+}
+
+
+
     // notification//
     await createNotification({
       userId: user._id,

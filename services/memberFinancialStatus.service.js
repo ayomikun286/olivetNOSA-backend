@@ -2,27 +2,6 @@ import Obligation from "../models/Obligation.js";
 import ObligationAssignment from "../models/ObligationAssignment.js";
 import User from "../models/User.js";
 
-const getMandatoryIndividualObligationIds = async (
-  year,
-  session = null
-) => {
-  const query = Obligation.find({
-    category: "individual",
-    year,
-    isActive: true,
-    isOptional: { $ne: true },
-  })
-    .select("_id")
-    .lean();
-
-  if (session) {
-    query.session(session);
-  }
-
-  const obligations = await query;
-
-  return obligations.map((obligation) => obligation._id);
-};
 
 export const updateMemberFinancialStatus = async (
   userId,
@@ -47,10 +26,7 @@ export const updateMemberFinancialStatus = async (
   }
 
   const obligations = await obligationQuery;
-  console.log(
-  "MANDATORY INDIVIDUAL OBLIGATIONS:",
-  obligations
-);
+ 
 
   const obligationIds = obligations.map(
     (obligation) => obligation._id
@@ -95,10 +71,10 @@ export const updateMemberFinancialStatus = async (
 
   const assignments = await assignmentQuery;
 
-  console.log(
-  "MEMBER ASSIGNMENTS:",
-  assignments
-);
+  // console.log(
+  //   "MEMBER ASSIGNMENTS:",
+  //   assignments
+  // );
 
   // ----------------------------------------------------------
   // CHECK THAT ALL MANDATORY OBLIGATIONS ARE ASSIGNED
@@ -152,16 +128,16 @@ export const updateMemberFinancialStatus = async (
 
  await updateQuery;
 
-console.log("CALCULATED FINANCIAL STATUS:", financialStatus);
+// console.log("CALCULATED FINANCIAL STATUS:", financialStatus);
 
 const updatedUser = await User.findById(userId)
   .select("financialStatus")
   .lean();
 
-console.log(
-  "DATABASE FINANCIAL STATUS:",
-  updatedUser?.financialStatus
-);
+// console.log(
+//   "DATABASE FINANCIAL STATUS:",
+//   updatedUser?.financialStatus
+// );
 
 return financialStatus;
 };

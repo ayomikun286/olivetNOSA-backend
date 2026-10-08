@@ -16,9 +16,13 @@ import {
   uploadProfilePhoto,
 } from "../controller/auth.controller.js";
 import {protect} from "../middleware/authmiddleware.js";
+import {requireFinancialMember} from "../middleware/financialMiddleware.js";
+
 import upload from "../middleware/upload.middleware.js";
 import {serverLimiter} from "../middleware/rateLimiter.js";
 import { updateMemberFinancialStatus } from "../services/memberFinancialStatus.service.js";
+import  requireRole  from "../middleware/roleMiddleware.js";
+import {getPublishedFinancialReports} from "../controller/membersFinancialReport.js";  
 const router = express.Router();
 
 
@@ -49,6 +53,19 @@ router.put(
   upload.single("profilePhoto"),
   uploadProfilePhoto
 );
+
+
+router.get(
+  "/api/monthly/financial-reports",
+  protect,
+  requireRole("member"),
+  requireFinancialMember,
+  getPublishedFinancialReports
+);  
+  
+
+
+
 
 
 router.get("/api/debug/financial/:userId", async (req, res) => {

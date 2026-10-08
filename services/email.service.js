@@ -10,7 +10,7 @@ export const sendEmail = async ({ to, subject, html }) => {
         html,
     });
 
-    console.log("Resend email response:", response);
+    // console.log("Resend email response:", response);
 
     if (response?.error) {
         throw new Error(response.error.message);

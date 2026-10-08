@@ -11,3 +11,56 @@ FIRST THING TO RUN
 8. Forgot/reset password
 9. Frontend auth pages
 10. Security/rate limiting
+
+
+
+
+
+
+
+
+Continue now — clear requirements
+Registration notifications
+Secretary
+Super Admin
+Dev representative
+Year Set leadership
+Chairman
+Secretary
+Treasurer
+Proper leadership visibility/performance
+Published financial reports
+Admin creates/approves
+Publish to members
+Only eligible financial members can access
+Financial-member eligibility
+Make the existing financial-status logic reliable and reusable for restricted features.
+Monthly registration counter
+Jobs / Opportunities
+Articles / Insights / Mentoring
+Build the basic structure, not an overcomplicated CMS.
+Support / Enquiry
+Basic enquiry submission + admin handling.
+Election system groundwork
+You can start the models/admin structure, but don't finalize voting rules until they confirm them.
+Security improvements that are unambiguous
+Failed-login tracking/lockout if the 3-attempt requirement was explicitly stated
+Don't invent OTP/2FA rules yet.
+Put these in a "Confirm at next meeting" list
+Exact 2FA requirement
+OTP purpose and expiry
+Exact account-lockout duration
+Year Set verification process/timing
+Final election/voting rules
+Any ambiguous eligibility rules
+Any unclear notification recipients/details
+
+That way you're still moving every day, but you're not making irreversible product decisions based on assumptions.
+
+And honestly, given where the project is now, I'd prioritize financial reports → registration/approval workflow → year-set leadership → engagement features → elections groundwork.
+
+You can tell Mr. David at the next meeting:
+
+“I continued with the requirements that were clear from the review and left the areas that needed clarification for confirmation.”
+
+That's a very defensible position.

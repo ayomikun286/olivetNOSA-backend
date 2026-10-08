@@ -23,14 +23,12 @@ const router = express.Router();
 router.get(
   "/",
   protect,
-  requireFinancialMember,
   getCalendarEvents
 );
 
 router.get(
   "/:id",
   protect,
-  requireFinancialMember,
   getCalendarEventById
 );
 
