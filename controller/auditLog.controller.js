@@ -129,20 +129,6 @@ export const getAdminAuditLogs = async (req, res) => {
     ]);
 
 
-    console.log(
-  "CHAPTER AUDIT:",
-  JSON.stringify(
-    logs
-      .filter((log) => log.resource === "Chapter")
-      .map((log) => ({
-        action: log.action,
-        resourceId: log.resourceId,
-        details: log.details,
-      })),
-    null,
-    2
-  )
-);
 
     return res.status(200).json({
       success: true,

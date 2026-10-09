@@ -14,6 +14,7 @@ import {
    getMemberProfile,
    updateMemberProfile,
   uploadProfilePhoto,
+  refreshActivity
 } from "../controller/auth.controller.js";
 import {protect} from "../middleware/authmiddleware.js";
 import {requireFinancialMember} from "../middleware/financialMiddleware.js";
@@ -30,8 +31,12 @@ router.post("/user/create",serverLimiter, Signup);
 router.get("/user/verify-email", verifyEmail);
 router.get("/user/verification-status", checkVerificationStatus);
 router.post("/user/login",serverLimiter, Login);
-router.get("/user/logout",protect,logout)
+router.get("/user/logout",logout)
 router.get("/auth/me",protect,getCurrentUser)
+
+
+router.post("/auth/activity", protect, refreshActivity);
+
 
 router.get(
   "/auth/profile",

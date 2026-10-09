@@ -85,6 +85,21 @@ const userSchema = new mongoose.Schema(
   default: "non_financial",
 },
 
+
+
+failedLoginAttempts: {
+  type: Number,
+  default: 0,
+  min: 0,
+  select: false,
+},
+
+loginLockUntil: {
+  type: Date,
+  default: null,
+  select: false,
+},
+
     // ========================================
     // MEMBER PROFILE
     // ========================================

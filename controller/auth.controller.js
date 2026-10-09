@@ -293,20 +293,20 @@ export const Signup = async (req, res) => {
 
 
     await createAuditLog({
-  actor: user._id,
-  action: "auth.registration_created",
-  resource: "User",
-  resourceId: user._id,
-  targetUser: user._id,
-  req,
-  details: {
-    email: user.email,
-    graduationYear: user.graduationYear,
-    yearSet: user.yearSet,
-    chapter: user.chapter,
-    status: user.status,
-  },
-});
+      actor: user._id,
+      action: "auth.registration_created",
+      resource: "User",
+      resourceId: user._id,
+      targetUser: user._id,
+      req,
+      details: {
+        email: user.email,
+        graduationYear: user.graduationYear,
+        yearSet: user.yearSet,
+        chapter: user.chapter,
+        status: user.status,
+      },
+    });
 
 
     // notification//
@@ -815,65 +815,65 @@ export const verifyEmail = async (req, res) => {
 
 
     await createAuditLog({
-  actor: user._id,
-  action: "auth.email_verified",
-  resource: "User",
-  resourceId: user._id,
-  targetUser: user._id,
-  req,
-  details: {
-    email: user.email,
-    status: user.status,
-  },
-});
+      actor: user._id,
+      action: "auth.email_verified",
+      resource: "User",
+      resourceId: user._id,
+      targetUser: user._id,
+      req,
+      details: {
+        email: user.email,
+        status: user.status,
+      },
+    });
 
     // ------------------------------------------
-// STAFF REGISTRATION NOTIFICATION
-// ------------------------------------------
+    // STAFF REGISTRATION NOTIFICATION
+    // ------------------------------------------
 
-try {
-  const staffRecipients = await User.find({
-    role: {
-      $in: ["secretary", "superAdmin"],
-    },
-    status: "active",
-  }).select("email firstName lastName role");
+    try {
+      const staffRecipients = await User.find({
+        role: {
+          $in: ["secretary", "superAdmin"],
+        },
+        status: "active",
+      }).select("email firstName lastName role");
 
-  const recipientEmails = staffRecipients
-    .map((staff) => staff.email)
-    .filter(Boolean);
+      const recipientEmails = staffRecipients
+        .map((staff) => staff.email)
+        .filter(Boolean);
 
-  const devEmail = process.env.REGISTRATION_NOTIFICATION_EMAIL;
+      const devEmail = process.env.REGISTRATION_NOTIFICATION_EMAIL;
 
-  if (devEmail) {
-    recipientEmails.push(devEmail);
-  }
+      if (devEmail) {
+        recipientEmails.push(devEmail);
+      }
 
-  const yearSet = await YearSet.findById(user.yearSet)
-    .populate("leader", "email firstName lastName")
-    .lean();
+      const yearSet = await YearSet.findById(user.yearSet)
+        .populate("leader", "email firstName lastName")
+        .lean();
 
-  if (yearSet?.leader?.email) {
-    recipientEmails.push(yearSet.leader.email);
-  }
+      if (yearSet?.leader?.email) {
+        recipientEmails.push(yearSet.leader.email);
+      }
 
-  const uniqueRecipientEmails = [
-    ...new Set(recipientEmails.map((email) => email.toLowerCase())),
-  ];
+      const uniqueRecipientEmails = [
+        ...new Set(recipientEmails.map((email) => email.toLowerCase())),
+      ];
 
-  if (uniqueRecipientEmails.length > 0) {
-    const applicantName = [
-      user.firstName,
-      user.middleName,
-      user.lastName,
-    ]
-      .filter(Boolean)
-      .join(" ");
+      if (uniqueRecipientEmails.length > 0) {
+        const applicantName = [
+          user.firstName,
+          user.middleName,
+          user.lastName,
+        ]
+          .filter(Boolean)
+          .join(" ");
 
-    await sendEmail({
-      to: recipientEmails,
-      subject: "New Alumni Registration",
-      html: `
+        await sendEmail({
+          to: recipientEmails,
+          subject: "New Alumni Registration",
+          html: `
         <div style="font-family: Arial, sans-serif; line-height: 1.6;">
           <h2>New Alumni Registration</h2>
 
@@ -898,14 +898,14 @@ try {
           </p>
         </div>
       `,
-    });
-  }
-} catch (notificationError) {
-  console.error(
-    "Staff registration notification error:",
-    notificationError
-  );
-}
+        });
+      }
+    } catch (notificationError) {
+      console.error(
+        "Staff registration notification error:",
+        notificationError
+      );
+    }
 
 
 
@@ -1018,17 +1018,17 @@ export const resendVerifyEmailLink = async (req, res) => {
     await user.save();
 
     await createAuditLog({
-  actor: user._id,
-  action: "auth.email_verified",
-  resource: "User",
-  resourceId: user._id,
-  targetUser: user._id,
-  req,
-  details: {
-    email: user.email,
-    status: user.status,
-  },
-});
+      actor: user._id,
+      action: "auth.email_verified",
+      resource: "User",
+      resourceId: user._id,
+      targetUser: user._id,
+      req,
+      details: {
+        email: user.email,
+        status: user.status,
+      },
+    });
 
 
     // SEND EMAIL
@@ -1456,16 +1456,16 @@ export const forgetPassword = async (req, res) => {
 
 
     await createAuditLog({
-  actor: user._id,
-  action: "auth.password_reset_requested",
-  resource: "User",
-  resourceId: user._id,
-  targetUser: user._id,
-  req,
-  details: {
-    email: user.email,
-  },
-});
+      actor: user._id,
+      action: "auth.password_reset_requested",
+      resource: "User",
+      resourceId: user._id,
+      targetUser: user._id,
+      req,
+      details: {
+        email: user.email,
+      },
+    });
 
     // RESET URL
     const resetUrl = `${process.env.FRONTEND_URL}/portal/reset-password?token=${resetToken}`;
@@ -1898,7 +1898,7 @@ export const resetPassword = async (req, res) => {
     );
 
 
-    
+
 
 
     // ========================================
@@ -1931,16 +1931,16 @@ export const resetPassword = async (req, res) => {
 
 
     await createAuditLog({
-  actor: user._id,
-  action: "auth.password_reset_completed",
-  resource: "User",
-  resourceId: user._id,
-  targetUser: user._id,
-  req,
-  details: {
-    email: user.email,
-  },
-});
+      actor: user._id,
+      action: "auth.password_reset_completed",
+      resource: "User",
+      resourceId: user._id,
+      targetUser: user._id,
+      req,
+      details: {
+        email: user.email,
+      },
+    });
 
     return successResponse(
       res,
@@ -2077,29 +2077,40 @@ export const Login = async (req, res) => {
         : {
           alumniId: loginValue.toUpperCase(),
         }
-    ).select("+password");
+    ).select("+password +failedLoginAttempts +loginLockUntil");
 
+
+
+    const genericLoginError =
+      "Invalid Alumni ID/email or password.";
+
+    if (
+      user?.loginLockUntil &&
+      user.loginLockUntil.getTime() > Date.now()
+    ) {
+      return errorResponse(res, 401, genericLoginError);
+    }
     // ------------------------------------------
     // GENERIC LOGIN ERROR
     // ------------------------------------------
 
     if (!user || !user.password) {
-  await createAuditLog({
-    action: "auth.login_failed",
-    resource: "Auth",
-    req,
-    details: {
-      loginType: loginValue.includes("@") ? "email" : "alumniId",
-      reason: "invalid_credentials",
-    },
-  });
+      await createAuditLog({
+        action: "auth.login_failed",
+        resource: "Auth",
+        req,
+        details: {
+          loginType: loginValue.includes("@") ? "email" : "alumniId",
+          reason: "invalid_credentials",
+        },
+      });
 
-  return errorResponse(
-    res,
-    401,
-    "Invalid Alumni ID/email or password."
-  );
-}
+      return errorResponse(
+        res,
+        401,
+        "Invalid Alumni ID/email or password."
+      );
+    }
 
     // ------------------------------------------
     // CHECK PASSWORD
@@ -2110,26 +2121,51 @@ export const Login = async (req, res) => {
       user.password
     );
 
-    if (!isMatch) {
-  await createAuditLog({
-    actor: user._id,
-    action: "auth.login_failed",
-    resource: "User",
-    resourceId: user._id,
-    targetUser: user._id,
-    req,
-    details: {
-      loginType: isEmail ? "email" : "alumniId",
-      reason: "incorrect_password",
-    },
-  });
 
-  return errorResponse(
-    res,
-    401,
-    "Invalid Alumni ID/email or password."
-  );
-}
+    if (!isMatch) {
+      user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1;
+
+      const MAX_FAILED_ATTEMPTS = 5;
+      const LOCKOUT_DURATION = 15 * 60 * 1000;
+
+      const shouldLock =
+        user.failedLoginAttempts >= MAX_FAILED_ATTEMPTS;
+
+      if (shouldLock) {
+        user.loginLockUntil = new Date(
+          Date.now() + LOCKOUT_DURATION
+        );
+
+        user.failedLoginAttempts = 0;
+      }
+
+      await user.save();
+
+      await createAuditLog({
+        actor: user._id,
+        action: shouldLock
+          ? "auth.account_locked"
+          : "auth.login_failed",
+        resource: "User",
+        resourceId: user._id,
+        targetUser: user._id,
+        req,
+        details: {
+          loginType: isEmail ? "email" : "alumniId",
+          reason: shouldLock
+            ? "too_many_failed_attempts"
+            : "incorrect_password",
+          lockedForMinutes: shouldLock ? 15 : undefined,
+        },
+      });
+
+      return errorResponse(res, 401, genericLoginError);
+    }
+
+
+    user.failedLoginAttempts = 0;
+    user.loginLockUntil = null;
+    await user.save();
 
     // ------------------------------------------
     // EMAIL VERIFICATION CHECK
@@ -2181,6 +2217,7 @@ export const Login = async (req, res) => {
       {
         id: user._id,
         role: user.role,
+        lastActivity: Date.now(),
       },
       process.env.JWT_SECRET,
       {
@@ -2200,17 +2237,17 @@ export const Login = async (req, res) => {
 
 
     await createAuditLog({
-  actor: user._id,
-  action: "auth.login_successful",
-  resource: "User",
-  resourceId: user._id,
-  targetUser: user._id,
-  req,
-  details: {
-    loginType: isEmail ? "email" : "alumniId",
-    role: user.role,
-  },
-});
+      actor: user._id,
+      action: "auth.login_successful",
+      resource: "User",
+      resourceId: user._id,
+      targetUser: user._id,
+      req,
+      details: {
+        loginType: isEmail ? "email" : "alumniId",
+        role: user.role,
+      },
+    });
     // ------------------------------------------
     // RESPONSE
     // ------------------------------------------
@@ -2266,7 +2303,7 @@ export const getCurrentUser = async (req, res) => {
     alumniId: user.alumniId,
     chapter: user.chapter,
     yearSet: user.yearSet,
-    financialStatus:user.financialStatus,
+    financialStatus: user.financialStatus,
 
     createdAt: user.createdAt
 
@@ -2490,17 +2527,17 @@ export const logout = async (req, res) => {
 
 
     if (req.user?._id || req.user?.id) {
-  const userId = req.user._id || req.user.id;
+      const userId = req.user._id || req.user.id;
 
-  await createAuditLog({
-    actor: userId,
-    action: "auth.logout",
-    resource: "User",
-    resourceId: userId,
-    targetUser: userId,
-    req,
-  });
-}
+      await createAuditLog({
+        actor: userId,
+        action: "auth.logout",
+        resource: "User",
+        resourceId: userId,
+        targetUser: userId,
+        req,
+      });
+    }
 
     return successResponse(
       res,
@@ -2615,18 +2652,18 @@ export const setPasswordController = async (req, res) => {
 
 
     await createAuditLog({
-  actor: user._id,
-  action: "auth.account_setup_completed",
-  resource: "User",
-  resourceId: user._id,
-  targetUser: user._id,
-  req,
-  details: {
-    status: user.status,
-    emailVerified: user.isEmailVerified,
-  },
-});
-    
+      actor: user._id,
+      action: "auth.account_setup_completed",
+      resource: "User",
+      resourceId: user._id,
+      targetUser: user._id,
+      req,
+      details: {
+        status: user.status,
+        emailVerified: user.isEmailVerified,
+      },
+    });
+
 
     return res.status(200).json({
       success: true,
@@ -2695,16 +2732,16 @@ export const uploadProfilePhoto = async (req, res) => {
     await user.save();
 
     await createAuditLog({
-  actor: user._id,
-  action: "member.profile_photo_uploaded",
-  resource: "User",
-  resourceId: user._id,
-  targetUser: user._id,
-  req,
-  details: {
-    provider: "cloudinary",
-  },
-});
+      actor: user._id,
+      action: "member.profile_photo_uploaded",
+      resource: "User",
+      resourceId: user._id,
+      targetUser: user._id,
+      req,
+      details: {
+        provider: "cloudinary",
+      },
+    });
 
     return successResponse(
       res,
@@ -2721,5 +2758,36 @@ export const uploadProfilePhoto = async (req, res) => {
       500,
       "Something went wrong while uploading your profile photo."
     );
+  }
+};
+
+
+
+
+export const refreshActivity = async (req, res) => {
+  try {
+    const token = jwt.sign(
+      {
+        id: req.user._id,
+        role: req.user.role,
+        lastActivity: Date.now(),
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.cookie("token", token, cookieOptions);
+
+    return res.status(200).json({
+      success: true,
+      message: "Activity refreshed.",
+    });
+  } catch (error) {
+    console.error("Activity refresh error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to refresh session activity.",
+    });
   }
 };

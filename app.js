@@ -3,9 +3,11 @@ import session from "express-session";
 import express from "express";
 import cors from "cors";
 
+
+import helmet from "helmet";
 import AdminRoute from "./routes/AdminRoutes.js"
-import {corsOptions} from "./config/cors.js";
-import {sessionConfig} from "./config/session.js";
+import { corsOptions } from "./config/cors.js";
+import { sessionConfig } from "./config/session.js";
 import connectDB from "./config/db.js";
 import chapterRoutes from "./routes/chapter.routes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
@@ -32,10 +34,11 @@ dns.setDefaultResultOrder("ipv4first");
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+app.use(helmet());
 // Paystack webhook MUST receive the raw body
 app.use(
-    "/api/payments/webhook",
-    express.raw({ type: "application/json" })
+  "/api/payments/webhook",
+  express.raw({ type: "application/json" })
 );
 
 
@@ -51,18 +54,21 @@ app.use(session(sessionConfig));
 
 
 
-app.get("/api/debug/request-ip", (req, res) => {
+
+
+app.get("/debug/client-ip", (req, res) => {
   res.json({
     ip: req.ip,
+    ips: req.ips,
     remoteAddress: req.socket.remoteAddress,
-    forwardedFor: req.headers["x-forwarded-for"] || null,
+    forwardedFor: req.get("x-forwarded-for"),
   });
 });
 
- app.get("/", (req, res) => {
-      res.send("Welcome to the NOSA Alumni API");
-    });
-    
+app.get("/", (req, res) => {
+  res.send("Welcome to the GOSA Alumni API");
+});
+
 
 app.use("/api/chapters", chapterRoutes);
 app.use("/api/yearSet", yearSetRoutes);
@@ -72,20 +78,20 @@ app.use("/api/news-events", newsEventRoutes);
 app.use("/api/memorials", memorial)
 
 app.use("/api/obligations", obligationRoutes);
-app.use( obligationAssignmentRoutes);
+app.use(obligationAssignmentRoutes);
 app.use("/api/notifications", Notification);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/directory", directoryRoutes);
 app.use("/api/memorial-submissions", memorialSubmissionRoutes);
-app.use("/api/calendar", calendarRoutes );
+app.use("/api/calendar", calendarRoutes);
 app.use("/api/membership-status", memberDuesStatus);
 app.use("/api", leaderShipRoutes);
 app.use("/api/admin/financial-reports", financialReportRoutes);
-    
+
 
 const startServer = async () => {
   try {
-    
+
     await connectDB();
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
