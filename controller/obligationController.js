@@ -441,14 +441,29 @@ export const toggleObligationStatus = async (req, res) => {
       });
     }
 
+    const previousStatus = obligation.isActive;
+
     obligation.isActive = !obligation.isActive;
 
     await obligation.save();
 
-    // ========================================
-    // NOTIFY ASSIGNED MEMBERS
-    // ========================================
+    // AUDIT STATUS CHANGE
+    await createAuditLog({
+      actor: req.user._id,
+      action: obligation.isActive
+        ? "obligation.activated"
+        : "obligation.deactivated",
+      resource: "Obligation",
+      resourceId: obligation._id,
+      req,
+      details: {
+        name: obligation.name,
+        previousStatus,
+        newStatus: obligation.isActive,
+      },
+    });
 
+    // NOTIFY ASSIGNED MEMBERS
     try {
       const assignments = await ObligationAssignment.find({
         obligation: obligation._id,
@@ -482,24 +497,6 @@ export const toggleObligationStatus = async (req, res) => {
       );
     }
 
-    // ========================================
-    // AUDIT LOG
-    // ========================================
-
-    await createAuditLog({
-      actor: req.user._id,
-      action: obligation.isActive
-        ? "obligation.activated"
-        : "obligation.deactivated",
-      resource: "Obligation",
-      resourceId: obligation._id,
-      details: {
-        name: obligation.name,
-        isActive: obligation.isActive,
-      },
-      req,
-    });
-
     return res.status(200).json({
       success: true,
       message: obligation.isActive
@@ -508,10 +505,7 @@ export const toggleObligationStatus = async (req, res) => {
       obligation,
     });
   } catch (error) {
-    console.error(
-      "Toggle obligation status error:",
-      error
-    );
+    console.error("Toggle obligation status error:", error);
 
     return res.status(500).json({
       success: false,
@@ -529,7 +523,11 @@ export const runDailyMembershipJob = async (req, res) => {
   try {
     const secret = req.headers["x-internal-secret"];
 
-    if (!secret || secret !== process.env.INTERNAL_PAYMENT_SECRET) {
+    if (
+      !secret ||
+      !process.env.INTERNAL_PAYMENT_SECRET ||
+      secret !== process.env.INTERNAL_PAYMENT_SECRET
+    ) {
       return res.status(401).json({
         success: false,
         message: "Unauthorized.",
@@ -538,6 +536,18 @@ export const runDailyMembershipJob = async (req, res) => {
 
     const reminderResult = await processObligationReminders();
     const suspensionResult = await processMembershipSuspensions();
+
+    await createAuditLog({
+      actor: null,
+      action: "membership.daily_job_completed",
+      resource: "MembershipJob",
+      req,
+      details: {
+        reminders: reminderResult,
+        suspensions: suspensionResult,
+        completedAt: new Date(),
+      },
+    });
 
     return res.status(200).json({
       success: true,

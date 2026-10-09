@@ -5,7 +5,7 @@ import ObligationAssignment from "../models/ObligationAssignment.js";
 import Obligation from "../models/Obligation.js"; import { paystackRequest } from "../config/paystack.js";
 import { completeSuccessfulPayment } from "../services/paymentService.js";
 import { verifyPendingPayments } from "../services/pendingPaymentVerificationService.js";
-import { handleFailedPayment } from "../services/paymentService.js";
+import { handleFailedPayment, handlePaymentVerificationMismatch } from "../services/paymentService.js";
 
 
 
@@ -311,425 +311,310 @@ export const initializePayment = async (
     }
 };
 
+export const verifyPayment = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { reference } = req.params;
 
-export const verifyPayment = async (
-    req,
-    res
-) => {
-    try {
-        const userId = req.user._id;
-
-        const {
-            reference,
-        } = req.params;
-
-        if (!reference) {
-            return res.status(400).json({
-                success: false,
-                message:
-                    "Payment reference is required.",
-            });
-        }
-
-
-
-        // FIND OUR PAYMENT FIRST
-        const payment =
-            await Payment.findOne({
-                gatewayReference:
-                    reference,
-
-                user:
-                    userId,
-
-                gateway:
-                    "paystack",
-            });
-
-        if (!payment) {
-            return res.status(404).json({
-                success: false,
-                message:
-                    "Payment record not found.",
-            });
-        }
-
-
-        // ALREADY PROCESSED
-        if (
-            payment.status ===
-            "successful"
-        ) {
-            return res.status(200).json({
-                success: true,
-
-                message:
-                    "Payment already verified.",
-
-                payment,
-            });
-        }
-
-
-        // ASK PAYSTACK FOR REAL STATUS
-        const paystackResponse =
-            await paystackRequest(
-                `/transaction/verify/${encodeURIComponent(
-                    reference
-                )}`,
-                {
-                    method: "GET",
-                }
-            );
-
-        const transaction = paystackResponse.data;
-
-
-        // VERIFY AMOUNT
-        const expectedAmount =
-            Number(payment.amount) * 100;
-
-        if (
-            Number(transaction.amount) !==
-            expectedAmount
-        ) {
-            payment.status =
-                "failed";
-
-            payment.metadata = {
-                ...payment.metadata,
-
-                verificationError:
-                    "Paystack amount mismatch.",
-
-                paystackAmount:
-                    transaction.amount,
-            };
-
-            await payment.save();
-
-            return res.status(400).json({
-                success: false,
-
-                message:
-                    "Payment amount verification failed.",
-            });
-        }
-
-
-        // SUCCESSFUL PAYMENT
-        if (
-            transaction.status ===
-            "success"
-        ) {
-            const result =
-                await completeSuccessfulPayment(
-                    payment._id,
-                    transaction
-                );
-
-            return res.status(200).json({
-                success: true,
-
-                message:
-                    "Payment verified successfully.",
-
-                payment:
-                    result.payment,
-
-                assignment:
-                    result.assignment,
-            });
-        }
-
-
-        // FAILED / ABANDONED
-        const failedStatus =
-            transaction.status ===
-                "abandoned"
-                ? "cancelled"
-                : "failed";
-
-        payment.status =
-            failedStatus;
-
-        payment.metadata = {
-            ...payment.metadata,
-
-            paystackStatus:
-                transaction.status,
-
-            gatewayResponse:
-                transaction.gateway_response,
-        };
-
-        await payment.save();
-
-        return res.status(200).json({
-            success: false,
-
-            message:
-                "Payment was not successful.",
-
-            payment,
-        });
-
-    } catch (error) {
-
-        console.error(
-            "Verify payment error:",
-            error
-        );
-
-        res.status(500).json({
-            success: false,
-
-            message:
-                error.message ||
-                "Failed to verify payment.",
-        });
+    if (!reference) {
+      return res.status(400).json({
+        success: false,
+        message: "Payment reference is required.",
+      });
     }
+
+    const payment = await Payment.findOne({
+      gatewayReference: reference,
+      user: userId,
+      gateway: "paystack",
+    });
+
+    if (!payment) {
+      return res.status(404).json({
+        success: false,
+        message: "Payment record not found.",
+      });
+    }
+
+    if (payment.status === "successful") {
+      return res.status(200).json({
+        success: true,
+        message: "Payment already verified.",
+        payment,
+      });
+    }
+
+    const paystackResponse = await paystackRequest(
+      `/transaction/verify/${encodeURIComponent(reference)}`,
+      { method: "GET" }
+    );
+
+    const transaction = paystackResponse.data;
+
+    if (!transaction) {
+      return res.status(502).json({
+        success: false,
+        message: "Unable to verify the transaction with Paystack.",
+      });
+    }
+
+    const expectedAmount = Number(payment.amount) * 100;
+    const receivedAmount = Number(transaction.amount);
+    const expectedCurrency = payment.currency || "NGN";
+
+    const amountMismatch =
+      !Number.isFinite(receivedAmount) ||
+      receivedAmount !== expectedAmount;
+
+    const currencyMismatch =
+      !transaction.currency ||
+      transaction.currency.toUpperCase() !==
+        expectedCurrency.toUpperCase();
+
+    if (amountMismatch || currencyMismatch) {
+      const reason = amountMismatch
+        ? "Paystack transaction amount mismatch."
+        : "Paystack transaction currency mismatch.";
+
+      await handlePaymentVerificationMismatch(
+        payment,
+        transaction,
+        {
+          actor: userId,
+          req,
+          source: "member_verification",
+          reason,
+        }
+      );
+
+      return res.status(400).json({
+        success: false,
+        message:
+          "Payment verification failed. Please contact support.",
+      });
+    }
+
+    if (transaction.status === "success") {
+      const result = await completeSuccessfulPayment(
+        payment._id,
+        transaction,
+        {
+          actor: userId,
+          req,
+          source: "member_verification",
+        }
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: result.alreadyProcessed
+          ? "Payment already verified."
+          : "Payment verified successfully.",
+        payment: result.payment,
+        assignment: result.assignment,
+      });
+    }
+
+    if (
+      ["failed", "reversed", "abandoned"].includes(
+        transaction.status
+      )
+    ) {
+      const failedStatus =
+        transaction.status === "abandoned"
+          ? "cancelled"
+          : "failed";
+
+      await handleFailedPayment(
+        payment,
+        transaction,
+        failedStatus,
+        {
+          actor: userId,
+          req,
+          source: "member_verification",
+        }
+      );
+
+      return res.status(200).json({
+        success: false,
+        message: "Payment was not successful.",
+      });
+    }
+
+    return res.status(200).json({
+      success: false,
+      message: "Payment is still being processed.",
+      payment,
+    });
+  } catch (error) {
+    console.error("Verify payment error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to verify payment.",
+    });
+  }
 };
 
 
 
 export const handlePaystackWebhook = async (req, res) => {
-    try {
-        const signature =
-            req.headers["x-paystack-signature"];
+  try {
+    const signature = req.headers["x-paystack-signature"];
 
-
-        // CHECK SIGNATURE  
-        if (!signature) {
-            return res.status(401).json({
-                success: false,
-                message: "Missing Paystack signature.",
-            });
-        }
-
-
-        // VERIFY WEBHOOK SIGNATURE
-        const rawBody = req.body;
-
-        if (!Buffer.isBuffer(rawBody)) {
-            console.error(
-                "Paystack webhook body is not a raw Buffer."
-            );
-
-            return res.status(400).json({
-                success: false,
-                message: "Invalid webhook body.",
-            });
-        }
-
-        const hash = crypto
-            .createHmac(
-                "sha512",
-                process.env.PAYSTACK_SECRET_KEY
-            )
-            .update(rawBody)
-            .digest("hex");
-
-        if (hash !== signature) {
-            return res.status(401).json({
-                success: false,
-                message: "Invalid Paystack signature.",
-            });
-        }
-
-
-        // PARSE BODY
-        let payload;
-
-        try {
-            payload = JSON.parse(
-                rawBody.toString("utf8")
-            );
-        } catch (parseError) {
-            console.error(
-                "Paystack webhook JSON parse error:",
-                parseError
-            );
-
-            return res.status(400).json({
-                success: false,
-                message: "Invalid webhook payload.",
-            });
-        }
-
-        const { event, data } = payload;
-
-        console.log(
-            "Paystack webhook received:",
-            event,
-            data?.reference
-        );
-
-
-        // GET REFERENCE
-        const reference = data?.reference;
-
-        if (!reference) {
-            return res.status(200).json({
-                success: true,
-                message:
-                    "Webhook received without reference.",
-            });
-        }
-
-
-        // FIND PAYMENT
-        const payment = await Payment.findOne({
-            gatewayReference: reference,
-            gateway: "paystack",
-        });
-
-        if (!payment) {
-            console.warn(
-                "Paystack payment not found:",
-                reference
-            );
-
-            return res.status(200).json({
-                success: true,
-                message: "Payment record not found.",
-            });
-        }
-
-
-        // ALREADY SUCCESSFUL
-        if (payment.status === "successful") {
-            return res.status(200).json({
-                success: true,
-                message:
-                    "Payment already processed.",
-            });
-        }
-
-
-        // HANDLE FAILED PAYMENT
-        if (event === "charge.failed") {
-            await handleFailedPayment(
-                payment,
-                data,
-                "failed"
-            );
-
-            console.log(
-                `Paystack payment marked as failed: ${reference}`
-            );
-
-            return res.status(200).json({
-                success: true,
-                message:
-                    "Failed payment recorded.",
-            });
-        }
-
-        // IGNORE OTHER NON-SUCCESS EVENTS
-        if (event !== "charge.success") {
-            return res.status(200).json({
-                success: true,
-                message: "Event received.",
-            });
-        }
-
-
-        // VERIFY AMOUNT
-        const expectedAmount =
-            Number(payment.amount) * 100;
-
-        const receivedAmount =
-            Number(data.amount);
-
-        if (
-            !Number.isFinite(receivedAmount) ||
-            receivedAmount !== expectedAmount
-        ) {
-            payment.status = "failed";
-
-            payment.metadata = {
-                ...payment.metadata,
-
-                webhookError:
-                    "Paystack amount mismatch.",
-
-                expectedAmount,
-
-                paystackAmount:
-                    receivedAmount,
-            };
-
-            await payment.save();
-
-            console.error(
-                `Paystack amount mismatch for ${reference}. Expected ${expectedAmount}, received ${receivedAmount}.`
-            );
-
-            return res.status(200).json({
-                success: true,
-                message:
-                    "Payment amount mismatch recorded.",
-            });
-        }
-
-
-        // VERIFY CURRENCY
-        if (
-            data.currency &&
-            data.currency.toUpperCase() !== "NGN"
-        ) {
-            payment.status = "failed";
-
-            payment.metadata = {
-                ...payment.metadata,
-
-                webhookError:
-                    "Paystack currency mismatch.",
-
-                expectedCurrency: "NGN",
-
-                paystackCurrency:
-                    data.currency,
-            };
-
-            await payment.save();
-
-            return res.status(200).json({
-                success: true,
-                message:
-                    "Payment currency mismatch recorded.",
-            });
-        }
-
-
-        // COMPLETE SUCCESSFUL PAYMENT
-        await completeSuccessfulPayment(
-            payment._id,
-            data
-        );
-
-
-        // SUCCESS RESPONSE
-        return res.status(200).json({
-            success: true,
-            message:
-                "Payment processed successfully.",
-        });
-
-    } catch (error) {
-        console.error(
-            "Paystack webhook error:",
-            error
-        );
-
-
-        return res.status(500).json({
-            success: false,
-            message:
-                "Webhook processing failed.",
-        });
+    if (!signature || !process.env.PAYSTACK_SECRET_KEY) {
+      return res.status(401).json({
+        success: false,
+        message: "Missing or invalid Paystack signature.",
+      });
     }
+
+    const rawBody = req.body;
+
+    if (!Buffer.isBuffer(rawBody)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid webhook body.",
+      });
+    }
+
+    const expectedSignature = crypto
+      .createHmac("sha512", process.env.PAYSTACK_SECRET_KEY)
+      .update(rawBody)
+      .digest("hex");
+
+    const receivedBuffer = Buffer.from(signature);
+    const expectedBuffer = Buffer.from(expectedSignature);
+
+    if (
+      receivedBuffer.length !== expectedBuffer.length ||
+      !crypto.timingSafeEqual(receivedBuffer, expectedBuffer)
+    ) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid Paystack signature.",
+      });
+    }
+
+    let payload;
+
+    try {
+      payload = JSON.parse(rawBody.toString("utf8"));
+    } catch {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid webhook payload.",
+      });
+    }
+
+    const { event, data } = payload;
+    const reference = data?.reference;
+
+    if (!reference) {
+      return res.status(200).json({
+        success: true,
+        message: "Webhook received without reference.",
+      });
+    }
+
+    const payment = await Payment.findOne({
+      gatewayReference: reference,
+      gateway: "paystack",
+    });
+
+    if (!payment) {
+      console.warn("Paystack payment not found:", reference);
+
+      // Acknowledge unknown references to prevent endless retries.
+      return res.status(200).json({
+        success: true,
+        message: "Payment record not found.",
+      });
+    }
+
+    if (payment.status === "successful") {
+      return res.status(200).json({
+        success: true,
+        message: "Payment already processed.",
+      });
+    }
+
+    if (event === "charge.failed") {
+      await handleFailedPayment(payment, data, "failed", {
+        req,
+        source: "paystack_webhook",
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Failed payment event handled.",
+      });
+    }
+
+    if (event !== "charge.success") {
+      return res.status(200).json({
+        success: true,
+        message: "Event received.",
+      });
+    }
+
+    const expectedAmount = Number(payment.amount) * 100;
+    const receivedAmount = Number(data.amount);
+    const expectedCurrency = payment.currency || "NGN";
+
+    const amountMismatch =
+      !Number.isFinite(receivedAmount) ||
+      receivedAmount !== expectedAmount;
+
+    const currencyMismatch =
+      !data.currency ||
+      data.currency.toUpperCase() !==
+        expectedCurrency.toUpperCase();
+
+    if (amountMismatch || currencyMismatch) {
+      const reason = amountMismatch
+        ? "Paystack transaction amount mismatch."
+        : "Paystack transaction currency mismatch.";
+
+      await handlePaymentVerificationMismatch(
+        payment,
+        data,
+        {
+          req,
+          source: "paystack_webhook",
+          reason,
+        }
+      );
+
+      console.error(
+        `Payment verification mismatch for ${reference}: ${reason}`
+      );
+
+      // The event was handled and recorded. Do not retry it endlessly.
+      return res.status(200).json({
+        success: true,
+        message: "Payment verification discrepancy recorded.",
+      });
+    }
+
+    await completeSuccessfulPayment(payment._id, data, {
+      req,
+      source: "paystack_webhook",
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Payment processed successfully.",
+    });
+  } catch (error) {
+    console.error("Paystack webhook error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Webhook processing failed.",
+    });
+  }
 };
 
 
@@ -1059,194 +944,194 @@ export const getAdminPayments = async (req, res) => {
                 totalReceived: 0,
             };
 
-      // ========================================
-// COLLECTION BY OBLIGATION TYPE + CATEGORY
-// ========================================
-//
-// Only successful payments count as actual
-// collection.
-//
-// IMPORTANT:
-// summary.totalReceived is already the
-// authoritative total received amount.
-// collectionBreakdown is only used to show
-// mandatory vs optional + category breakdown.
-//
-// ========================================
+        // ========================================
+        // COLLECTION BY OBLIGATION TYPE + CATEGORY
+        // ========================================
+        //
+        // Only successful payments count as actual
+        // collection.
+        //
+        // IMPORTANT:
+        // summary.totalReceived is already the
+        // authoritative total received amount.
+        // collectionBreakdown is only used to show
+        // mandatory vs optional + category breakdown.
+        //
+        // ========================================
 
-const collectionResult = await Payment.aggregate([
-    {
-        $match: {
-            ...query,
-            status: "successful",
-        },
-    },
+        const collectionResult = await Payment.aggregate([
+            {
+                $match: {
+                    ...query,
+                    status: "successful",
+                },
+            },
 
-    // ====================================
-    // GET OBLIGATION ASSIGNMENT
-    // ====================================
-    {
-        $lookup: {
-            from:
-                ObligationAssignment
-                    .collection
-                    .name,
-            localField:
-                "obligationAssignment",
-            foreignField: "_id",
-            as: "assignment",
-        },
-    },
+            // ====================================
+            // GET OBLIGATION ASSIGNMENT
+            // ====================================
+            {
+                $lookup: {
+                    from:
+                        ObligationAssignment
+                            .collection
+                            .name,
+                    localField:
+                        "obligationAssignment",
+                    foreignField: "_id",
+                    as: "assignment",
+                },
+            },
 
-    {
-        $unwind: "$assignment",
-    },
+            {
+                $unwind: "$assignment",
+            },
 
-    // ====================================
-    // GET OBLIGATION
-    // ====================================
-    {
-        $lookup: {
-            from:
-                Obligation
-                    .collection
-                    .name,
-            localField:
-                "assignment.obligation",
-            foreignField: "_id",
-            as: "obligation",
-        },
-    },
+            // ====================================
+            // GET OBLIGATION
+            // ====================================
+            {
+                $lookup: {
+                    from:
+                        Obligation
+                            .collection
+                            .name,
+                    localField:
+                        "assignment.obligation",
+                    foreignField: "_id",
+                    as: "obligation",
+                },
+            },
 
-    {
-        $unwind: "$obligation",
-    },
+            {
+                $unwind: "$obligation",
+            },
 
-    // ====================================
-    // GROUP BY OPTIONAL / MANDATORY
-    // + OBLIGATION CATEGORY
-    // ====================================
-    {
-        $group: {
-            _id: {
-                type: {
-                    $cond: [
-                        {
-                            $eq: [
-                                "$obligation.isOptional",
-                                true,
+            // ====================================
+            // GROUP BY OPTIONAL / MANDATORY
+            // + OBLIGATION CATEGORY
+            // ====================================
+            {
+                $group: {
+                    _id: {
+                        type: {
+                            $cond: [
+                                {
+                                    $eq: [
+                                        "$obligation.isOptional",
+                                        true,
+                                    ],
+                                },
+                                "optional",
+                                "mandatory",
                             ],
                         },
-                        "optional",
-                        "mandatory",
-                    ],
+
+                        category:
+                            "$obligation.category",
+                    },
+
+                    amount: {
+                        $sum: "$amount",
+                    },
+
+                    transactions: {
+                        $sum: 1,
+                    },
                 },
+            },
+        ]);
 
-                category:
-                    "$obligation.category",
+        // ========================================
+        // NORMALIZED COLLECTION BREAKDOWN
+        // ========================================
+
+        const createCollectionBucket = () => ({
+            amount: 0,
+            transactions: 0,
+
+            individual: {
+                amount: 0,
+                transactions: 0,
             },
 
-            amount: {
-                $sum: "$amount",
+            yearSet: {
+                amount: 0,
+                transactions: 0,
             },
 
-            transactions: {
-                $sum: 1,
+            chapter: {
+                amount: 0,
+                transactions: 0,
             },
-        },
-    },
-]);
+        });
 
-// ========================================
-// NORMALIZED COLLECTION BREAKDOWN
-// ========================================
+        const collectionBreakdown = {
+            mandatory: createCollectionBucket(),
+            optional: createCollectionBucket(),
 
-const createCollectionBucket = () => ({
-    amount: 0,
-    transactions: 0,
+            // IMPORTANT:
+            // Do NOT calculate this separately.
+            // totalReceived below is the source of truth.
+            total: {
+                amount: Number(
+                    summaryData.totalReceived || 0
+                ),
+                transactions: Number(
+                    summaryData.successful || 0
+                ),
+            },
+        };
 
-    individual: {
-        amount: 0,
-        transactions: 0,
-    },
+        // ========================================
+        // MAP AGGREGATED RESULTS
+        // ========================================
 
-    yearSet: {
-        amount: 0,
-        transactions: 0,
-    },
+        for (const item of collectionResult) {
+            const type =
+                item._id?.type === "optional"
+                    ? "optional"
+                    : "mandatory";
 
-    chapter: {
-        amount: 0,
-        transactions: 0,
-    },
-});
+            const category =
+                item._id?.category;
 
-const collectionBreakdown = {
-    mandatory: createCollectionBucket(),
-    optional: createCollectionBucket(),
+            const amount =
+                Number(item.amount || 0);
 
-    // IMPORTANT:
-    // Do NOT calculate this separately.
-    // totalReceived below is the source of truth.
-    total: {
-        amount: Number(
-            summaryData.totalReceived || 0
-        ),
-        transactions: Number(
-            summaryData.successful || 0
-        ),
-    },
-};
+            const transactions =
+                Number(item.transactions || 0);
 
-// ========================================
-// MAP AGGREGATED RESULTS
-// ========================================
+            // ====================================
+            // TYPE TOTAL
+            // ====================================
 
-for (const item of collectionResult) {
-    const type =
-        item._id?.type === "optional"
-            ? "optional"
-            : "mandatory";
+            collectionBreakdown[type].amount +=
+                amount;
 
-    const category =
-        item._id?.category;
+            collectionBreakdown[type].transactions +=
+                transactions;
 
-    const amount =
-        Number(item.amount || 0);
+            // ====================================
+            // CATEGORY TOTAL
+            // ====================================
 
-    const transactions =
-        Number(item.transactions || 0);
+            if (
+                [
+                    "individual",
+                    "yearSet",
+                    "chapter",
+                ].includes(category)
+            ) {
+                collectionBreakdown[type][
+                    category
+                ].amount += amount;
 
-    // ====================================
-    // TYPE TOTAL
-    // ====================================
-
-    collectionBreakdown[type].amount +=
-        amount;
-
-    collectionBreakdown[type].transactions +=
-        transactions;
-
-    // ====================================
-    // CATEGORY TOTAL
-    // ====================================
-
-    if (
-        [
-            "individual",
-            "yearSet",
-            "chapter",
-        ].includes(category)
-    ) {
-        collectionBreakdown[type][
-            category
-        ].amount += amount;
-
-        collectionBreakdown[type][
-            category
-        ].transactions += transactions;
-    }
-}
+                collectionBreakdown[type][
+                    category
+                ].transactions += transactions;
+            }
+        }
 
         // ========================================
         // RESPONSE
@@ -1269,7 +1154,7 @@ for (const item of collectionResult) {
                     totalPages:
                         Math.ceil(
                             total /
-                                limitNumber
+                            limitNumber
                         ),
                 },
             },

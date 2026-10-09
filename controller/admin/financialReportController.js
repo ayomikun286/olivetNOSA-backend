@@ -1,3 +1,5 @@
+import { createAuditLog } from "../../services/auditLog.service.js";
+
 import FinancialReport from "../../models/FinancialReport.js";
 import AuditLog from "../../models/AuditLog.js";
 
@@ -117,31 +119,18 @@ export const createFinancialReport = async (
     // Audit
     // --------------------------------------------------
 
-    await AuditLog.create({
+    await createAuditLog({
       actor: req.user._id,
-
-      action:
-        "FINANCIAL_REPORT_CREATED",
-
-      resource:
-        "FinancialReport",
-
+      action: "financial_report.updated",
+      resource: "FinancialReport",
       resourceId: report._id,
-
+      req,
       details: {
-        month: reportMonth,
-
-        year: reportYear,
-
-        title: report.title,
-
+        month: report.month,
+        year: report.year,
         status: report.status,
+        change: "Regenerated financial snapshot",
       },
-
-      ipAddress: req.ip,
-
-      userAgent:
-        req.get("user-agent"),
     });
 
 
@@ -579,33 +568,19 @@ export const unpublishFinancialReport = async (
     await report.save();
 
 
-    await AuditLog.create({
-      actor: req.user._id,
-
-      action:
-        "FINANCIAL_REPORT_UNPUBLISHED",
-
-      resource:
-        "FinancialReport",
-
-      resourceId: report._id,
-
-      details: {
-        month: report.month,
-
-        year: report.year,
-
-        title: report.title,
-
-        reason:
-          "Report returned to draft.",
-      },
-
-      ipAddress: req.ip,
-
-      userAgent:
-        req.get("user-agent"),
-    });
+    await createAuditLog({
+  actor: req.user._id,
+  action: "financial_report.unpublished",
+  resource: "FinancialReport",
+  resourceId: report._id,
+  req,
+  details: {
+    month: report.month,
+    year: report.year,
+    title: report.title,
+    reason: "Report returned to draft.",
+  },
+});
 
 
     return res.status(200).json({

@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
-
-import User from "../models/User.js";
+import { createAuditLog } from "./auditLog.service.js";import User from "../models/User.js";
 import YearSet from "../models/YearSet.js";
 import Chapter from "../models/Chapter.js";
 import Obligation from "../models/Obligation.js";
@@ -107,6 +106,26 @@ export const assignYearSetLeader = async (
 
       assigned++;
     }
+
+
+    await createAuditLog({
+  actor: assignedBy,
+  action: isReassignment
+    ? "year_set.leader_reassigned"
+    : "year_set.leader_assigned",
+  resource: "YearSet",
+  resourceId: yearSet._id,
+  targetUser: user._id,
+  session,
+  details: {
+    yearSetName: yearSet.name,
+    previousLeader,
+    newLeader: user._id.toString(),
+    isReassignment: Boolean(isReassignment),
+    obligationsAssigned: assigned,
+  },
+});
+
 
     await session.commitTransaction();
 
@@ -226,6 +245,25 @@ export const assignChapterLeader = async (
 
       assigned++;
     }
+
+
+    await createAuditLog({
+  actor: assignedBy,
+  action: isReassignment
+    ? "chapter.leader_reassigned"
+    : "chapter.leader_assigned",
+  resource: "Chapter",
+  resourceId: chapter._id,
+  targetUser: user._id,
+  session,
+  details: {
+    chapterName: chapter.name,
+    previousLeader,
+    newLeader: user._id.toString(),
+    isReassignment: Boolean(isReassignment),
+    obligationsAssigned: assigned,
+  },
+});
 
     await session.commitTransaction();
 

@@ -8,11 +8,15 @@ import {
   updateMemberFinancialStatus,
 } from "../services/memberFinancialStatus.service.js";
 import User from "../models/User.js";
-
-
+import { createAuditLog } from "./auditLog.service.js"; 
 export const completeSuccessfulPayment = async (
   paymentId,
-  transaction
+  transaction,
+  {
+    actor = null,
+    req = null,
+    source = "system",
+  } = {}
 ) => {
   const session = await mongoose.startSession();
 
@@ -168,27 +172,47 @@ export const completeSuccessfulPayment = async (
     });
 
     await updateMemberFinancialStatus(
-      payment.user,
-      obligation.year,
-      session
-    );
+  payment.user,
+  obligation.year,
+  session,
+  {
+    actor,
+    req,
+    source: "payment",
+    paymentId: payment._id,
+    reference: payment.gatewayReference,
+  }
+);
     // ========================================
     // COMMIT DATABASE TRANSACTION
     // ========================================
 
+    await createAuditLog({
+  actor,
+  action: "payment.successful",
+  resource: "Payment",
+  resourceId: payment._id,
+  targetUser: payment.user,
+  req,
+  session,
+  details: {
+    reference: payment.gatewayReference,
+    transactionId: transaction?.id ?? null,
+    amount: payment.amount,
+    currency: transaction?.currency ?? payment.currency,
+    channel: transaction?.channel ?? null,
+    paymentMethod: payment.paymentMethod,
+    obligationAssignment: payment.obligationAssignment,
+    assignmentStatus: assignment.status,
+    source,
+  },
+});
+
+
+
     await session.commitTransaction();
 
-    // ========================================
-    // CREATE PAYMENT NOTIFICATION
-    // ========================================
 
-    await createNotification({
-      userId: payment.user,
-      type: "payment_success",
-      title: "Payment Successful",
-      message: `Your payment of ₦${payment.amount.toLocaleString()} was successful.`,
-      link: "/portal/member/dashboard/payment-history",
-    });
 
     // ========================================
     // SEND PAYMENT SUCCESS EMAIL
@@ -497,9 +521,10 @@ export const completeSuccessfulPayment = async (
     // ========================================
 
     return {
-      payment,
-      assignment,
-    };
+  payment,
+  assignment,
+  alreadyProcessed: false,
+};
 
   } catch (error) {
     await session.abortTransaction();
@@ -514,8 +539,20 @@ export const completeSuccessfulPayment = async (
 export const handleFailedPayment = async (
   payment,
   transaction,
-  status = "failed"
+  status = "failed",
+  {
+    actor = null,
+    req = null,
+    source = "system",
+  } = {}
 ) => {
+  // Prevent duplicate processing of the same failure status.
+  if (payment.status === status) {
+    return payment;
+  }
+
+  const previousStatus = payment.status;
+
   payment.status = status;
 
   payment.metadata = {
@@ -540,6 +577,27 @@ export const handleFailedPayment = async (
   // ========================================
   // CREATE FAILURE NOTIFICATION
   // ========================================
+
+  await createAuditLog({
+  actor,
+  action: "payment.status_changed",
+  resource: "Payment",
+  resourceId: payment._id,
+  targetUser: payment.user,
+  req,
+  details: {
+    previousStatus,
+    newStatus: status,
+    reference: payment.gatewayReference,
+    amount: payment.amount,
+    transactionId: transaction?.id ?? null,
+    gatewayStatus: transaction?.status ?? null,
+    gatewayResponse:
+      transaction?.gateway_response ??
+      "Payment was not successful.",
+    source,
+  },
+});
 
   await createNotification({
     userId: payment.user,
@@ -872,6 +930,59 @@ export const handleFailedPayment = async (
   return payment;
 };
 
+
+export const handlePaymentVerificationMismatch = async (
+  payment,
+  transaction,
+  {
+    req = null,
+    actor = null,
+    source = "system",
+    reason,
+  } = {}
+) => {
+  // Never downgrade a payment already confirmed as successful.
+  if (payment.status === "successful") {
+    return payment;
+  }
+
+  const previousStatus = payment.status;
+
+  payment.status = "failed";
+  payment.metadata = {
+    ...payment.metadata,
+    verificationError: reason,
+    paystackStatus: transaction?.status ?? null,
+    paystackTransactionId: transaction?.id ?? null,
+    paystackAmount: transaction?.amount ?? null,
+    paystackCurrency: transaction?.currency ?? null,
+    verifiedAt: new Date(),
+  };
+
+  await payment.save();
+
+  await createAuditLog({
+    actor,
+    action: "payment.verification_mismatch",
+    resource: "Payment",
+    resourceId: payment._id,
+    targetUser: payment.user,
+    req,
+    details: {
+      previousStatus,
+      newStatus: "failed",
+      reference: payment.gatewayReference,
+      expectedAmount: Number(payment.amount) * 100,
+      receivedAmount: transaction?.amount ?? null,
+      expectedCurrency: payment.currency ?? "NGN",
+      receivedCurrency: transaction?.currency ?? null,
+      reason,
+      source,
+    },
+  });
+
+  return payment;
+};
 
 export const mapPaystackPaymentMethod = (
   channel

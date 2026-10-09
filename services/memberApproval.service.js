@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-
+import { createAuditLog } from "./auditLog.service.js";
 import User from "../models/User.js";
 
 import {
@@ -85,10 +85,30 @@ export const approveMember = async (
       );
 
     // ========================================
-    // COMMIT
-    // ========================================
+// AUDIT MEMBER APPROVAL
+// ========================================
 
-    await session.commitTransaction();
+await createAuditLog({
+  actor: approvedBy,
+  action: "member.approved",
+  resource: "User",
+  resourceId: user._id,
+  targetUser: user._id,
+  session,
+  details: {
+    alumniId,
+    chapter: user.chapter._id,
+    yearSet: user.yearSet._id,
+    graduationYear: user.graduationYear,
+    obligationsAssigned: obligationResult.assigned,
+  },
+});
+
+// ========================================
+// COMMIT
+// ========================================
+
+await session.commitTransaction();
 
     return {
       user,

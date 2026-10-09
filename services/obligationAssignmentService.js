@@ -1,6 +1,8 @@
 import Obligation from "../models/Obligation.js";
 import ObligationAssignment from "../models/ObligationAssignment.js";
 import User from "../models/User.js";
+import { createAuditLog } from "./auditLog.service.js";
+
 
 export const assignIndividualObligationsToUser = async (
   userId,
@@ -108,6 +110,24 @@ if (hasMandatoryAssignment) {
     { session }
   );
 }
+
+
+await createAuditLog({
+  actor: assignedBy,
+  action: "obligation.assignments_created",
+  resource: "ObligationAssignment",
+  targetUser: userId,
+  req: null,
+  session,
+  details: {
+    assignmentType: "individual_obligations_assigned_to_user",
+    assignmentsCreated: createdAssignments.length,
+    obligationIds: createdAssignments.map((assignment) =>
+      assignment.obligation.toString()
+    ),
+    year: currentYear,
+  },
+});
 
   return {
     assigned: createdAssignments.length,
@@ -240,6 +260,24 @@ export const assignIndividualObligationToMembers = async (
     { session }
   );
 }
+
+await createAuditLog({
+  actor: assignedBy,
+  action: "obligation.assignments_created",
+  resource: "ObligationAssignment",
+  resourceId: obligation._id,
+  session,
+  details: {
+    assignmentType: "individual_obligation_assigned_to_members",
+    obligationName: obligation.name,
+    year: obligation.year,
+    isOptional: obligation.isOptional,
+    assignmentsCreated: createdAssignments.length,
+    userIds: createdAssignments.map((assignment) =>
+      assignment.user.toString()
+    ),
+  },
+});
 
 
 

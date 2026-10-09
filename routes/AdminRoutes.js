@@ -29,7 +29,7 @@ import {
   reviewMemorialSubmission,
 } from "../controller/memorialSubmission.controller.js";
 import memorialUpload from "../middleware/memorialUpload.middleware.js";
-
+import { getAdminAuditLogs } from "../controller/auditLog.controller.js";
 import {
   getAdminCalendarEvents,
   getAdminCalendarEventById,
@@ -352,5 +352,18 @@ router.get(
     ),
     getAdminPaymentById
 );
+
+
+// ========================================
+// AUDIT LOGS
+// ========================================
+
+router.get(
+  "/audit-logs",
+  protect,
+  requireRole("admin", "superAdmin"),
+  getAdminAuditLogs
+);
+
 
 export default router;
