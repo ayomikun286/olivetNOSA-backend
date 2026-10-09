@@ -32,6 +32,7 @@ import financialReportRoutes from "./routes/admin/financialReportRoutes.js";
 dns.setServers(["8.8.8.8", "1.1.1.1"]);
 dns.setDefaultResultOrder("ipv4first");
 const app = express();
+app.set("trust proxy", 1);
 const PORT = process.env.PORT || 5000;
 
 app.use(helmet());
@@ -55,13 +56,13 @@ app.use(session(sessionConfig));
 
 
 
-
 app.get("/debug/client-ip", (req, res) => {
   res.json({
     ip: req.ip,
     ips: req.ips,
     remoteAddress: req.socket.remoteAddress,
-    forwardedFor: req.get("x-forwarded-for"),
+    forwardedFor: req.get("x-forwarded-for") || null,
+    trustProxy: app.get("trust proxy"),
   });
 });
 
