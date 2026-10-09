@@ -8,13 +8,13 @@ import YearSet from "../models/YearSet.js";
 import Chapter from "../models/Chapter.js";
 import { validateEmail } from "../utils/validator.js";
 import cloudinary from "../config/cloudinary.js";
+import { createAuditLog } from "../services/auditLog.service.js";
 
-import verifyEmailTemplate from "../utils/Mail-template/verifyEmail.template.js"
 import {
   successResponse,
   errorResponse,
 } from "../utils/response.js";
-import { error } from "console";
+
 
 import { createNotification } from "../services/notificationService.js";
 import { NOTIFICATION_MESSAGES } from "../constants/notificationMessages.js";
@@ -290,6 +290,23 @@ export const Signup = async (req, res) => {
 
       emailVerificationExpires: verificationExpires,
     });
+
+
+    await createAuditLog({
+  actor: user._id,
+  action: "auth.registration_created",
+  resource: "User",
+  resourceId: user._id,
+  targetUser: user._id,
+  req,
+  details: {
+    email: user.email,
+    graduationYear: user.graduationYear,
+    yearSet: user.yearSet,
+    chapter: user.chapter,
+    status: user.status,
+  },
+});
 
 
     // notification//
@@ -797,6 +814,19 @@ export const verifyEmail = async (req, res) => {
     await user.save();
 
 
+    await createAuditLog({
+  actor: user._id,
+  action: "auth.email_verified",
+  resource: "User",
+  resourceId: user._id,
+  targetUser: user._id,
+  req,
+  details: {
+    email: user.email,
+    status: user.status,
+  },
+});
+
     // ------------------------------------------
 // STAFF REGISTRATION NOTIFICATION
 // ------------------------------------------
@@ -986,6 +1016,19 @@ export const resendVerifyEmailLink = async (req, res) => {
     user.emailVerificationExpires = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
 
     await user.save();
+
+    await createAuditLog({
+  actor: user._id,
+  action: "auth.email_verified",
+  resource: "User",
+  resourceId: user._id,
+  targetUser: user._id,
+  req,
+  details: {
+    email: user.email,
+    status: user.status,
+  },
+});
 
 
     // SEND EMAIL
@@ -1412,6 +1455,17 @@ export const forgetPassword = async (req, res) => {
     await user.save();
 
 
+    await createAuditLog({
+  actor: user._id,
+  action: "auth.password_reset_requested",
+  resource: "User",
+  resourceId: user._id,
+  targetUser: user._id,
+  req,
+  details: {
+    email: user.email,
+  },
+});
 
     // RESET URL
     const resetUrl = `${process.env.FRONTEND_URL}/portal/reset-password?token=${resetToken}`;
@@ -1843,6 +1897,10 @@ export const resetPassword = async (req, res) => {
       "+passwordResetToken +passwordResetExpires +password"
     );
 
+
+    
+
+
     // ========================================
     // TOKEN INVALID / EXPIRED
     // ========================================
@@ -1870,6 +1928,19 @@ export const resetPassword = async (req, res) => {
     user.passwordResetExpires = null;
 
     await user.save();
+
+
+    await createAuditLog({
+  actor: user._id,
+  action: "auth.password_reset_completed",
+  resource: "User",
+  resourceId: user._id,
+  targetUser: user._id,
+  req,
+  details: {
+    email: user.email,
+  },
+});
 
     return successResponse(
       res,
@@ -2013,12 +2084,22 @@ export const Login = async (req, res) => {
     // ------------------------------------------
 
     if (!user || !user.password) {
-      return errorResponse(
-        res,
-        401,
-        "Invalid Alumni ID/email or password."
-      );
-    }
+  await createAuditLog({
+    action: "auth.login_failed",
+    resource: "Auth",
+    req,
+    details: {
+      loginType: loginValue.includes("@") ? "email" : "alumniId",
+      reason: "invalid_credentials",
+    },
+  });
+
+  return errorResponse(
+    res,
+    401,
+    "Invalid Alumni ID/email or password."
+  );
+}
 
     // ------------------------------------------
     // CHECK PASSWORD
@@ -2030,12 +2111,25 @@ export const Login = async (req, res) => {
     );
 
     if (!isMatch) {
-      return errorResponse(
-        res,
-        401,
-        "Invalid Alumni ID/email or password."
-      );
-    }
+  await createAuditLog({
+    actor: user._id,
+    action: "auth.login_failed",
+    resource: "User",
+    resourceId: user._id,
+    targetUser: user._id,
+    req,
+    details: {
+      loginType: isEmail ? "email" : "alumniId",
+      reason: "incorrect_password",
+    },
+  });
+
+  return errorResponse(
+    res,
+    401,
+    "Invalid Alumni ID/email or password."
+  );
+}
 
     // ------------------------------------------
     // EMAIL VERIFICATION CHECK
@@ -2104,6 +2198,19 @@ export const Login = async (req, res) => {
       cookieOptions
     );
 
+
+    await createAuditLog({
+  actor: user._id,
+  action: "auth.login_successful",
+  resource: "User",
+  resourceId: user._id,
+  targetUser: user._id,
+  req,
+  details: {
+    loginType: isEmail ? "email" : "alumniId",
+    role: user.role,
+  },
+});
     // ------------------------------------------
     // RESPONSE
     // ------------------------------------------
@@ -2237,46 +2344,109 @@ export const updateMemberProfile = async (req, res) => {
       profile,
     } = req.body;
 
-    // ----------------------------------------
+    const changedFields = [];
+
     // BASIC NAME / PHONE
-    // ----------------------------------------
 
     if (firstName !== undefined) {
-      if (!firstName.trim()) {
+      if (typeof firstName !== "string" || !firstName.trim()) {
         return errorResponse(res, 400, "First name is required.");
       }
 
-      user.firstName = firstName.trim();
+      const value = firstName.trim();
+
+      if (value !== user.firstName) {
+        changedFields.push("firstName");
+      }
+
+      user.firstName = value;
     }
 
     if (middleName !== undefined) {
-      user.middleName = middleName.trim();
+      if (typeof middleName !== "string") {
+        return errorResponse(res, 400, "Invalid middle name.");
+      }
+
+      const value = middleName.trim();
+
+      if (value !== (user.middleName || "")) {
+        changedFields.push("middleName");
+      }
+
+      user.middleName = value;
     }
 
     if (lastName !== undefined) {
-      if (!lastName.trim()) {
+      if (typeof lastName !== "string" || !lastName.trim()) {
         return errorResponse(res, 400, "Last name is required.");
       }
 
-      user.lastName = lastName.trim();
+      const value = lastName.trim();
+
+      if (value !== user.lastName) {
+        changedFields.push("lastName");
+      }
+
+      user.lastName = value;
     }
 
     if (phone !== undefined) {
-      user.phone = phone.trim();
+      if (typeof phone !== "string") {
+        return errorResponse(res, 400, "Invalid phone number.");
+      }
+
+      const value = phone.trim();
+
+      if (value !== (user.phone || "")) {
+        changedFields.push("phone");
+      }
+
+      user.phone = value;
     }
 
-    // ----------------------------------------
     // PROFILE
-    // ----------------------------------------
 
-    if (profile && typeof profile === "object") {
+    if (profile !== undefined) {
+      if (!profile || typeof profile !== "object" || Array.isArray(profile)) {
+        return errorResponse(res, 400, "Invalid profile data.");
+      }
+
+      const existingProfile =
+        user.profile?.toObject?.() || user.profile || {};
+
+      const profileChanges = Object.keys(profile).filter(
+        (key) =>
+          JSON.stringify(existingProfile[key]) !==
+          JSON.stringify(profile[key])
+      );
+
+      if (profileChanges.length > 0) {
+        changedFields.push("profile");
+      }
+
       user.profile = {
-        ...user.profile?.toObject?.() || user.profile || {},
+        ...existingProfile,
         ...profile,
       };
     }
 
     await user.save();
+
+    // AUDIT LOG
+
+    if (changedFields.length > 0) {
+      await createAuditLog({
+        actor: user._id,
+        action: "member.profile_updated",
+        resource: "User",
+        resourceId: user._id,
+        targetUser: user._id,
+        req,
+        details: {
+          changedFields: [...new Set(changedFields)],
+        },
+      });
+    }
 
     return successResponse(
       res,
@@ -2318,6 +2488,19 @@ export const logout = async (req, res) => {
       expires: new Date(0),
     });
 
+
+    if (req.user?._id || req.user?.id) {
+  const userId = req.user._id || req.user.id;
+
+  await createAuditLog({
+    actor: userId,
+    action: "auth.logout",
+    resource: "User",
+    resourceId: userId,
+    targetUser: userId,
+    req,
+  });
+}
 
     return successResponse(
       res,
@@ -2430,6 +2613,21 @@ export const setPasswordController = async (req, res) => {
 
     await user.save();
 
+
+    await createAuditLog({
+  actor: user._id,
+  action: "auth.account_setup_completed",
+  resource: "User",
+  resourceId: user._id,
+  targetUser: user._id,
+  req,
+  details: {
+    status: user.status,
+    emailVerified: user.isEmailVerified,
+  },
+});
+    
+
     return res.status(200).json({
       success: true,
       message: "Password set successfully. You can now log in.",
@@ -2495,6 +2693,18 @@ export const uploadProfilePhoto = async (req, res) => {
     user.profile.profilePhoto = uploadResult.secure_url;
 
     await user.save();
+
+    await createAuditLog({
+  actor: user._id,
+  action: "member.profile_photo_uploaded",
+  resource: "User",
+  resourceId: user._id,
+  targetUser: user._id,
+  req,
+  details: {
+    provider: "cloudinary",
+  },
+});
 
     return successResponse(
       res,

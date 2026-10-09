@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
 import CalendarEvent from "../models/CalendarEvent.js";
-
+import { createAuditLog } from "../services/auditLog.service.js";
 // ============================================================
 // HELPER: VALID CATEGORIES
 // ============================================================
@@ -667,6 +667,22 @@ if (selectedLocation === "Physical" && !selectedLocationDetails) {
       createdBy: req.user.id,
     });
 
+
+    await createAuditLog({
+  actor: req.user.id,
+  action: "calendar_event.created",
+  resource: "CalendarEvent",
+  resourceId: event._id,
+  req,
+  details: {
+    title: event.title,
+    date: event.date,
+    category: event.category,
+    status: event.status,
+    location: event.location,
+  },
+});
+
     // ----------------------------------------
     // RESPONSE
     // ----------------------------------------
@@ -889,12 +905,27 @@ export const updateCalendarEvent = async (req, res) => {
 
     event.updatedBy = req.user.id;
 
-    // ----------------------------------------
-    // SAVE
-    // ----------------------------------------
+   // SAVE
+const changedFields = event.modifiedPaths();
 
-    await event.save();
+await event.save();
 
+// AUDIT LOG
+if (changedFields.length > 0) {
+  await createAuditLog({
+    actor: req.user.id,
+    action: "calendar_event.updated",
+    resource: "CalendarEvent",
+    resourceId: event._id,
+    req,
+    details: {
+      title: event.title,
+      changedFields,
+      date: event.date,
+      status: event.status,
+    },
+  });
+}
     // ----------------------------------------
     // RESPONSE
     // ----------------------------------------
@@ -944,6 +975,22 @@ export const deleteCalendarEvent = async (
     }
 
     await CalendarEvent.findByIdAndDelete(id);
+
+// AUDIT LOG
+await createAuditLog({
+  actor: req.user.id,
+  action: "calendar_event.deleted",
+  resource: "CalendarEvent",
+  resourceId: event._id,
+  req,
+  details: {
+    title: event.title,
+    date: event.date,
+    category: event.category,
+    status: event.status,
+    location: event.location,
+  },
+});
 
     return res.status(200).json({
       success: true,

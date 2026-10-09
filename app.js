@@ -51,6 +51,14 @@ app.use(session(sessionConfig));
 
 
 
+app.get("/api/debug/request-ip", (req, res) => {
+  res.json({
+    ip: req.ip,
+    remoteAddress: req.socket.remoteAddress,
+    forwardedFor: req.headers["x-forwarded-for"] || null,
+  });
+});
+
  app.get("/", (req, res) => {
       res.send("Welcome to the NOSA Alumni API");
     });

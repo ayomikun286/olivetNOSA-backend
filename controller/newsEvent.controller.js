@@ -1,23 +1,24 @@
+import mongoose from "mongoose";
 import NewsEvent from "../models/NewsEvent.js";
 import cloudinary from "../config/cloudinary.js";
+import { createAuditLog } from "../services/auditLog.service.js";
+
+// ============================================================
+// PUBLIC: GET PUBLISHED NEWS AND EVENTS
+// ============================================================
 
 export const getPublishedNewsEvents = async (req, res) => {
   try {
     const { type } = req.query;
 
-    const filter = {
-      isPublished: true,
-    };
+    const filter = { isPublished: true };
 
     if (type && ["news", "event"].includes(type)) {
       filter.type = type;
     }
 
     const newsEvents = await NewsEvent.find(filter)
-      .sort({
-        publishedAt: -1,
-        createdAt: -1,
-      })
+      .sort({ publishedAt: -1, createdAt: -1 })
       .populate("createdBy", "firstName lastName");
 
     return res.status(200).json({
@@ -35,7 +36,9 @@ export const getPublishedNewsEvents = async (req, res) => {
   }
 };
 
-
+// ============================================================
+// PUBLIC: GET PUBLISHED NEWS OR EVENT BY SLUG
+// ============================================================
 
 export const getPublishedNewsEventBySlug = async (req, res) => {
   try {
@@ -68,20 +71,10 @@ export const getPublishedNewsEventBySlug = async (req, res) => {
   }
 };
 
+// ============================================================
+// ADMIN: CREATE NEWS OR EVENT
+// ============================================================
 
-
-
-
-
-
-
-
-
-
-
-
-
-// admin //
 export const createNewsEvent = async (req, res) => {
   try {
     const {
@@ -100,7 +93,8 @@ export const createNewsEvent = async (req, res) => {
       isFeatured,
     } = req.body;
 
-    if (!title?.trim()) {
+    // REQUIRED FIELDS
+    if (typeof title !== "string" || !title.trim()) {
       return res.status(400).json({
         success: false,
         message: "Title is required.",
@@ -114,7 +108,7 @@ export const createNewsEvent = async (req, res) => {
       });
     }
 
-    if (!slug?.trim()) {
+    if (typeof slug !== "string" || !slug.trim()) {
       return res.status(400).json({
         success: false,
         message: "Slug is required.",
@@ -128,8 +122,11 @@ export const createNewsEvent = async (req, res) => {
       });
     }
 
+    // CHECK DUPLICATE SLUG
+    const cleanSlug = slug.trim().toLowerCase();
+
     const existingNewsEvent = await NewsEvent.findOne({
-      slug: slug.trim().toLowerCase(),
+      slug: cleanSlug,
     });
 
     if (existingNewsEvent) {
@@ -139,8 +136,7 @@ export const createNewsEvent = async (req, res) => {
       });
     }
 
-
-
+    // UPLOAD IMAGE
     let imageUrl = "";
     let imagePublicId = "";
 
@@ -178,32 +174,48 @@ export const createNewsEvent = async (req, res) => {
       imagePublicId = uploadResult.public_id;
     }
 
-    const published = isPublished === true || isPublished === "true";
+    const published =
+      isPublished === true || isPublished === "true";
 
+    const featured =
+      isFeatured === true || isFeatured === "true";
+
+    // CREATE RECORD
     const newsEvent = await NewsEvent.create({
       title: title.trim(),
-      slug: slug.trim().toLowerCase(),
+      slug: cleanSlug,
       type,
       category: category?.trim() || "",
       excerpt: excerpt?.trim() || "",
       content: content?.trim() || "",
-
       image: imageUrl,
       imagePublicId,
-
       eventDate: eventDate || null,
       startTime: startTime?.trim() || "",
       endTime: endTime?.trim() || "",
       location: location?.trim() || "",
       registrationUrl: registrationUrl?.trim() || "",
-
       isPublished: published,
-      isFeatured:
-        isFeatured === true || isFeatured === "true",
-
+      isFeatured: featured,
       publishedAt: published ? new Date() : null,
-
       createdBy: req.user.id,
+    });
+
+    // AUDIT LOG
+    await createAuditLog({
+      actor: req.user.id,
+      action: "news_event.created",
+      resource: "NewsEvent",
+      resourceId: newsEvent._id,
+      req,
+      details: {
+        title: newsEvent.title,
+        slug: newsEvent.slug,
+        type: newsEvent.type,
+        isPublished: newsEvent.isPublished,
+        isFeatured: newsEvent.isFeatured,
+        hasImage: Boolean(newsEvent.image),
+      },
     });
 
     return res.status(201).json({
@@ -221,18 +233,20 @@ export const createNewsEvent = async (req, res) => {
   }
 };
 
+// ============================================================
+// ADMIN: GET NEWS AND EVENTS
+// ============================================================
+
 export const getAdminNewsEvents = async (req, res) => {
   try {
     const { type, status } = req.query;
 
     const filter = {};
 
-    // Filter by type
     if (type && ["news", "event"].includes(type)) {
       filter.type = type;
     }
 
-    // Filter by publication status
     if (status === "published") {
       filter.isPublished = true;
     }
@@ -242,9 +256,7 @@ export const getAdminNewsEvents = async (req, res) => {
     }
 
     const newsEvents = await NewsEvent.find(filter)
-      .sort({
-        createdAt: -1,
-      })
+      .sort({ createdAt: -1 })
       .populate("createdBy", "firstName lastName");
 
     return res.status(200).json({
@@ -262,9 +274,21 @@ export const getAdminNewsEvents = async (req, res) => {
   }
 };
 
+// ============================================================
+// ADMIN: UPDATE NEWS OR EVENT
+// ============================================================
+
 export const updateNewsEvent = async (req, res) => {
   try {
     const { id } = req.params;
+
+    // ID VALIDATION
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid news or event ID.",
+      });
+    }
 
     const newsEvent = await NewsEvent.findById(id);
 
@@ -291,6 +315,7 @@ export const updateNewsEvent = async (req, res) => {
       isFeatured,
     } = req.body;
 
+    // TYPE VALIDATION
     if (type !== undefined && !["news", "event"].includes(type)) {
       return res.status(400).json({
         success: false,
@@ -298,9 +323,15 @@ export const updateNewsEvent = async (req, res) => {
       });
     }
 
-  
-
+    // SLUG
     if (slug !== undefined) {
+      if (typeof slug !== "string" || !slug.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Slug cannot be empty.",
+        });
+      }
+
       const cleanSlug = slug.trim().toLowerCase();
 
       const existingNewsEvent = await NewsEvent.findOne({
@@ -318,9 +349,9 @@ export const updateNewsEvent = async (req, res) => {
       newsEvent.slug = cleanSlug;
     }
 
-
+    // TITLE
     if (title !== undefined) {
-      if (!title.trim()) {
+      if (typeof title !== "string" || !title.trim()) {
         return res.status(400).json({
           success: false,
           message: "Title cannot be empty.",
@@ -330,13 +361,13 @@ export const updateNewsEvent = async (req, res) => {
       newsEvent.title = title.trim();
     }
 
+    // BASIC CONTENT
     if (type !== undefined) newsEvent.type = type;
     if (category !== undefined) newsEvent.category = category.trim();
     if (excerpt !== undefined) newsEvent.excerpt = excerpt.trim();
     if (content !== undefined) newsEvent.content = content.trim();
 
- 
-
+    // EVENT DETAILS
     if (eventDate !== undefined) {
       newsEvent.eventDate = eventDate || null;
     }
@@ -357,7 +388,7 @@ export const updateNewsEvent = async (req, res) => {
       newsEvent.registrationUrl = registrationUrl.trim();
     }
 
-    
+    // IMAGE UPLOAD
     if (req.file) {
       const uploadResult = await new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
@@ -392,7 +423,7 @@ export const updateNewsEvent = async (req, res) => {
       newsEvent.imagePublicId = uploadResult.public_id;
     }
 
-   
+    // PUBLICATION STATUS
     if (isPublished !== undefined) {
       const published =
         isPublished === true || isPublished === "true";
@@ -408,12 +439,36 @@ export const updateNewsEvent = async (req, res) => {
       newsEvent.isPublished = published;
     }
 
+    // FEATURED STATUS
     if (isFeatured !== undefined) {
       newsEvent.isFeatured =
         isFeatured === true || isFeatured === "true";
     }
 
+    // CAPTURE CHANGED FIELDS BEFORE SAVING
+    const changedFields = newsEvent.modifiedPaths();
+
     await newsEvent.save();
+
+    // AUDIT LOG
+    if (changedFields.length > 0) {
+      await createAuditLog({
+        actor: req.user.id,
+        action: "news_event.updated",
+        resource: "NewsEvent",
+        resourceId: newsEvent._id,
+        req,
+        details: {
+          title: newsEvent.title,
+          slug: newsEvent.slug,
+          type: newsEvent.type,
+          changedFields,
+          isPublished: newsEvent.isPublished,
+          isFeatured: newsEvent.isFeatured,
+          hasImage: Boolean(newsEvent.image),
+        },
+      });
+    }
 
     return res.status(200).json({
       success: true,
@@ -430,10 +485,21 @@ export const updateNewsEvent = async (req, res) => {
   }
 };
 
+// ============================================================
+// ADMIN: DELETE NEWS OR EVENT
+// ============================================================
 
 export const deleteNewsEvent = async (req, res) => {
   try {
     const { id } = req.params;
+
+    // ID VALIDATION
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid news or event ID.",
+      });
+    }
 
     const newsEvent = await NewsEvent.findById(id);
 
@@ -444,17 +510,36 @@ export const deleteNewsEvent = async (req, res) => {
       });
     }
 
-    // Delete image from Cloudinary if one exists
+    // KEEP DETAILS FOR THE AUDIT RECORD
+    const deletedDetails = {
+      title: newsEvent.title,
+      slug: newsEvent.slug,
+      type: newsEvent.type,
+      wasPublished: newsEvent.isPublished,
+      wasFeatured: newsEvent.isFeatured,
+      hadImage: Boolean(newsEvent.image),
+    };
+
+    // DELETE IMAGE FROM CLOUDINARY
     if (newsEvent.imagePublicId) {
       await cloudinary.uploader.destroy(
         newsEvent.imagePublicId,
-        {
-          resource_type: "image",
-        }
+        { resource_type: "image" }
       );
     }
 
+    // DELETE DATABASE RECORD
     await NewsEvent.findByIdAndDelete(id);
+
+    // AUDIT LOG
+    await createAuditLog({
+      actor: req.user.id,
+      action: "news_event.deleted",
+      resource: "NewsEvent",
+      resourceId: newsEvent._id,
+      req,
+      details: deletedDetails,
+    });
 
     return res.status(200).json({
       success: true,
@@ -469,4 +554,3 @@ export const deleteNewsEvent = async (req, res) => {
     });
   }
 };
-

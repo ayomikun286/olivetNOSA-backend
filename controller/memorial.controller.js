@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import Memorial from "../models/Memorial.js";
 import cloudinary from "../config/cloudinary.js";
-
+import { createAuditLog } from "../services/auditLog.service.js";
 // ========================================
 // HELPER: UPLOAD IMAGE TO CLOUDINARY
 // ========================================
@@ -489,6 +489,23 @@ export const createMemorial = async (req, res) => {
       error
     );
 
+
+
+    await createAuditLog({
+      actor: req.user.id,
+      action: "memorial.created",
+      resource: "Memorial",
+      resourceId: memorial._id,
+      req,
+      details: {
+        fullName: memorial.fullName,
+        graduationYear: memorial.graduationYear,
+        isPublished: memorial.isPublished,
+        hasPhotograph: Boolean(memorial.photograph),
+        additionalPhotoCount: memorial.additionalPhotos.length,
+      },
+    });
+
     // ----------------------------------------
     // CLEANUP CLOUDINARY IF DB CREATION FAILS
     // ----------------------------------------
@@ -687,8 +704,8 @@ export const updateMemorial = async (req, res) => {
           )
             ? removeAdditionalPhotoIds
             : JSON.parse(
-                removeAdditionalPhotoIds
-              );
+              removeAdditionalPhotoIds
+            );
       } catch {
         return res.status(400).json({
           success: false,
@@ -779,7 +796,27 @@ export const updateMemorial = async (req, res) => {
     // SAVE
     // ----------------------------------------
 
+    // SAVE AND AUDIT
+    const changedFields = memorial.modifiedPaths();
+
     await memorial.save();
+
+    if (changedFields.length > 0) {
+      await createAuditLog({
+        actor: req.user.id,
+        action: "memorial.updated",
+        resource: "Memorial",
+        resourceId: memorial._id,
+        req,
+        details: {
+          fullName: memorial.fullName,
+          changedFields,
+          isPublished: memorial.isPublished,
+          hasPhotograph: Boolean(memorial.photograph),
+          additionalPhotoCount: memorial.additionalPhotos.length,
+        },
+      });
+    }
 
     return res.status(200).json({
       success: true,
@@ -861,8 +898,24 @@ export const deleteMemorial = async (req, res) => {
     // DELETE DATABASE RECORD
     // ----------------------------------------
 
+    // DELETE DATABASE RECORD
     await Memorial.findByIdAndDelete(id);
 
+    // AUDIT LOG
+    await createAuditLog({
+      actor: req.user.id,
+      action: "memorial.deleted",
+      resource: "Memorial",
+      resourceId: memorial._id,
+      req,
+      details: {
+        fullName: memorial.fullName,
+        graduationYear: memorial.graduationYear,
+        wasPublished: memorial.isPublished,
+        hadPhotograph: Boolean(memorial.photograph),
+        additionalPhotoCount: memorial.additionalPhotos.length,
+      },
+    });
     return res.status(200).json({
       success: true,
       message:

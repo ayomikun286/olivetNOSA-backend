@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 import Memorial from "../models/Memorial.js";
 import MemorialSubmission from "../models/MemorialSubmission.js";
-
+import { createAuditLog } from "../services/auditLog.service.js";
 import cloudinary from "../config/cloudinary.js";
 
 
@@ -265,6 +265,25 @@ export const createMemorialSubmission =
 
           status: "pending",
         });
+
+
+        // AUDIT LOG
+await createAuditLog({
+  actor: req.user.id,
+  action: "memorial_submission.created",
+  resource: "MemorialSubmission",
+  resourceId: submission._id,
+  targetUser: req.user.id,
+  req,
+  details: {
+    submissionType: submission.submissionType,
+    status: submission.status,
+    memorialId: submission.memorial || null,
+    suggestedFullName:
+      submission.suggestedFullName || "",
+    photographCount: submission.photographs.length,
+  },
+});
 
       return res.status(201).json({
         success: true,
