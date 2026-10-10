@@ -4,6 +4,7 @@ import express from "express";
 import cors from "cors";
 
 
+import jobRoutes from "./routes/jobRoutes.js";
 import helmet from "helmet";
 import AdminRoute from "./routes/AdminRoutes.js"
 import { corsOptions } from "./config/cors.js";
@@ -56,15 +57,7 @@ app.use(session(sessionConfig));
 
 
 
-app.get("/debug/client-ip", (req, res) => {
-  res.json({
-    ip: req.ip,
-    ips: req.ips,
-    remoteAddress: req.socket.remoteAddress,
-    forwardedFor: req.get("x-forwarded-for") || null,
-    trustProxy: app.get("trust proxy"),
-  });
-});
+
 
 app.get("/", (req, res) => {
   res.send("Welcome to the GOSA Alumni API");
@@ -78,6 +71,7 @@ app.use("/api/admin", AdminRoute);
 app.use("/api/news-events", newsEventRoutes);
 app.use("/api/memorials", memorial)
 
+app.use("/api/jobs", jobRoutes);
 app.use("/api/obligations", obligationRoutes);
 app.use(obligationAssignmentRoutes);
 app.use("/api/notifications", Notification);

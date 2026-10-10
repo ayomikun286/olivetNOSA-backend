@@ -20,17 +20,22 @@ import {protect} from "../middleware/authmiddleware.js";
 import {requireFinancialMember} from "../middleware/financialMiddleware.js";
 
 import upload from "../middleware/upload.middleware.js";
-import {serverLimiter} from "../middleware/rateLimiter.js";
-import { updateMemberFinancialStatus } from "../services/memberFinancialStatus.service.js";
+import {
+  serverLimiter,
+  loginLimiter,
+  signupLimiter,
+  passwordResetLimiter,
+  verificationLimiter,
+} from "../middleware/rateLimiter.js";// import { updateMemberFinancialStatus } from "../services/memberFinancialStatus.service.js";
 import  requireRole  from "../middleware/roleMiddleware.js";
 import {getPublishedFinancialReports} from "../controller/membersFinancialReport.js";  
 const router = express.Router();
 
 
-router.post("/user/create",serverLimiter, Signup);
+router.post("/user/create", signupLimiter, Signup);
 router.get("/user/verify-email", verifyEmail);
 router.get("/user/verification-status", checkVerificationStatus);
-router.post("/user/login",serverLimiter, Login);
+router.post("/user/login",loginLimiter , Login);
 router.get("/user/logout",logout)
 router.get("/auth/me",protect,getCurrentUser)
 
@@ -73,31 +78,12 @@ router.get(
 
 
 
-router.get("/api/debug/financial/:userId", async (req, res) => {
-  try {
-    const status = await updateMemberFinancialStatus(
-      req.params.userId,
-      2026
-    );
-
-    res.json({
-      ok: true,
-      status,
-    });
-  } catch (error) {
-    console.error(error);
-
-    res.status(500).json({
-      ok: false,
-      message: error.message,
-    });
-  }
-});
 
 
-router.post("/user/resendVerifyEmailLink", serverLimiter, resendVerifyEmailLink)
+
+router.post("/user/resendVerifyEmailLink",  verificationLimiter, resendVerifyEmailLink)
 router.post("/user/forgetPassword",serverLimiter, forgetPassword);
-router.post("/user/reset-password",serverLimiter, resetPassword)
+router.post("/user/reset-password",  passwordResetLimiter,resetPassword)
 router.get( "/api/auth/activate-account",serverLimiter, verifyAccountSetupController);
 router.post( "/api/auth/set-password",serverLimiter, setPasswordController );
 export default router

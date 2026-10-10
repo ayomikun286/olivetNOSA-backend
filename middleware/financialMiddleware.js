@@ -1,4 +1,3 @@
-// middleware/financialMiddleware.js
 
 export const requireFinancialMember = (req, res, next) => {
   if (!req.user) {
