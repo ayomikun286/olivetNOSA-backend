@@ -23,7 +23,7 @@ const newsEventSchema = new mongoose.Schema(
 
     type: {
       type: String,
-      enum: ["news", "event"],
+      enum: ["news", "event", "article"],
       required: true,
     },
 
@@ -94,6 +94,13 @@ const newsEventSchema = new mongoose.Schema(
       default: false,
     },
 
+    visibility: {
+      type: String,
+      enum: ["public", "members"],
+      default: "public",
+      required: true,
+    },
+
     isFeatured: {
       type: Boolean,
       default: false,
@@ -122,7 +129,7 @@ const newsEventSchema = new mongoose.Schema(
 // ========================================
 // INDEXES
 // ========================================
-
+newsEventSchema.index({ type: 1, visibility: 1, isPublished: 1 });
 newsEventSchema.index({ type: 1 });
 newsEventSchema.index({ category: 1 });
 newsEventSchema.index({ isPublished: 1 });

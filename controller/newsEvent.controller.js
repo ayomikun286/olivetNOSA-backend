@@ -1,43 +1,90 @@
+
 import mongoose from "mongoose";
 import NewsEvent from "../models/NewsEvent.js";
 import cloudinary from "../config/cloudinary.js";
 import { createAuditLog } from "../services/auditLog.service.js";
 
+const CONTENT_TYPES = ["news", "event", "article"];
+const VISIBILITIES = ["public", "members"];
+
+const parseBoolean = (value) =>
+  value === true || value === "true";
+
+const uploadImage = async (file) => {
+  if (!file) return null;
+
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: "olivetnosa/news-events",
+        resource_type: "image",
+        transformation: [
+          { width: 1600, height: 900, crop: "limit" },
+          { quality: "auto", fetch_format: "auto" },
+        ],
+      },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve(result);
+      }
+    );
+
+    stream.end(file.buffer);
+  });
+};
+
+const validateType = (type) =>
+  CONTENT_TYPES.includes(type);
+
+const validateVisibility = (visibility) =>
+  VISIBILITIES.includes(visibility);
+
 // ============================================================
-// PUBLIC: GET PUBLISHED NEWS AND EVENTS
+// PUBLIC: GET PUBLISHED PUBLIC NEWS, EVENTS AND ARTICLES
 // ============================================================
 
 export const getPublishedNewsEvents = async (req, res) => {
   try {
     const { type } = req.query;
 
-    const filter = { isPublished: true };
+    const filter = {
+      isPublished: true,
+      visibility: "public",
+    };
 
-    if (type && ["news", "event"].includes(type)) {
+    if (type) {
+      if (!validateType(type)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid content type.",
+        });
+      }
+
       filter.type = type;
     }
 
     const newsEvents = await NewsEvent.find(filter)
       .sort({ publishedAt: -1, createdAt: -1 })
-      .populate("createdBy", "firstName lastName");
+      .populate("createdBy", "firstName lastName")
+      .lean();
 
     return res.status(200).json({
       success: true,
-      message: "News and events retrieved successfully.",
+      message: "Published content retrieved successfully.",
       data: newsEvents,
     });
   } catch (error) {
-    console.error("Get published news/events error:", error);
+    console.error("Get published content error:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Something went wrong while retrieving news and events.",
+      message: "Something went wrong while retrieving published content.",
     });
   }
 };
 
 // ============================================================
-// PUBLIC: GET PUBLISHED NEWS OR EVENT BY SLUG
+// PUBLIC: GET PUBLISHED PUBLIC CONTENT BY SLUG
 // ============================================================
 
 export const getPublishedNewsEventBySlug = async (req, res) => {
@@ -45,37 +92,111 @@ export const getPublishedNewsEventBySlug = async (req, res) => {
     const { slug } = req.params;
 
     const newsEvent = await NewsEvent.findOne({
-      slug,
+      slug: slug.toLowerCase(),
       isPublished: true,
-    }).populate("createdBy", "firstName lastName");
+      visibility: "public",
+    })
+      .populate("createdBy", "firstName lastName")
+      .lean();
 
     if (!newsEvent) {
       return res.status(404).json({
         success: false,
-        message: "News or event not found.",
+        message: "Content not found.",
       });
     }
 
     return res.status(200).json({
       success: true,
-      message: "News or event retrieved successfully.",
+      message: "Content retrieved successfully.",
       data: newsEvent,
     });
   } catch (error) {
-    console.error("Get published news/event error:", error);
+    console.error("Get published content by slug error:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Something went wrong while retrieving the news or event.",
+      message: "Something went wrong while retrieving the content.",
     });
   }
 };
 
 // ============================================================
-// ADMIN: CREATE NEWS OR EVENT
+// MEMBER: GET PUBLISHED PUBLIC AND MEMBERS-ONLY ARTICLES
+// Apply protect middleware to this route.
+// ============================================================
+
+export const getMemberArticles = async (req, res) => {
+  try {
+    const articles = await NewsEvent.find({
+      type: "article",
+      isPublished: true,
+      visibility: { $in: ["public", "members"] },
+    })
+      .sort({ publishedAt: -1, createdAt: -1 })
+      .populate("createdBy", "firstName lastName")
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      message: "Articles retrieved successfully.",
+      data: articles,
+    });
+  } catch (error) {
+    console.error("Get member articles error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong while retrieving articles.",
+    });
+  }
+};
+
+// ============================================================
+// MEMBER: GET ARTICLE BY SLUG
+// Apply protect middleware to this route.
+// ============================================================
+
+export const getMemberArticleBySlug = async (req, res) => {
+  try {
+    const article = await NewsEvent.findOne({
+      slug: req.params.slug.toLowerCase(),
+      type: "article",
+      isPublished: true,
+      visibility: { $in: ["public", "members"] },
+    })
+      .populate("createdBy", "firstName lastName")
+      .lean();
+
+    if (!article) {
+      return res.status(404).json({
+        success: false,
+        message: "Article not found.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Article retrieved successfully.",
+      data: article,
+    });
+  } catch (error) {
+    console.error("Get member article error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong while retrieving the article.",
+    });
+  }
+};
+
+// ============================================================
+// ADMIN: CREATE NEWS, EVENT OR ARTICLE
 // ============================================================
 
 export const createNewsEvent = async (req, res) => {
+  let uploadedPublicId = null;
+
   try {
     const {
       title,
@@ -84,6 +205,7 @@ export const createNewsEvent = async (req, res) => {
       category,
       excerpt,
       content,
+      visibility,
       eventDate,
       startTime,
       endTime,
@@ -93,7 +215,6 @@ export const createNewsEvent = async (req, res) => {
       isFeatured,
     } = req.body;
 
-    // REQUIRED FIELDS
     if (typeof title !== "string" || !title.trim()) {
       return res.status(400).json({
         success: false,
@@ -101,10 +222,10 @@ export const createNewsEvent = async (req, res) => {
       });
     }
 
-    if (!type || !["news", "event"].includes(type)) {
+    if (!validateType(type)) {
       return res.status(400).json({
         success: false,
-        message: "Type must be either news or event.",
+        message: "Type must be news, event or article.",
       });
     }
 
@@ -115,6 +236,16 @@ export const createNewsEvent = async (req, res) => {
       });
     }
 
+    if (
+      visibility !== undefined &&
+      !validateVisibility(visibility)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Visibility must be public or members.",
+      });
+    }
+
     if (type === "event" && !eventDate) {
       return res.status(400).json({
         success: false,
@@ -122,86 +253,66 @@ export const createNewsEvent = async (req, res) => {
       });
     }
 
-    // CHECK DUPLICATE SLUG
+    if (
+      type === "event" &&
+      (!Number.isFinite(new Date(eventDate).getTime()))
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide a valid event date.",
+      });
+    }
+
     const cleanSlug = slug.trim().toLowerCase();
 
-    const existingNewsEvent = await NewsEvent.findOne({
-      slug: cleanSlug,
-    });
+    const existing = await NewsEvent.findOne({ slug: cleanSlug });
 
-    if (existingNewsEvent) {
+    if (existing) {
       return res.status(409).json({
         success: false,
-        message: "A news or event with this slug already exists.",
+        message: "A news item, event or article with this slug already exists.",
       });
     }
 
-    // UPLOAD IMAGE
-    let imageUrl = "";
-    let imagePublicId = "";
+    const uploadResult = await uploadImage(req.file);
 
-    if (req.file) {
-      const uploadResult = await new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-          {
-            folder: "olivetnosa/news-events",
-            resource_type: "image",
-            transformation: [
-              {
-                width: 1600,
-                height: 900,
-                crop: "limit",
-              },
-              {
-                quality: "auto",
-                fetch_format: "auto",
-              },
-            ],
-          },
-          (error, result) => {
-            if (error) {
-              reject(error);
-            } else {
-              resolve(result);
-            }
-          }
-        );
-
-        stream.end(req.file.buffer);
-      });
-
-      imageUrl = uploadResult.secure_url;
-      imagePublicId = uploadResult.public_id;
+    if (uploadResult) {
+      uploadedPublicId = uploadResult.public_id;
     }
 
-    const published =
-      isPublished === true || isPublished === "true";
+    const published = parseBoolean(isPublished);
+    const featured = parseBoolean(isFeatured);
 
-    const featured =
-      isFeatured === true || isFeatured === "true";
-
-    // CREATE RECORD
     const newsEvent = await NewsEvent.create({
       title: title.trim(),
       slug: cleanSlug,
       type,
-      category: category?.trim() || "",
-      excerpt: excerpt?.trim() || "",
-      content: content?.trim() || "",
-      image: imageUrl,
-      imagePublicId,
-      eventDate: eventDate || null,
-      startTime: startTime?.trim() || "",
-      endTime: endTime?.trim() || "",
-      location: location?.trim() || "",
-      registrationUrl: registrationUrl?.trim() || "",
+      category:
+        typeof category === "string" ? category.trim() : "",
+      excerpt:
+        typeof excerpt === "string" ? excerpt.trim() : "",
+      content:
+        typeof content === "string" ? content.trim() : "",
+      visibility: visibility || "public",
+      image: uploadResult?.secure_url || "",
+      imagePublicId: uploadResult?.public_id || "",
+      eventDate: type === "event" ? new Date(eventDate) : null,
+      startTime:
+        typeof startTime === "string" ? startTime.trim() : "",
+      endTime:
+        typeof endTime === "string" ? endTime.trim() : "",
+      location:
+        typeof location === "string" ? location.trim() : "",
+      registrationUrl:
+        typeof registrationUrl === "string"
+          ? registrationUrl.trim()
+          : "",
       isPublished: published,
       isFeatured: featured,
       publishedAt: published ? new Date() : null,
       createdBy: req.user.id,
     });
 
-    // AUDIT LOG
     await createAuditLog({
       actor: req.user.id,
       action: "news_event.created",
@@ -212,6 +323,7 @@ export const createNewsEvent = async (req, res) => {
         title: newsEvent.title,
         slug: newsEvent.slug,
         type: newsEvent.type,
+        visibility: newsEvent.visibility,
         isPublished: newsEvent.isPublished,
         isFeatured: newsEvent.isFeatured,
         hasImage: Boolean(newsEvent.image),
@@ -220,73 +332,105 @@ export const createNewsEvent = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: "News or event created successfully.",
+      message: "Content created successfully.",
       data: newsEvent,
     });
   } catch (error) {
-    console.error("Create news/event error:", error);
+    // Avoid leaving an uploaded image behind if creation fails.
+    if (uploadedPublicId) {
+      try {
+        await cloudinary.uploader.destroy(uploadedPublicId, {
+          resource_type: "image",
+        });
+      } catch (cleanupError) {
+        console.error("Cloudinary cleanup error:", cleanupError);
+      }
+    }
+
+    if (error?.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: "That slug is already in use.",
+      });
+    }
+
+    console.error("Create content error:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Something went wrong while creating the news or event.",
+      message: "Something went wrong while creating the content.",
     });
   }
 };
 
 // ============================================================
-// ADMIN: GET NEWS AND EVENTS
+// ADMIN: GET ALL CONTENT
 // ============================================================
 
 export const getAdminNewsEvents = async (req, res) => {
   try {
-    const { type, status } = req.query;
-
+    const { type, status, visibility } = req.query;
     const filter = {};
 
-    if (type && ["news", "event"].includes(type)) {
+    if (type) {
+      if (!validateType(type)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid content type.",
+        });
+      }
+
       filter.type = type;
     }
 
-    if (status === "published") {
-      filter.isPublished = true;
-    }
+    if (status === "published") filter.isPublished = true;
+    if (status === "draft") filter.isPublished = false;
 
-    if (status === "draft") {
-      filter.isPublished = false;
+    if (visibility) {
+      if (!validateVisibility(visibility)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid visibility.",
+        });
+      }
+
+      filter.visibility = visibility;
     }
 
     const newsEvents = await NewsEvent.find(filter)
       .sort({ createdAt: -1 })
-      .populate("createdBy", "firstName lastName");
+      .populate("createdBy", "firstName lastName")
+      .lean();
 
     return res.status(200).json({
       success: true,
-      message: "News and events retrieved successfully.",
+      message: "Content retrieved successfully.",
       data: newsEvents,
     });
   } catch (error) {
-    console.error("Get admin news/events error:", error);
+    console.error("Get admin content error:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Something went wrong while retrieving news and events.",
+      message: "Something went wrong while retrieving content.",
     });
   }
 };
 
 // ============================================================
-// ADMIN: UPDATE NEWS OR EVENT
+// ADMIN: UPDATE NEWS, EVENT OR ARTICLE
 // ============================================================
 
 export const updateNewsEvent = async (req, res) => {
+  let uploadedPublicId = null;
+
   try {
     const { id } = req.params;
 
-    // ID VALIDATION
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid news or event ID.",
+        message: "Invalid content ID.",
       });
     }
 
@@ -295,7 +439,7 @@ export const updateNewsEvent = async (req, res) => {
     if (!newsEvent) {
       return res.status(404).json({
         success: false,
-        message: "News or event not found.",
+        message: "Content not found.",
       });
     }
 
@@ -306,6 +450,7 @@ export const updateNewsEvent = async (req, res) => {
       category,
       excerpt,
       content,
+      visibility,
       eventDate,
       startTime,
       endTime,
@@ -315,15 +460,23 @@ export const updateNewsEvent = async (req, res) => {
       isFeatured,
     } = req.body;
 
-    // TYPE VALIDATION
-    if (type !== undefined && !["news", "event"].includes(type)) {
+    if (type !== undefined && !validateType(type)) {
       return res.status(400).json({
         success: false,
-        message: "Type must be either news or event.",
+        message: "Type must be news, event or article.",
       });
     }
 
-    // SLUG
+    if (
+      visibility !== undefined &&
+      !validateVisibility(visibility)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Visibility must be public or members.",
+      });
+    }
+
     if (slug !== undefined) {
       if (typeof slug !== "string" || !slug.trim()) {
         return res.status(400).json({
@@ -334,22 +487,21 @@ export const updateNewsEvent = async (req, res) => {
 
       const cleanSlug = slug.trim().toLowerCase();
 
-      const existingNewsEvent = await NewsEvent.findOne({
+      const existing = await NewsEvent.findOne({
         slug: cleanSlug,
         _id: { $ne: id },
       });
 
-      if (existingNewsEvent) {
+      if (existing) {
         return res.status(409).json({
           success: false,
-          message: "A news or event with this slug already exists.",
+          message: "That slug is already in use.",
         });
       }
 
       newsEvent.slug = cleanSlug;
     }
 
-    // TITLE
     if (title !== undefined) {
       if (typeof title !== "string" || !title.trim()) {
         return res.status(400).json({
@@ -361,96 +513,110 @@ export const updateNewsEvent = async (req, res) => {
       newsEvent.title = title.trim();
     }
 
-    // BASIC CONTENT
     if (type !== undefined) newsEvent.type = type;
-    if (category !== undefined) newsEvent.category = category.trim();
-    if (excerpt !== undefined) newsEvent.excerpt = excerpt.trim();
-    if (content !== undefined) newsEvent.content = content.trim();
+    if (visibility !== undefined) newsEvent.visibility = visibility;
 
-    // EVENT DETAILS
+    if (category !== undefined) {
+      newsEvent.category =
+        typeof category === "string" ? category.trim() : "";
+    }
+
+    if (excerpt !== undefined) {
+      newsEvent.excerpt =
+        typeof excerpt === "string" ? excerpt.trim() : "";
+    }
+
+    if (content !== undefined) {
+      newsEvent.content =
+        typeof content === "string" ? content.trim() : "";
+    }
+
     if (eventDate !== undefined) {
-      newsEvent.eventDate = eventDate || null;
+      if (eventDate && !Number.isFinite(new Date(eventDate).getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: "Please provide a valid event date.",
+        });
+      }
+
+      newsEvent.eventDate = eventDate ? new Date(eventDate) : null;
+    }
+
+    if (newsEvent.type === "event" && !newsEvent.eventDate) {
+      return res.status(400).json({
+        success: false,
+        message: "Event date is required for events.",
+      });
     }
 
     if (startTime !== undefined) {
-      newsEvent.startTime = startTime.trim();
+      newsEvent.startTime =
+        typeof startTime === "string" ? startTime.trim() : "";
     }
 
     if (endTime !== undefined) {
-      newsEvent.endTime = endTime.trim();
+      newsEvent.endTime =
+        typeof endTime === "string" ? endTime.trim() : "";
     }
 
     if (location !== undefined) {
-      newsEvent.location = location.trim();
+      newsEvent.location =
+        typeof location === "string" ? location.trim() : "";
     }
 
     if (registrationUrl !== undefined) {
-      newsEvent.registrationUrl = registrationUrl.trim();
+      newsEvent.registrationUrl =
+        typeof registrationUrl === "string"
+          ? registrationUrl.trim()
+          : "";
     }
 
-    // IMAGE UPLOAD
     if (req.file) {
-      const uploadResult = await new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-          {
-            folder: "olivetnosa/news-events",
-            resource_type: "image",
-            transformation: [
-              {
-                width: 1600,
-                height: 900,
-                crop: "limit",
-              },
-              {
-                quality: "auto",
-                fetch_format: "auto",
-              },
-            ],
-          },
-          (error, result) => {
-            if (error) {
-              reject(error);
-            } else {
-              resolve(result);
-            }
-          }
-        );
+      const uploadResult = await uploadImage(req.file);
+      uploadedPublicId = uploadResult.public_id;
 
-        stream.end(req.file.buffer);
-      });
+      const previousPublicId = newsEvent.imagePublicId;
 
       newsEvent.image = uploadResult.secure_url;
       newsEvent.imagePublicId = uploadResult.public_id;
+
+      // Delete the old image only after the new one has uploaded.
+      if (
+        previousPublicId &&
+        previousPublicId !== uploadResult.public_id
+      ) {
+        try {
+          await cloudinary.uploader.destroy(previousPublicId, {
+            resource_type: "image",
+          });
+        } catch (cleanupError) {
+          console.error("Old image cleanup error:", cleanupError);
+        }
+      }
+
+      uploadedPublicId = null;
     }
 
-    // PUBLICATION STATUS
     if (isPublished !== undefined) {
-      const published =
-        isPublished === true || isPublished === "true";
+      const published = parseBoolean(isPublished);
 
       if (published && !newsEvent.isPublished) {
         newsEvent.publishedAt = new Date();
-      }
-
-      if (!published) {
+      } else if (!published) {
         newsEvent.publishedAt = null;
       }
 
       newsEvent.isPublished = published;
     }
 
-    // FEATURED STATUS
     if (isFeatured !== undefined) {
-      newsEvent.isFeatured =
-        isFeatured === true || isFeatured === "true";
+      newsEvent.isFeatured = parseBoolean(isFeatured);
     }
 
-    // CAPTURE CHANGED FIELDS BEFORE SAVING
     const changedFields = newsEvent.modifiedPaths();
 
     await newsEvent.save();
 
-    // AUDIT LOG
     if (changedFields.length > 0) {
       await createAuditLog({
         actor: req.user.id,
@@ -462,6 +628,7 @@ export const updateNewsEvent = async (req, res) => {
           title: newsEvent.title,
           slug: newsEvent.slug,
           type: newsEvent.type,
+          visibility: newsEvent.visibility,
           changedFields,
           isPublished: newsEvent.isPublished,
           isFeatured: newsEvent.isFeatured,
@@ -472,32 +639,48 @@ export const updateNewsEvent = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "News or event updated successfully.",
+      message: "Content updated successfully.",
       data: newsEvent,
     });
   } catch (error) {
-    console.error("Update news/event error:", error);
+    if (uploadedPublicId) {
+      try {
+        await cloudinary.uploader.destroy(uploadedPublicId, {
+          resource_type: "image",
+        });
+      } catch (cleanupError) {
+        console.error("Cloudinary cleanup error:", cleanupError);
+      }
+    }
+
+    if (error?.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: "That slug is already in use.",
+      });
+    }
+
+    console.error("Update content error:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Something went wrong while updating the news or event.",
+      message: "Something went wrong while updating the content.",
     });
   }
 };
 
 // ============================================================
-// ADMIN: DELETE NEWS OR EVENT
+// ADMIN: DELETE NEWS, EVENT OR ARTICLE
 // ============================================================
 
 export const deleteNewsEvent = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // ID VALIDATION
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid news or event ID.",
+        message: "Invalid content ID.",
       });
     }
 
@@ -506,32 +689,33 @@ export const deleteNewsEvent = async (req, res) => {
     if (!newsEvent) {
       return res.status(404).json({
         success: false,
-        message: "News or event not found.",
+        message: "Content not found.",
       });
     }
 
-    // KEEP DETAILS FOR THE AUDIT RECORD
     const deletedDetails = {
       title: newsEvent.title,
       slug: newsEvent.slug,
       type: newsEvent.type,
+      visibility: newsEvent.visibility,
       wasPublished: newsEvent.isPublished,
       wasFeatured: newsEvent.isFeatured,
       hadImage: Boolean(newsEvent.image),
     };
 
-    // DELETE IMAGE FROM CLOUDINARY
-    if (newsEvent.imagePublicId) {
-      await cloudinary.uploader.destroy(
-        newsEvent.imagePublicId,
-        { resource_type: "image" }
-      );
-    }
-
-    // DELETE DATABASE RECORD
+    // Delete the record first; image cleanup should not block deletion.
     await NewsEvent.findByIdAndDelete(id);
 
-    // AUDIT LOG
+    if (newsEvent.imagePublicId) {
+      try {
+        await cloudinary.uploader.destroy(newsEvent.imagePublicId, {
+          resource_type: "image",
+        });
+      } catch (imageError) {
+        console.error("Cloudinary image deletion error:", imageError);
+      }
+    }
+
     await createAuditLog({
       actor: req.user.id,
       action: "news_event.deleted",
@@ -543,14 +727,14 @@ export const deleteNewsEvent = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "News or event deleted successfully.",
+      message: "Content deleted successfully.",
     });
   } catch (error) {
-    console.error("Delete news/event error:", error);
+    console.error("Delete content error:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Something went wrong while deleting the news or event.",
+      message: "Something went wrong while deleting the content.",
     });
   }
 };

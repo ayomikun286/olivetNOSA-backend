@@ -19,6 +19,11 @@ import {
 import {protect} from "../middleware/authmiddleware.js";
 import {requireFinancialMember} from "../middleware/financialMiddleware.js";
 
+
+import {
+  getMemberArticles,
+  getMemberArticleBySlug,
+} from "../controller/newsEvent.controller.js";
 import upload from "../middleware/upload.middleware.js";
 import {
   serverLimiter,
@@ -77,7 +82,8 @@ router.get(
 
 
 
-
+router.get("/member/articles", protect,requireFinancialMember, getMemberArticles);
+router.get("/member/articles/:slug", protect,requireFinancialMember, getMemberArticleBySlug);
 
 
 
