@@ -5,6 +5,8 @@ import {
   assignIndividualObligationToMembers,
 } from "../services/obligationAssignmentService.js";
 
+import YearSet from "../models/YearSet.js";
+import Chapter from "../models/Chapter.js";
 import { createAuditLog } from "../services/auditLog.service.js";
 import { createNotification } from "../services/notificationService.js";
 import { processObligationReminders } from "../services/obligationReminder.service.js";
@@ -15,15 +17,15 @@ import { processMembershipSuspensions } from "../services/membershipStatus.servi
 export const createObligation = async (req, res) => {
   try {
     const {
-  name,
-  description,
-  category,
-  amount,
-  paymentPlans,
-  year,
-  dueDate,
-  isOptional,
-} = req.body;
+      name,
+      description,
+      category,
+      amount,
+      paymentPlans,
+      year,
+      dueDate,
+      isOptional,
+    } = req.body;
     // VALIDATION
     if (!name || !category || amount === undefined || !year) {
       return res.status(400).json({
@@ -60,28 +62,72 @@ export const createObligation = async (req, res) => {
 
     // CREATE OBLIGATION
     const obligation = await Obligation.create({
-  name,
-  description,
-  category,
-  amount,
-  paymentPlans: paymentPlans || [],
-  year,
-  dueDate: dueDate || null,
-  isOptional: isOptional === true,
-  createdBy: req.user._id,
-});
-    // ASSIGN INDIVIDUAL OBLIGATION
-    let obligationsAssigned = 0;
+      name,
+      description,
+      category,
+      amount,
+      paymentPlans: paymentPlans || [],
+      year,
+      dueDate: dueDate || null,
+      isOptional: isOptional === true,
+      createdBy: req.user._id,
+    });
 
-    if (category === "individual") {
-      const result = await assignIndividualObligationToMembers(
-        obligation._id,
-        req.user._id
-      );
 
-      obligationsAssigned = result.assigned;
-    }
+   // ASSIGN OBLIGATION TO THE APPROPRIATE RECIPIENTS
+let obligationsAssigned = 0;
 
+if (category === "individual") {
+  const result = await assignIndividualObligationToMembers(
+    obligation._id,
+    req.user._id
+  );
+
+  obligationsAssigned = result.assigned;
+} else if (category === "yearSet" || category === "chapter") {
+  const entities =
+    category === "yearSet"
+      ? await YearSet.find({
+          isActive: true,
+          leader: { $ne: null },
+        }).select("leader")
+      : await Chapter.find({
+          isActive: true,
+          leader: { $ne: null },
+        }).select("leader");
+
+  // Avoid duplicate assignments if a leader heads multiple entities.
+  const leaderIds = [
+    ...new Set(
+      entities
+        .map((entity) => entity.leader?.toString())
+        .filter(Boolean)
+    ),
+  ];
+
+  for (const leaderId of leaderIds) {
+    const result = await ObligationAssignment.updateOne(
+      {
+        obligation: obligation._id,
+        user: leaderId,
+      },
+      {
+        $setOnInsert: {
+          obligation: obligation._id,
+          user: leaderId,
+          amountDue: obligation.amount,
+          amountPaid: 0,
+          status: "pending",
+          dueDate: obligation.dueDate || null,
+          assignedBy: req.user._id,
+        },
+      },
+      { upsert: true }
+    );
+
+    obligationsAssigned += result.upsertedCount || 0;
+  }
+}
     // ========================================
     // NOTIFY ASSIGNED MEMBERS
     // ========================================

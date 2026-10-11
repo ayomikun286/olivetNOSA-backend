@@ -100,10 +100,12 @@ export const getAdminChapterById = async (req, res) => {
 
     const memberCount = await User.countDocuments({
       chapter: id,
+      role: "member",
     });
 
     const members = await User.find({
       chapter: id,
+      role: "member",
     })
       .select(
         "firstName middleName lastName alumniId email status graduationYear"

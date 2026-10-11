@@ -44,6 +44,7 @@ export const getMyYearSet = async (req, res) => {
 
     const members = await User.find({
       yearSet: yearSet._id,
+       role: "member",
       status: "active",
     })
       .select(

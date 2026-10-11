@@ -3,7 +3,6 @@ import {
   assignChapterLeader,
 } from "../services/leadership.service.js";
 
-import { createAuditLog } from "../services/auditLog.service.js";
 import { createNotification } from "../services/notificationService.js";
 
 
@@ -54,22 +53,22 @@ export const assignYearSetLeaderController = async (req, res) => {
     // AUDIT LOG
     // ========================================
 
-    await createAuditLog({
-      actor: req.user._id,
-      action: result.isReassignment
-        ? "yearSet.leader.reassigned"
-        : "yearSet.leader.assigned",
-      resource: "YearSet",
-      resourceId: yearSetId,
-      targetUser: userId,
-      details: {
-        yearSet: result.yearSet?._id || yearSetId,
-        previousLeader: result.previousLeader,
-        newLeader: result.newLeader,
-        obligationsAssigned: result.obligationsAssigned,
-      },
-      req,
-    });
+    // await createAuditLog({
+    //   actor: req.user._id,
+    //   action: result.isReassignment
+    //     ? "yearSet.leader.reassigned"
+    //     : "yearSet.leader.assigned",
+    //   resource: "YearSet",
+    //   resourceId: yearSetId,
+    //   targetUser: userId,
+    //   details: {
+    //     yearSet: result.yearSet?._id || yearSetId,
+    //     previousLeader: result.previousLeader,
+    //     newLeader: result.newLeader,
+    //     obligationsAssigned: result.obligationsAssigned,
+    //   },
+    //   req,
+    // });
 
     return res.status(200).json({
       success: true,
@@ -142,22 +141,22 @@ export const assignChapterLeaderController = async (req, res) => {
     // AUDIT LOG
     // ========================================
 
-    await createAuditLog({
-      actor: req.user._id,
-      action: result.isReassignment
-        ? "chapter.leader.reassigned"
-        : "chapter.leader.assigned",
-      resource: "Chapter",
-      resourceId: chapterId,
-      targetUser: userId,
-      details: {
-        chapter: result.chapter?._id || chapterId,
-        previousLeader: result.previousLeader,
-        newLeader: result.newLeader,
-        obligationsAssigned: result.obligationsAssigned,
-      },
-      req,
-    });
+    // await createAuditLog({
+    //   actor: req.user._id,
+    //   action: result.isReassignment
+    //     ? "chapter.leader.reassigned"
+    //     : "chapter.leader.assigned",
+    //   resource: "Chapter",
+    //   resourceId: chapterId,
+    //   targetUser: userId,
+    //   details: {
+    //     chapter: result.chapter?._id || chapterId,
+    //     previousLeader: result.previousLeader,
+    //     newLeader: result.newLeader,
+    //     obligationsAssigned: result.obligationsAssigned,
+    //   },
+    //   req,
+    // });
 
     return res.status(200).json({
       success: true,

@@ -96,10 +96,12 @@ export const getAdminYearSetById = async (req, res) => {
 
     const memberCount = await User.countDocuments({
       yearSet: id,
+      role: "member",
     });
 
     const members = await User.find({
       yearSet: id,
+      role: "member",
     })
       .select(
         "firstName middleName lastName alumniId email status graduationYear"

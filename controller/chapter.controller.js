@@ -80,6 +80,7 @@ export const getMyChapter = async (req, res) => {
 
     const members = await User.find({
       chapter: chapter._id,
+      role: "member",
       status: "active",
     })
       .select(
