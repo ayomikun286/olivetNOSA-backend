@@ -118,3 +118,57 @@ export const markAllNotificationsAsRead = async (req, res) => {
         });
     }
 };
+
+
+
+export const getAllMyNotifications = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { status = "all", page = 1, limit = 10 } = req.query;
+
+    const currentPage = Math.max(1, Number(page) || 1);
+    const pageSize = Math.min(50, Math.max(1, Number(limit) || 10));
+
+    const filter = { user: userId };
+
+    if (status === "unread") {
+      filter.isRead = false;
+    } else if (status === "read") {
+      filter.isRead = true;
+    }
+
+    const [notifications, total, unreadCount] = await Promise.all([
+      Notification.find(filter)
+        .sort({ createdAt: -1 })
+        .skip((currentPage - 1) * pageSize)
+        .limit(pageSize)
+        .lean(),
+
+      Notification.countDocuments(filter),
+
+      Notification.countDocuments({
+        user: userId,
+        isRead: false,
+      }),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      notifications,
+      unreadCount,
+      pagination: {
+        page: currentPage,
+        limit: pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+      },
+    });
+  } catch (error) {
+    console.error("Get all notifications error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load notifications.",
+    });
+  }
+};

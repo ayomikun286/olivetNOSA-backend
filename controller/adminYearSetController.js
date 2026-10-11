@@ -97,6 +97,7 @@ export const getAdminYearSetById = async (req, res) => {
     const memberCount = await User.countDocuments({
       yearSet: id,
       role: "member",
+      status: "active",
     });
 
     const members = await User.find({

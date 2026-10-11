@@ -101,6 +101,8 @@ export const getAdminChapterById = async (req, res) => {
     const memberCount = await User.countDocuments({
       chapter: id,
       role: "member",
+      status: "active",
+
     });
 
     const members = await User.find({

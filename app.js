@@ -26,6 +26,8 @@ import memorialSubmissionRoutes from "./routes/memorialSubmission.routes.js";
 import memberDuesStatus from "./routes/membershipStatus.route.js";
 import leaderShipRoutes from "./routes/leadership.route.js";
 import dns from "dns";
+import supportRoutes from "./routes/support.routes.js";
+
 
 
 import financialReportRoutes from "./routes/admin/financialReportRoutes.js";
@@ -71,6 +73,7 @@ app.use("/api/admin", AdminRoute);
 app.use("/api/news-events", newsEventRoutes);
 app.use("/api/memorials", memorial)
 
+app.use("/api/support", supportRoutes);
 app.use("/api/jobs", jobRoutes);
 app.use("/api/obligations", obligationRoutes);
 app.use(obligationAssignmentRoutes);
