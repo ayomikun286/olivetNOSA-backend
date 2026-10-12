@@ -1,32 +1,59 @@
+
 import Notification from "../models/Notification.js";
 
-
-
 export const createNotification = async ({
-    userId,
-    type,
-    title,
-    message,
-    link = null,
+  userId,
+  type,
+  title,
+  message,
+  link = null,
+  deduplicationKey = null,
+  throwOnError = false,
 }) => {
-    try {
-        if (!userId) {
-            console.warn("Notification skipped: userId is missing");
-            return null;
-        }
+  try {
+    if (!userId) {
+      console.warn("Notification skipped: userId is missing");
+      return null;
+    }
 
-        const notification = await Notification.create({
+    // Reuse an existing notification when its key already exists.
+    if (deduplicationKey) {
+      return await Notification.findOneAndUpdate(
+        { deduplicationKey },
+        {
+          $setOnInsert: {
             user: userId,
             type,
             title,
             message,
             link,
-        });
-
-        return notification;
-    } catch (error) {
-        // Notification failure should not break the main transaction
-        console.error("Create notification error:", error.message);
-        return null;
+            deduplicationKey,
+          },
+        },
+        {
+          upsert: true,
+          new: true,
+          runValidators: true,
+          setDefaultsOnInsert: true,
+        }
+      );
     }
+
+    // Preserve existing behavior for other notifications.
+    return await Notification.create({
+      user: userId,
+      type,
+      title,
+      message,
+      link,
+    });
+  } catch (error) {
+  console.error("Create notification error:", error.message);
+
+  if (throwOnError) {
+    throw error;
+  }
+
+  return null;
+}
 };

@@ -18,10 +18,18 @@ const notificationSchema = new mongoose.Schema(
                 "obligation",
                 "announcement",
                 "system",
-                "payment_failed"
+                "payment_failed",
+                "financial_report"
             ],
             required: true,
         },
+
+        deduplicationKey: {
+            type: String,
+            default: null,
+        },
+
+
 
         title: {
             type: String,
@@ -59,6 +67,17 @@ notificationSchema.index({
     isRead: 1,
     createdAt: -1,
 });
+
+
+notificationSchema.index(
+    { deduplicationKey: 1 },
+    {
+        unique: true,
+        partialFilterExpression: {
+            deduplicationKey: { $type: "string" },
+        },
+    }
+);
 
 notificationSchema.index({
     user: 1,

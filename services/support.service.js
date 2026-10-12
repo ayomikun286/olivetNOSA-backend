@@ -207,8 +207,10 @@ export const replyToSupportTicket = async ({
       type: "system",
       title: "Support replied",
       message: `An administrator replied to your request: ${ticket.subject}`,
-      link: "/portal/admin/dashboard/support",
+      link: "/portal/member/dashboard/help-support",
     });
+
+    
   } else {
   const admins = await User.find({
     role: { $in: ADMIN_ROLES },

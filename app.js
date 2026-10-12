@@ -28,7 +28,7 @@ import leaderShipRoutes from "./routes/leadership.route.js";
 import dns from "dns";
 import supportRoutes from "./routes/support.routes.js";
 
-
+import financialReportNotificationRoutes from "./routes/financialReportNotificationRoutes.js";
 
 import financialReportRoutes from "./routes/admin/financialReportRoutes.js";
 
@@ -72,9 +72,13 @@ app.use(userRoutes)
 app.use("/api/admin", AdminRoute);
 app.use("/api/news-events", newsEventRoutes);
 app.use("/api/memorials", memorial)
-
+app.use("/api/memorial-submissions", memorialSubmissionRoutes);
 app.use("/api/support", supportRoutes);
 app.use("/api/jobs", jobRoutes);
+
+app.use("/api/financial-report-notifications", financialReportNotificationRoutes);
+
+
 app.use("/api/obligations", obligationRoutes);
 app.use(obligationAssignmentRoutes);
 app.use("/api/notifications", Notification);

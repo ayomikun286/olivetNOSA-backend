@@ -1,4 +1,8 @@
 import { createAuditLog } from "../../services/auditLog.service.js";
+import {
+  queueFinancialReportNotificationJob,
+} from "../../services/financialReportNotificationService.js";
+
 
 import FinancialReport from "../../models/FinancialReport.js";
 import AuditLog from "../../models/AuditLog.js";
@@ -463,6 +467,7 @@ export const publishFinancialReport = async (
     await report.save();
 
 
+    await queueFinancialReportNotificationJob(report._id);
     // --------------------------------------------------
     // Audit publication
     // --------------------------------------------------
