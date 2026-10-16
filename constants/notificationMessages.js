@@ -1,7 +1,7 @@
 export const NOTIFICATION_MESSAGES = {
     account: {
         welcome: {
-            title: "Welcome to OlivetNOSA",
+            title: "Welcome to OlivetGOSA",
             message:
                 "Your account has been created successfully. Please verify your email to continue, then complete the remaining information required for the member directory.",
             link: "/portal/member/dashboard/profile",

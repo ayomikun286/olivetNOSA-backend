@@ -9,6 +9,17 @@ import {
 } from "../controller/adminController.js";
 import {createNewsEvent, getAdminNewsEvents, updateNewsEvent,deleteNewsEvent,} from "../controller/newsEvent.controller.js"
 
+import {createTeam, getTeamMembers} from "../controller/teamController.js";
+import {
+  getAdminGallery,
+  createGalleryImage,
+  updateGalleryImage,
+  deleteGalleryImage,
+} from "../controller/admin/galleryController.js";
+
+
+import galleryUpload from "../middleware/galleryUpload.middleware.js";
+
 import {
     getAdminPayments,
     getAdminPaymentById,
@@ -363,6 +374,62 @@ router.get(
   protect,
   requireRole("admin", "superAdmin"),
   getAdminAuditLogs
+);
+
+
+
+
+
+// ========================================
+// GALLERY MANAGEMENT
+// ========================================
+
+router.get(
+  "/gallery",
+  protect,
+  requireRole("admin", "superAdmin"),
+  getAdminGallery
+);
+
+router.post(
+  "/gallery",
+  protect,
+  requireRole("admin", "superAdmin"),
+  galleryUpload.single("image"),
+  createGalleryImage
+);
+
+router.patch(
+  "/gallery/:id",
+  protect,
+  requireRole("admin", "superAdmin"),
+  galleryUpload.single("image"),
+  updateGalleryImage
+);
+
+router.delete(
+  "/gallery/:id",
+  protect,
+  requireRole("admin", "superAdmin"),
+  deleteGalleryImage
+);
+
+
+
+// team route .. 
+
+router.get(
+  "/team",
+  protect,
+  requireRole("admin", "superAdmin"),
+  getTeamMembers
+);
+
+router.post(
+  "/team",
+  protect,
+  requireRole("admin", "superAdmin"),
+  createTeam
 );
 
 

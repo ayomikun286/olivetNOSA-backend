@@ -4,6 +4,8 @@ import express from "express";
 import cors from "cors";
 
 
+
+import galleryRoutes from "./routes/galleryRoutes.js";
 import jobRoutes from "./routes/jobRoutes.js";
 import helmet from "helmet";
 import AdminRoute from "./routes/AdminRoutes.js"
@@ -67,6 +69,10 @@ app.get("/", (req, res) => {
 
 
 app.use("/api/chapters", chapterRoutes);
+
+app.use("/api/gallery", galleryRoutes);
+
+
 app.use("/api/yearSet", yearSetRoutes);
 app.use(userRoutes)
 app.use("/api/admin", AdminRoute);
