@@ -9,7 +9,7 @@ import {
 } from "../controller/adminController.js";
 import {createNewsEvent, getAdminNewsEvents, updateNewsEvent,deleteNewsEvent,} from "../controller/newsEvent.controller.js"
 
-import {createTeam, getTeamMembers} from "../controller/teamController.js";
+import {createTeam, getTeamMembers, suspendTeamRole } from "../controller/teamController.js";
 import {
   getAdminGallery,
   createGalleryImage,
@@ -432,5 +432,11 @@ router.post(
   createTeam
 );
 
+router.patch(
+    "/team/:id/suspend",
+    protect,
+    requireRole("admin", "superAdmin"),
+    suspendTeamRole
+);
 
 export default router;
