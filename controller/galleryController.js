@@ -1,5 +1,7 @@
 import Gallery from "../models/Gallery.js";
 
+
+
 export const getPublicGallery = async (req, res) => {
   try {
     const { category } = req.query;

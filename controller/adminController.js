@@ -11,9 +11,7 @@ import YearSet from "../models/YearSet.js";
 
 import generateAlumniId from "../utils/generateAlumniId.js";
 
-import {
-  assignIndividualObligationsToUser,
-} from "../services/obligationAssignmentService.js";
+import { assignIndividualObligationsToUser, } from "../services/obligationAssignmentService.js";
 
 import { sendEmail } from "../services/email.service.js";
 

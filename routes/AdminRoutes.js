@@ -9,6 +9,13 @@ import {
 } from "../controller/adminController.js";
 import {createNewsEvent, getAdminNewsEvents, updateNewsEvent,deleteNewsEvent,} from "../controller/newsEvent.controller.js"
 
+
+import {
+  getAdminWebsiteContent,
+  saveWebsiteContentDraft,
+  publishWebsiteContent,
+} from "../controller/admin/websiteContent.controller.js";
+
 import {createTeam, getTeamMembers, suspendTeamRole } from "../controller/teamController.js";
 import {
   getAdminGallery,
@@ -16,6 +23,12 @@ import {
   updateGalleryImage,
   deleteGalleryImage,
 } from "../controller/admin/galleryController.js";
+
+
+import {
+  getGeneralSettings,
+  updateGeneralSettings,
+} from "../controller/admin/adminSettings.controller.js";
 
 
 import galleryUpload from "../middleware/galleryUpload.middleware.js";
@@ -437,6 +450,47 @@ router.patch(
     protect,
     requireRole("admin", "superAdmin"),
     suspendTeamRole
+);
+
+
+
+// ========================================
+// ADMIN GENERAL SETTINGS
+// ========================================
+
+router.get(
+  "/settings/general",
+  protect,
+  requireRole("admin", "superAdmin"),
+  getGeneralSettings
+);
+
+router.patch(
+  "/settings/general",
+  protect,
+  requireRole("admin", "superAdmin"),
+  updateGeneralSettings
+);
+
+router.get(
+  "/website-content/:pageKey",
+  protect,
+  requireRole("admin", "superAdmin"),
+  getAdminWebsiteContent
+);
+
+router.put(
+  "/website-content/:pageKey/draft",
+  protect,
+  requireRole("admin", "superAdmin"),
+  saveWebsiteContentDraft
+);
+
+router.post(
+  "/website-content/:pageKey/publish",
+  protect,
+  requireRole("admin", "superAdmin"),
+  publishWebsiteContent
 );
 
 export default router;

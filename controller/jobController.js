@@ -3,20 +3,22 @@ import { createAuditLog } from "../services/auditLog.service.js";
 
 
 const isValidJobId = (id) => /^[0-9a-fA-F]{24}$/.test(id);
-const auditJobAction = async (auditData) => {
-  try {
-    await createAuditLog(auditData);
-    return true;
-  } catch (error) {
-    console.error("Job audit logging failed:", {
-      action: auditData.action,
-      resourceId: auditData.resourceId,
-      error: error.message,
-    });
 
-    return false;
-  }
-};
+
+// const auditJobAction = async (auditData) => {
+//   try {
+//     await createAuditLog(auditData);
+//     return true;
+//   } catch (error) {
+//     console.error("Job audit logging failed:", {
+//       action: auditData.action,
+//       resourceId: auditData.resourceId,
+//       error: error.message,
+//     });
+
+//     return false;
+//   }
+// };
 
 const getJobData = (body) => ({
   title: body.title,
@@ -78,6 +80,10 @@ const validateJobData = (data) => {
   return null;
 };
 
+
+
+
+
 // ADMIN: Get all jobs
 export const getAllJobs = async (req, res) => {
   try {
@@ -101,6 +107,8 @@ export const getAllJobs = async (req, res) => {
   }
 };
 
+
+
 // ADMIN: Create a job
 export const createJob = async (req, res) => {
   try {
@@ -114,23 +122,23 @@ export const createJob = async (req, res) => {
       });
     }
 
-    const job = await Job.create({
-  ...data,
-  createdBy: req.user._id,
-});
+            const job = await Job.create({
+          ...data,
+          createdBy: req.user._id,
+        });
 
-await createAuditLog({
-  actor: req.user._id,
-  action: "JOB_CREATED",
-  resource: "Job",
-  resourceId: job._id,
-  details: {
-    title: job.title,
-    company: job.company,
-    status: job.status,
-  },
-  req,
-});
+        await createAuditLog({
+          actor: req.user._id,
+          action: "JOB_CREATED",
+          resource: "Job",
+          resourceId: job._id,
+          details: {
+            title: job.title,
+            company: job.company,
+            status: job.status,
+          },
+          req,
+        });
 
     return res.status(201).json({
       success: true,
@@ -220,51 +228,51 @@ export const updateJob = async (req, res) => {
       });
     }
 
-const changes = {};
+        const changes = {};
 
-for (const [field, newValue] of Object.entries(updates)) {
-  const oldValue = job[field];
+        for (const [field, newValue] of Object.entries(updates)) {
+          const oldValue = job[field];
 
-  const valuesDiffer =
-    oldValue instanceof Date || newValue instanceof Date
-      ? new Date(oldValue).getTime() !== new Date(newValue).getTime()
-      : String(oldValue ?? "") !== String(newValue ?? "");
+          const valuesDiffer =
+            oldValue instanceof Date || newValue instanceof Date
+              ? new Date(oldValue).getTime() !== new Date(newValue).getTime()
+              : String(oldValue ?? "") !== String(newValue ?? "");
 
-  if (valuesDiffer) {
-    changes[field] = {
-      from: oldValue ?? null,
-      to: newValue ?? null,
-    };
-  }
-}
+          if (valuesDiffer) {
+            changes[field] = {
+              from: oldValue ?? null,
+              to: newValue ?? null,
+            };
+          }
+        }
 
-if (Object.keys(changes).length === 0) {
-  return res.status(400).json({
-    success: false,
-    message: "No changes detected.",
-  });
-}
+        if (Object.keys(changes).length === 0) {
+          return res.status(400).json({
+            success: false,
+            message: "No changes detected.",
+          });
+        }
 
-Object.assign(job, updates);
-await job.save();
+        Object.assign(job, updates);
+        await job.save();
 
-await createAuditLog({
-  actor: req.user._id,
-  action: "JOB_UPDATED",
-  resource: "Job",
-  resourceId: job._id,
-  details: {
-    title: job.title,
-    changes,
-  },
-  req,
-});
+        await createAuditLog({
+          actor: req.user._id,
+          action: "JOB_UPDATED",
+          resource: "Job",
+          resourceId: job._id,
+          details: {
+            title: job.title,
+            changes,
+          },
+          req,
+        });
 
-    return res.status(200).json({
-      success: true,
-      message: "Job updated successfully.",
-      job,
-    });
+            return res.status(200).json({
+              success: true,
+              message: "Job updated successfully.",
+              job,
+            });
   } catch (error) {
     console.error("Update job error:", error);
 
@@ -280,41 +288,41 @@ export const deleteJob = async (req, res) => {
   try {
     const { jobId } = req.params;
 
-    if (!isValidJobId(jobId)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid job ID.",
-      });
-    }
+        if (!isValidJobId(jobId)) {
+          return res.status(400).json({
+            success: false,
+            message: "Invalid job ID.",
+          });
+        }
 
-   const job = await Job.findById(jobId);
+        const job = await Job.findById(jobId);
 
-if (!job) {
-  return res.status(404).json({
-    success: false,
-    message: "Job not found.",
-  });
-}
+        if (!job) {
+          return res.status(404).json({
+            success: false,
+            message: "Job not found.",
+          });
+        }
 
-await job.deleteOne();
+        await job.deleteOne();
 
-await createAuditLog({
-  actor: req.user._id,
-  action: "JOB_DELETED",
-  resource: "Job",
-  resourceId: job._id,
-  details: {
-    title: job.title,
-    company: job.company,
-    status: job.status,
-  },
-  req,
-});
+        await createAuditLog({
+          actor: req.user._id,
+          action: "JOB_DELETED",
+          resource: "Job",
+          resourceId: job._id,
+          details: {
+            title: job.title,
+            company: job.company,
+            status: job.status,
+          },
+          req,
+        });
 
-    return res.status(200).json({
-      success: true,
-      message: "Job deleted successfully.",
-    });
+        return res.status(200).json({
+          success: true,
+          message: "Job deleted successfully.",
+        });
   } catch (error) {
     console.error("Delete job error:", error);
 

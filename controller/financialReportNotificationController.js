@@ -1,6 +1,6 @@
-import {
-  processFinancialReportNotificationBatch,
-} from "../services/financialReportNotificationService.js";
+import { processFinancialReportNotificationBatch, } from "../services/financialReportNotificationService.js";
+
+
 
 export const runFinancialReportNotificationJob = async (
   req,

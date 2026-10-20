@@ -20,6 +20,12 @@ import {protect} from "../middleware/authmiddleware.js";
 import {requireFinancialMember} from "../middleware/financialMiddleware.js";
 
 
+
+import {
+  getPublicWebsiteContent,
+} from "../controller/websiteContent.controller.js";
+
+
 import {
   getMemberArticles,
   getMemberArticleBySlug,
@@ -92,4 +98,10 @@ router.post("/user/forgetPassword",serverLimiter, forgetPassword);
 router.post("/user/reset-password",  passwordResetLimiter,resetPassword)
 router.get( "/api/auth/activate-account",serverLimiter, verifyAccountSetupController);
 router.post( "/api/auth/set-password",serverLimiter, setPasswordController );
+
+
+router.get(
+  "/api/content/:pageKey",
+  getPublicWebsiteContent
+);
 export default router

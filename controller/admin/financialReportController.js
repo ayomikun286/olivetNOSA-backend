@@ -1,15 +1,11 @@
 import { createAuditLog } from "../../services/auditLog.service.js";
-import {
-  queueFinancialReportNotificationJob,
-} from "../../services/financialReportNotificationService.js";
+import { queueFinancialReportNotificationJob, } from "../../services/financialReportNotificationService.js";
 
 
 import FinancialReport from "../../models/FinancialReport.js";
 import AuditLog from "../../models/AuditLog.js";
 
-import {
-  generateFinancialReportSnapshot,
-} from "../../services/financialReportService.js";
+import { generateFinancialReportSnapshot, } from "../../services/financialReportService.js";
 
 
 // ======================================================
