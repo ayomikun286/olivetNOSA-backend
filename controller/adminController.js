@@ -8,7 +8,7 @@ import { approveMember } from "../services/memberApproval.service.js";
 import { createAuditLog } from "../services/auditLog.service.js";
 import Chapter from "../models/Chapter.js";
 import YearSet from "../models/YearSet.js";
-
+import {memberApprovalTemplate} from "../utils/member-approval.template.js";
 import generateAlumniId from "../utils/generateAlumniId.js";
 
 import { assignIndividualObligationsToUser, } from "../services/obligationAssignmentService.js";
@@ -48,12 +48,14 @@ export const approveMemberController = async (req, res) => {
 
     // SEND ACCOUNT APPROVAL EMAIL
     await sendEmail({
-      to: result.user.email,
-      subject: "Your OlivetGOSA Account Has Been Approved",
-      html: `
-        <!-- KEEP YOUR EXISTING APPROVAL EMAIL HTML HERE UNCHANGED -->
-      `,
-    });
+    to: result.user.email,
+    subject: "Your OlivetGOSA Account Has Been Approved",
+    html: memberApprovalTemplate({
+        name: result.user.firstName,
+        alumniId: result.user.alumniId,
+       
+    }),
+});
 
     // OBLIGATION NOTIFICATIONS
     for (const assignment of result.obligationAssignments || []) {
@@ -942,7 +944,7 @@ await session.commitTransaction();
               box-sizing: border-box;
             ">
               <img
-                src="https://olivetbhsnosa.org/images/olivet-crest.png"
+                src="https://res.cloudinary.com/bx4pnrek/image/upload/v1792582571/onw-gosa/website-content/ob1t3jspsuqz8wvxnkba.png"
                 alt="Olivet Baptist High School Crest"
                 width="52"
                 height="52"

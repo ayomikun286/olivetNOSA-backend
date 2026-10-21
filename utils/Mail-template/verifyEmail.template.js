@@ -48,14 +48,16 @@ const verifyEmailTemplate = ({ firstName, verificationUrl }) => {
               border-bottom:1px solid #edf0f3;
             ">
 
-              <div style="
-                font-size:20px;
-                font-weight:bold;
-                color:#123B6D;
-                letter-spacing:0.5px;
-              ">
-                OLIVETNOSA
-              </div>
+              <img
+                                        src="https://res.cloudinary.com/bx4pnrek/image/upload/v1792582571/onw-gosa/website-content/ob1t3jspsuqz8wvxnkba.png"
+                                        alt="OlivetGOSA"
+                                        width="70"
+                                        style="
+                                            display: block;
+                                            margin: 0 auto 15px;
+                                            max-width: 70px;
+                                        "
+                                    />
 
               <div style="
                 margin-top:5px;

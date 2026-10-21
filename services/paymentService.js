@@ -265,7 +265,7 @@ export const completeSuccessfulPayment = async (
             box-sizing: border-box;
           ">
             <img
-              src="https://olivetbhsnosa.org/images/olivet-crest.png"
+              src="https://res.cloudinary.com/bx4pnrek/image/upload/v1792582571/onw-gosa/website-content/ob1t3jspsuqz8wvxnkba.png"
               alt="Olivet Baptist High School Crest"
               width="52"
               height="52"
@@ -658,7 +658,7 @@ export const handleFailedPayment = async (
             box-sizing: border-box;
           ">
             <img
-              src="https://olivetbhsnosa.org/images/olivet-crest.png"
+              src="https://res.cloudinary.com/bx4pnrek/image/upload/v1792582571/onw-gosa/website-content/ob1t3jspsuqz8wvxnkba.png"
               alt="Olivet Baptist High School Crest"
               width="52"
               height="52"

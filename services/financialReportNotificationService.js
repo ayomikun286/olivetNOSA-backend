@@ -176,7 +176,7 @@ const processDeliveryChannel = async (delivery, channel, report) => {
       <!-- HEADER -->
       <div style="background:#0B294D;padding:30px 35px;text-align:center;">
         <img
-          src="https://olivetbhsnosa.org/images/olivet-crest.png"
+          src="https://res.cloudinary.com/bx4pnrek/image/upload/v1792582571/onw-gosa/website-content/ob1t3jspsuqz8wvxnkba.png"
           alt="OlivetGOSA Crest"
           width="70"
           style="width:70px;height:auto;display:block;margin:0 auto 15px;"

@@ -117,7 +117,7 @@ export const buildObligationReminderEmail = ({
       >
 
         <img
-          src="https://olivetbhsnosa.org/images/olivet-crest.png"
+          src="https://res.cloudinary.com/bx4pnrek/image/upload/v1792582571/onw-gosa/website-content/ob1t3jspsuqz8wvxnkba.png"
           alt="OlivetGOSA Crest"
           width="70"
           style="

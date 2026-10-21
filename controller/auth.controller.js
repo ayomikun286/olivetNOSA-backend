@@ -397,7 +397,7 @@ export const Signup = async (req, res) => {
                                 >
                                     <!-- Logo / Crest -->
                                     <img
-                                        src="https://olivetbhsnosa.org/images/olivet-crest.png"
+                                        src="https://res.cloudinary.com/bx4pnrek/image/upload/v1792582571/onw-gosa/website-content/ob1t3jspsuqz8wvxnkba.png"
                                         alt="OlivetGOSA"
                                         width="70"
                                         style="
@@ -1094,16 +1094,16 @@ export const resendVerifyEmailLink = async (req, res) => {
                                         text-align: center;
                                     "
                                 >
-                                    <div
+                                    <img
+                                        src="https://res.cloudinary.com/bx4pnrek/image/upload/v1792582571/onw-gosa/website-content/ob1t3jspsuqz8wvxnkba.png"
+                                        alt="OlivetGOSA"
+                                        width="70"
                                         style="
-                                            color: #ffffff;
-                                            font-size: 24px;
-                                            font-weight: bold;
-                                            letter-spacing: 0.5px;
+                                            display: block;
+                                            margin: 0 auto 15px;
+                                            max-width: 70px;
                                         "
-                                    >
-                                        OlivetGOSA
-                                    </div>
+                                    />
 
                                     <div
                                         style="
@@ -1531,16 +1531,16 @@ export const forgetPassword = async (req, res) => {
                                         text-align: center;
                                     "
                                 >
-                                    <div
+                                    <img
+                                        src="https://res.cloudinary.com/bx4pnrek/image/upload/v1792582571/onw-gosa/website-content/ob1t3jspsuqz8wvxnkba.png"
+                                        alt="OlivetGOSA"
+                                        width="70"
                                         style="
-                                            color: #ffffff;
-                                            font-size: 24px;
-                                            font-weight: bold;
-                                            letter-spacing: 0.5px;
+                                            display: block;
+                                            margin: 0 auto 15px;
+                                            max-width: 70px;
                                         "
-                                    >
-                                        OlivetGOSA
-                                    </div>
+                                    />
 
                                     <div
                                         style="

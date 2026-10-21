@@ -44,6 +44,8 @@ import {
   getPublicGeneralSettings,
 } from "../controller/admin/adminSettings.controller.js";
 
+
+import {contactForm} from "../controller/ContactFormController.js";
 const router = express.Router();
 
 
@@ -108,6 +110,8 @@ router.post( "/api/auth/set-password",serverLimiter, setPasswordController );
 router.get("/api/public/settings/general", getPublicGeneralSettings);
 
 
+
+router.post("/api/contact", contactForm)
 router.get(
   "/api/content/:pageKey",
   getPublicWebsiteContent
