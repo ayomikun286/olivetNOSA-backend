@@ -329,6 +329,7 @@ export const getAdminMemorialById = async (
 
 export const createMemorial = async (req, res) => {
   const uploadedPublicIds = [];
+  let databaseRecordCreated = false;
 
   try {
     const {
@@ -477,20 +478,7 @@ export const createMemorial = async (req, res) => {
         createdBy: req.user.id,
       });
 
-    return res.status(201).json({
-      success: true,
-      message:
-        "Memorial created successfully.",
-      data: memorial,
-    });
-  } catch (error) {
-    console.error(
-      "Create memorial error:",
-      error
-    );
-
-
-
+      
     await createAuditLog({
       actor: req.user.id,
       action: "memorial.created",
@@ -510,8 +498,18 @@ export const createMemorial = async (req, res) => {
     // CLEANUP CLOUDINARY IF DB CREATION FAILS
     // ----------------------------------------
 
-    await cleanupUploadedImages(
-      uploadedPublicIds
+   
+
+    return res.status(201).json({
+      success: true,
+      message:
+        "Memorial created successfully.",
+      data: memorial,
+    });
+  } catch (error) {
+    console.error(
+      "Create memorial error:",
+      error
     );
 
     return res.status(500).json({

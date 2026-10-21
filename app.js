@@ -90,7 +90,7 @@ app.use(obligationAssignmentRoutes);
 app.use("/api/notifications", Notification);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/directory", directoryRoutes);
-app.use("/api/memorial-submissions", memorialSubmissionRoutes);
+
 app.use("/api/calendar", calendarRoutes);
 app.use("/api/membership-status", memberDuesStatus);
 app.use("/api", leaderShipRoutes);

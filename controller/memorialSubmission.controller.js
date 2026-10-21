@@ -320,8 +320,9 @@ await createAuditLog({
 // MEMBER: GET MY SUBMISSIONS
 // ========================================
 
-export const getMyMemorialSubmissions =
-  async (req, res) => {
+
+
+export const getMyMemorialSubmissions = async (req, res) => {
     try {
       const submissions =
         await MemorialSubmission.find({
@@ -360,8 +361,7 @@ export const getMyMemorialSubmissions =
 // ADMIN: GET SUBMISSIONS
 // ========================================
 
-export const getAdminMemorialSubmissions =
-  async (req, res) => {
+export const getAdminMemorialSubmissions = async (req, res) => {
     try {
       const {
         status,
@@ -436,8 +436,7 @@ export const getAdminMemorialSubmissions =
 // ADMIN: GET SUBMISSION BY ID
 // ========================================
 
-export const getAdminMemorialSubmissionById =
-  async (req, res) => {
+export const getAdminMemorialSubmissionById = async (req, res) => {
     try {
       const { id } = req.params;
 
@@ -501,8 +500,7 @@ export const getAdminMemorialSubmissionById =
 // ADMIN: REVIEW SUBMISSION
 // ========================================
 
-export const reviewMemorialSubmission =
-  async (req, res) => {
+export const reviewMemorialSubmission = async (req, res) => {
     try {
       const { id } = req.params;
 
