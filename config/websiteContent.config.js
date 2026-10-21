@@ -49,7 +49,7 @@ export const WEBSITE_CONTENT_PAGES = {
   },
 
   "about-gosa": {
-    label: "About ONW GOSA",
+    label: "About GOSA",
     fields: [
       "pageTitle",
       "intro",
@@ -104,15 +104,15 @@ export const WEBSITE_CONTENT_PAGES = {
     fields: ["pageTitle", "intro", "historyText"],
   },
 
-  "privacy-policy": {
-    label: "Privacy Policy",
-    fields: ["pageTitle", "intro", "policySections"],
-  },
+  // "privacy-policy": {
+  //   label: "Privacy Policy",
+  //   fields: ["pageTitle", "intro", "policySections"],
+  // },
 
-  "terms-and-conditions": {
-    label: "Terms & Conditions",
-    fields: ["pageTitle", "intro", "termsSections"],
-  },
+  // "terms-and-conditions": {
+  //   label: "Terms & Conditions",
+  //   fields: ["pageTitle", "intro", "termsSections"],
+  // },
 };
 
 export const getWebsiteContentPage = (pageKey) =>

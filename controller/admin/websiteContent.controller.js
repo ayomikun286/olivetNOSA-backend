@@ -3,6 +3,8 @@ import WebsiteContent from "../../models/WebsiteContent.js";
 import { createAuditLog } from "../../services/auditLog.service.js";
 import { validateWebsiteContent } from "../../utils/websiteContentValidation.js";
 import { WEBSITE_CONTENT_PAGES } from "../../config/websiteContent.config.js";
+import cloudinary from "../../config/cloudinary.js";
+
 
 const isAllowedPage = (pageKey) =>
   Object.prototype.hasOwnProperty.call(WEBSITE_CONTENT_PAGES, pageKey);
@@ -173,6 +175,59 @@ export const publishWebsiteContent = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to publish website content.",
+    });
+  }
+};
+
+
+// POST /api/admin/website-content/upload-image
+export const uploadWebsiteContentImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Please select an image to upload.",
+      });
+    }
+
+    const result = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        {
+          folder: "onw-gosa/website-content",
+          resource_type: "image",
+        },
+        (error, uploadedImage) => {
+          if (error) return reject(error);
+          resolve(uploadedImage);
+        }
+      );
+
+      stream.end(req.file.buffer);
+    });
+
+    await createAuditLog({
+      actor: req.user._id,
+      action: "WEBSITE_CONTENT_IMAGE_UPLOADED",
+      resource: "WebsiteContent",
+      details: {
+        imageUrl: result.secure_url,
+        publicId: result.public_id,
+      },
+      req,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Image uploaded successfully.",
+      imageUrl: result.secure_url,
+      publicId: result.public_id,
+    });
+  } catch (error) {
+    console.error("Upload website content image error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to upload image.",
     });
   }
 };

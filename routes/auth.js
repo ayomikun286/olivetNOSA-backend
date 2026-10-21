@@ -40,6 +40,10 @@ import {
 } from "../middleware/rateLimiter.js";// import { updateMemberFinancialStatus } from "../services/memberFinancialStatus.service.js";
 import  requireRole  from "../middleware/roleMiddleware.js";
 import {getPublishedFinancialReports} from "../controller/membersFinancialReport.js";  
+import {
+  getPublicGeneralSettings,
+} from "../controller/admin/adminSettings.controller.js";
+
 const router = express.Router();
 
 
@@ -98,6 +102,10 @@ router.post("/user/forgetPassword",serverLimiter, forgetPassword);
 router.post("/user/reset-password",  passwordResetLimiter,resetPassword)
 router.get( "/api/auth/activate-account",serverLimiter, verifyAccountSetupController);
 router.post( "/api/auth/set-password",serverLimiter, setPasswordController );
+
+
+
+router.get("/api/public/settings/general", getPublicGeneralSettings);
 
 
 router.get(

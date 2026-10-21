@@ -194,3 +194,36 @@ export const updateGeneralSettings = async (req, res) => {
     });
   }
 };
+
+
+export const getPublicGeneralSettings = async (req, res) => {
+  try {
+    const settings = await getOrCreateSettings();
+
+    return res.status(200).json({
+      success: true,
+      settings: {
+        associationName: settings.associationName,
+        shortName: settings.shortName,
+        contactEmail: settings.contactEmail,
+        phone: settings.phone,
+        address: settings.address,
+        website: settings.website,
+        logoUrl: settings.logoUrl,
+        socialLinks: {
+          facebook: settings.socialLinks?.facebook || "",
+          instagram: settings.socialLinks?.instagram || "",
+          youtube: settings.socialLinks?.youtube || "",
+          linkedin: settings.socialLinks?.linkedin || "",
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Get public general settings error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load public settings.",
+    });
+  }
+};

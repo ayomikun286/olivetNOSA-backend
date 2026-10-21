@@ -14,7 +14,9 @@ import {
   getAdminWebsiteContent,
   saveWebsiteContentDraft,
   publishWebsiteContent,
+  uploadWebsiteContentImage,
 } from "../controller/admin/websiteContent.controller.js";
+
 
 import {createTeam, getTeamMembers, suspendTeamRole } from "../controller/teamController.js";
 import {
@@ -472,6 +474,10 @@ router.patch(
   updateGeneralSettings
 );
 
+
+
+
+// content management routes // 
 router.get(
   "/website-content/:pageKey",
   protect,
@@ -493,4 +499,11 @@ router.post(
   publishWebsiteContent
 );
 
+router.post(
+  "/website-content/upload-image",
+  protect,
+  requireRole("admin", "superAdmin"),
+  galleryUpload.single("image"),
+  uploadWebsiteContentImage
+);
 export default router;
