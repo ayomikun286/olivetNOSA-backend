@@ -19,7 +19,7 @@ import {
 const router = express.Router();
 
 // ========================================
-// YEAR SET MANAGEMENT
+// ADMIN YEAR SET MANAGEMENT
 // ========================================
 
 router.get(
@@ -41,12 +41,16 @@ router.get(
   ),
   getAdminYearSetById
 );
-
-
-// ========================================
-// CHAPTER MANAGEMENT
 // ========================================
 
+
+
+
+
+
+
+
+// ADMIN CHAPTER MANAGEMENT
 router.get(
   "/chapter",
   protect,
@@ -66,10 +70,16 @@ router.get(
   ),
   getAdminChapterById
 );
+// =================================================//
 
 
-// ========================================
-// YEAR SET LEADERSHIP
+
+
+
+
+
+
+// ASSIGN YEAR SET LEADERSHIP
 // ========================================
 
 router.post(
@@ -88,7 +98,7 @@ router.post(
 
 
 // ========================================
-// CHAPTER LEADERSHIP
+// ASSIGN CHAPTER LEADERSHIP
 // ========================================
 
 router.post(

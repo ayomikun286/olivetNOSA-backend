@@ -14,6 +14,7 @@ import { protect } from "../middleware/authmiddleware.js";
 
 const router = express.Router();
 
+
 // MEMBER: Create and view own support requests
 router.post("/", protect, createSupportTicketController);
 router.get("/my", protect, getMySupportTicketsController);

@@ -14,11 +14,12 @@ import { requireFinancialMember } from "../middleware/financialMiddleware.js";
 
 const router = express.Router();
 
-// ========================================
-// MEMBER JOBS
-// Only logged-in financial members
-// ========================================
 
+
+
+
+
+// MEMBER JOBS
 router.get(
   "/available",
   protect,
@@ -27,9 +28,12 @@ router.get(
 );
 
 // ========================================
-// ADMIN JOB MANAGEMENT
-// ========================================
 
+
+
+
+
+// ADMIN JOB MANAGEMENT  //
 router.get(
   "/",
   protect,
@@ -57,5 +61,6 @@ router.delete(
   requireRole("admin", "superAdmin"),
   deleteJob
 );
+// ==================================================================//
 
 export default router;

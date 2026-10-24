@@ -501,90 +501,375 @@ export const getAdminMemorialSubmissionById = async (req, res) => {
 // ========================================
 
 export const reviewMemorialSubmission = async (req, res) => {
-    try {
-      const { id } = req.params;
+  const { id } = req.params;
+  const { status, adminNotes } = req.body;
 
-      const {
-        status,
-        adminNotes,
-      } = req.body;
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid submission ID.",
+    });
+  }
 
-      if (
-        !mongoose.Types.ObjectId.isValid(id)
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Invalid submission ID.",
-        });
-      }
+  if (!["approved", "rejected"].includes(status)) {
+    return res.status(400).json({
+      success: false,
+      message: "Status must be approved or rejected.",
+    });
+  }
 
-      if (
-        !["approved", "rejected"].includes(
-          status
-        )
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Status must be approved or rejected.",
-        });
-      }
+  const session = await mongoose.startSession();
 
-      const submission =
-        await MemorialSubmission.findById(
-          id
-        );
+  let approvedMemorialId = null;
 
-      if (!submission) {
-        return res.status(404).json({
-          success: false,
-          message:
-            "Memorial submission not found.",
-        });
-      }
-
-      if (
-        submission.status !== "pending"
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "This submission has already been reviewed.",
-        });
-      }
-
-      submission.status = status;
-
-      submission.reviewedBy =
-        req.user.id;
-
-      submission.reviewedAt =
-        new Date();
-
-      submission.adminNotes =
-        adminNotes?.trim() || "";
-
-      await submission.save();
-
-      return res.status(200).json({
-        success: true,
-        message:
-          status === "approved"
-            ? "Memorial submission approved successfully."
-            : "Memorial submission rejected successfully.",
-        data: submission,
-      });
-    } catch (error) {
-      console.error(
-        "Review memorial submission error:",
-        error
+  try {
+    await session.withTransaction(async () => {
+      const submission = await MemorialSubmission.findById(id).session(
+        session
       );
 
-      return res.status(500).json({
+      if (!submission) {
+        const error = new Error("Memorial submission not found.");
+        error.statusCode = 404;
+        throw error;
+      }
+
+      if (submission.status !== "pending") {
+        const error = new Error(
+          "This submission has already been reviewed."
+        );
+        error.statusCode = 400;
+        throw error;
+      }
+
+      // Rejected submissions retain their uploaded photos and history.
+      if (status === "rejected") {
+        submission.status = "rejected";
+        submission.reviewedBy = req.user.id;
+        submission.reviewedAt = new Date();
+        submission.adminNotes = adminNotes?.trim() || "";
+
+        await submission.save({ session });
+        return;
+      }
+
+      const photos = submission.photographs || [];
+
+      // Apply an approved submission to an existing memorial.
+      if (
+        ["photograph", "biography", "correction"].includes(
+          submission.submissionType
+        )
+      ) {
+        if (!submission.memorial) {
+          const error = new Error(
+            "This submission must be linked to a memorial before approval."
+          );
+          error.statusCode = 400;
+          throw error;
+        }
+
+        const memorial = await Memorial.findById(
+          submission.memorial
+        ).session(session);
+
+        if (!memorial) {
+          const error = new Error(
+            "The associated memorial could not be found."
+          );
+          error.statusCode = 404;
+          throw error;
+        }
+
+        if (submission.submissionType === "photograph") {
+          if (photos.length === 0) {
+            const error = new Error(
+              "This submission contains no photographs."
+            );
+            error.statusCode = 400;
+            throw error;
+          }
+
+          const existingPhotos = memorial.additionalPhotos || [];
+
+          const newPhotos = photos.filter(
+            (photo) =>
+              photo.url &&
+              photo.publicId &&
+              !existingPhotos.some(
+                (existing) => existing.publicId === photo.publicId
+              )
+          );
+
+          if (existingPhotos.length + newPhotos.length > 10) {
+            const error = new Error(
+              "Approving these photographs would exceed the 10-photo limit."
+            );
+            error.statusCode = 400;
+            throw error;
+          }
+
+          memorial.additionalPhotos.push(...newPhotos);
+        }
+
+        if (submission.submissionType === "biography") {
+          if (!submission.message?.trim()) {
+            const error = new Error(
+              "The biography submission has no content."
+            );
+            error.statusCode = 400;
+            throw error;
+          }
+
+          memorial.biography = submission.message.trim();
+        }
+
+        if (submission.submissionType === "correction") {
+          let hasCorrection = false;
+
+          if (submission.suggestedFullName?.trim()) {
+            memorial.fullName = submission.suggestedFullName.trim();
+            hasCorrection = true;
+          }
+
+          if (submission.suggestedSchoolSet?.trim()) {
+            memorial.schoolSet = submission.suggestedSchoolSet.trim();
+            hasCorrection = true;
+          }
+
+          if (submission.suggestedYearsAttended?.trim()) {
+            memorial.yearsAttended =
+              submission.suggestedYearsAttended.trim();
+            hasCorrection = true;
+          }
+
+          const suggestedYear = submission.suggestedGraduationYear;
+
+          if (
+            suggestedYear !== null &&
+            suggestedYear !== undefined &&
+            suggestedYear !== ""
+          ) {
+            const year = Number(suggestedYear);
+
+            if (
+              !Number.isInteger(year) ||
+              year < 1900 ||
+              year > new Date().getFullYear()
+            ) {
+              const error = new Error(
+                "The suggested graduation year is invalid."
+              );
+              error.statusCode = 400;
+              throw error;
+            }
+
+            memorial.graduationYear = year;
+            hasCorrection = true;
+          }
+
+          if (!hasCorrection) {
+            const error = new Error(
+              "No suggested corrections were provided."
+            );
+            error.statusCode = 400;
+            throw error;
+          }
+        }
+
+        await memorial.save({ session });
+        approvedMemorialId = memorial._id;
+      }
+
+      // Create new memorials as unpublished drafts.
+      if (submission.submissionType === "new_memorial") {
+        if (!submission.suggestedFullName?.trim()) {
+          const error = new Error(
+            "A full name is required to create a memorial."
+          );
+          error.statusCode = 400;
+          throw error;
+        }
+
+        const suggestedYear = submission.suggestedGraduationYear;
+        let graduationYear = null;
+
+        if (
+          suggestedYear !== null &&
+          suggestedYear !== undefined &&
+          suggestedYear !== ""
+        ) {
+          graduationYear = Number(suggestedYear);
+
+          if (
+            !Number.isInteger(graduationYear) ||
+            graduationYear < 1900 ||
+            graduationYear > new Date().getFullYear()
+          ) {
+            const error = new Error(
+              "The suggested graduation year is invalid."
+            );
+            error.statusCode = 400;
+            throw error;
+          }
+        }
+
+        const [primaryPhoto, ...remainingPhotos] = photos;
+
+        const [newMemorial] = await Memorial.create(
+          [
+            {
+              fullName: submission.suggestedFullName.trim(),
+              schoolSet: submission.suggestedSchoolSet?.trim() || "",
+              yearsAttended:
+                submission.suggestedYearsAttended?.trim() || "",
+              graduationYear,
+              shortRemembrance: submission.message?.trim() || "",
+              photograph: primaryPhoto?.url || "",
+              photographPublicId: primaryPhoto?.publicId || "",
+              additionalPhotos: remainingPhotos
+                .filter((photo) => photo.url && photo.publicId)
+                .map((photo) => ({
+                  url: photo.url,
+                  publicId: photo.publicId,
+                })),
+              isPublished: false,
+              publishedAt: null,
+              createdBy: req.user.id,
+            },
+          ],
+          { session }
+        );
+
+        approvedMemorialId = newMemorial._id;
+      }
+
+      // Condolences are approved as submissions but do not overwrite
+      // memorial content. A separate display feature can show them later.
+      submission.status = "approved";
+      submission.reviewedBy = req.user.id;
+      submission.reviewedAt = new Date();
+      submission.adminNotes = adminNotes?.trim() || "";
+
+      await submission.save({ session });
+    });
+
+    // Audit logging must not undo a successful database approval.
+    try {
+      await createAuditLog({
+        actor: req.user.id,
+        action:
+          status === "approved"
+            ? "APPROVE_MEMORIAL_SUBMISSION"
+            : "REJECT_MEMORIAL_SUBMISSION",
+        resource: "MemorialSubmission",
+        resourceId: id,
+        targetUser: undefined,
+        details: {
+          status,
+          submissionType: (
+            await MemorialSubmission.findById(id).select("submissionType")
+          )?.submissionType,
+          memorialId: approvedMemorialId?.toString() || null,
+          adminNotes: adminNotes?.trim() || "",
+        },
+        ip: req.ip,
+        userAgent: req.get("user-agent"),
+      });
+    } catch (auditError) {
+      console.error(
+        "Memorial submission review audit failed:",
+        auditError
+      );
+    }
+
+    return res.status(200).json({
+      success: true,
+      message:
+        status === "approved"
+          ? "Memorial submission approved successfully."
+          : "Memorial submission rejected successfully.",
+      data: {
+        submissionId: id,
+        status,
+        memorialId: approvedMemorialId,
+      },
+    });
+  } catch (error) {
+    console.error("Review memorial submission error:", error);
+
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message:
+        error.statusCode
+          ? error.message
+          : "Failed to review memorial submission.",
+    });
+  } finally {
+    await session.endSession();
+  }
+};
+
+
+export const getApprovedMemorialCondolences = async (req, res) => {
+  try {
+    const { memorialId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(memorialId)) {
+      return res.status(400).json({
         success: false,
-        message:
-          "Something went wrong while reviewing the submission.",
+        message: "Invalid memorial ID.",
       });
     }
-  };
+
+    const memorialExists = await Memorial.exists({
+      _id: memorialId,
+      isPublished: true,
+    });
+
+    if (!memorialExists) {
+      return res.status(404).json({
+        success: false,
+        message: "Memorial not found.",
+      });
+    }
+
+    const condolences = await MemorialSubmission.find({
+      memorial: memorialId,
+      submissionType: "condolence",
+      status: "approved",
+    })
+      .select("message submittedBy createdAt")
+      .populate("submittedBy", "firstName middleName lastName")
+      .sort({ reviewedAt: -1, createdAt: -1 })
+      .lean();
+
+    const data = condolences.map((item) => ({
+      _id: item._id,
+      message: item.message,
+      createdAt: item.createdAt,
+      contributorName: item.submittedBy
+        ? [
+            item.submittedBy.firstName,
+            item.submittedBy.middleName,
+            item.submittedBy.lastName,
+          ]
+            .filter(Boolean)
+            .join(" ")
+        : "Olive­tian",
+    }));
+
+    return res.status(200).json({
+      success: true,
+      message: "Approved condolences retrieved successfully.",
+      data,
+    });
+  } catch (error) {
+    console.error("Get approved memorial condolences error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to retrieve condolences.",
+    });
+  }
+};

@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
@@ -10,6 +11,7 @@ import { validateEmail } from "../utils/validator.js";
 import cloudinary from "../config/cloudinary.js";
 import { createAuditLog } from "../services/auditLog.service.js";
 
+// import Chapter from "../models/Chapter.js";
 import {
   successResponse,
   errorResponse,
@@ -2380,6 +2382,7 @@ export const updateMemberProfile = async (req, res) => {
       lastName,
       phone,
       profile,
+       chapter,
     } = req.body;
 
     const changedFields = [];
@@ -2468,6 +2471,58 @@ export const updateMemberProfile = async (req, res) => {
       };
     }
 
+    // CHAPTER CHANGE
+
+// CHAPTER CHANGE
+
+if (chapter !== undefined) {
+  if (typeof chapter !== "string" || !chapter.trim()) {
+    return errorResponse(res, 400, "Please select a valid chapter.");
+  }
+
+  const chapterId = chapter.trim();
+
+  if (!mongoose.isValidObjectId(chapterId)) {
+    return errorResponse(res, 400, "Invalid chapter ID.");
+  }
+
+  const selectedChapter = await Chapter.findOne({
+    _id: chapterId,
+    isActive: true,
+  });
+
+  if (!selectedChapter) {
+    return errorResponse(res, 400, "Invalid or inactive chapter.");
+  }
+
+  if (String(user.chapter) !== String(selectedChapter._id)) {
+    // Check whether this member currently leads any chapter
+    const currentLeadership = await Chapter.findOne({
+      leader: user._id,
+    });
+
+    if (currentLeadership) {
+  await createNotification({
+    userId: user._id,
+    type: "account",
+    title: "Chapter Change Restricted",
+    message:
+      "You cannot change your chapter while you hold an active Chapter Leader position. Please contact an administrator to have your leadership responsibilities reassigned before trying again.",
+    link: "/portal/member/dashboard/help-support",
+  });
+
+  return errorResponse(
+    res,
+    403,
+    "Your chapter change is restricted because you are an active Chapter Leader. Please check your notifications and contact support."
+  );
+}
+
+    user.chapter = selectedChapter._id;
+    changedFields.push("chapter");
+  }
+}
+
     await user.save();
 
     // AUDIT LOG
@@ -2500,6 +2555,7 @@ export const updateMemberProfile = async (req, res) => {
         graduationYear: user.graduationYear,
         alumniId: user.alumniId,
         profile: user.profile,
+        chapter: user.chapter,
       }
     );
   } catch (err) {

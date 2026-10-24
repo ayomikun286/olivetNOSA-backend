@@ -76,7 +76,7 @@ export const getMyChapter = async (req, res) => {
     }
 
 
-   
+
 
     const members = await User.find({
       chapter: chapter._id,
@@ -89,15 +89,10 @@ export const getMyChapter = async (req, res) => {
       .populate(
         "yearSet",
         "name year"
-      )
-      .sort({
-        lastName: 1,
-        firstName: 1,
-      })
-      .lean();
+      ).sort({ lastName: 1, firstName: 1, }).lean();
 
 
-   
+
 
     const assignments = await ObligationAssignment.find({
       user: user._id,
@@ -119,73 +114,73 @@ export const getMyChapter = async (req, res) => {
     );
 
 
-const assignmentIds = validAssignments.map(
-  (assignment) => assignment._id
-);
+    const assignmentIds = validAssignments.map(
+      (assignment) => assignment._id
+    );
 
-const recentActivity = await Payment.find({
-  obligationAssignment: {
-    $in: assignmentIds,
-  },
-  status: "successful",
-})
-  .populate({
-    path: "obligationAssignment",
-    select: "obligation",
-    populate: {
-      path: "obligation",
-      select: "name category",
-    },
-  })
-  .select(
-    "_id amount status paidAt obligationAssignment createdAt"
-  )
-  .sort({
-    paidAt: -1,
-    createdAt: -1,
-  })
-  .limit(10)
-  .lean();
+    const recentActivity = await Payment.find({
+      obligationAssignment: {
+        $in: assignmentIds,
+      },
+      status: "successful",
+    })
+      .populate({
+        path: "obligationAssignment",
+        select: "obligation",
+        populate: {
+          path: "obligation",
+          select: "name category",
+        },
+      })
+      .select(
+        "_id amount status paidAt obligationAssignment createdAt"
+      )
+      .sort({
+        paidAt: -1,
+        createdAt: -1,
+      })
+      .limit(10)
+      .lean();
 
 
-    
 
- // Active obligations count toward current chapter finances.
-// Inactive obligations remain available for historical records.
-const activeAssignments = validAssignments.filter(
-  (assignment) => assignment.obligation?.isActive === true
-);
 
-// Current amount owed from active obligations only.
-const totalDue = activeAssignments.reduce(
-  (total, assignment) =>
-    total + Number(assignment.amountDue || 0),
-  0
-);
+    // Active obligations count toward current chapter finances.
+    // Inactive obligations remain available for historical records.
+    const activeAssignments = validAssignments.filter(
+      (assignment) => assignment.obligation?.isActive === true
+    );
 
-// All payments ever recorded, including payments
-// made before an obligation became inactive.
-const amountPaid = validAssignments.reduce(
-  (total, assignment) =>
-    total + Number(assignment.amountPaid || 0),
-  0
-);
+    // Current amount owed from active obligations only.
+    const totalDue = activeAssignments.reduce(
+      (total, assignment) =>
+        total + Number(assignment.amountDue || 0),
+      0
+    );
 
-// Only payments against active obligations reduce
-// the current outstanding balance.
-const activeAmountPaid = activeAssignments.reduce(
-  (total, assignment) =>
-    total + Number(assignment.amountPaid || 0),
-  0
-);
+    // All payments ever recorded, including payments
+    // made before an obligation became inactive.
+    const amountPaid = validAssignments.reduce(
+      (total, assignment) =>
+        total + Number(assignment.amountPaid || 0),
+      0
+    );
 
-// Current outstanding balance only.
-const outstanding = Math.max(
-  totalDue - activeAmountPaid,
-  0
-);
+    // Only payments against active obligations reduce
+    // the current outstanding balance.
+    const activeAmountPaid = activeAssignments.reduce(
+      (total, assignment) =>
+        total + Number(assignment.amountPaid || 0),
+      0
+    );
 
-    
+    // Current outstanding balance only.
+    const outstanding = Math.max(
+      totalDue - activeAmountPaid,
+      0
+    );
+
+
     return successResponse(
       res,
       "Chapter information fetched successfully.",

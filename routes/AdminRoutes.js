@@ -9,6 +9,15 @@ import {
 } from "../controller/adminController.js";
 import {createNewsEvent, getAdminNewsEvents, updateNewsEvent,deleteNewsEvent,} from "../controller/newsEvent.controller.js"
 
+import {
+  getAdminLegacyLeaders,
+  getAdminLegacyLeaderById,
+  createLegacyLeader,
+  updateLegacyLeader,
+  deleteLegacyLeader,
+} from "../controller/admin/legacyLeader.controller.js";
+
+import { createYearSet } from "../controller/yearSet.controller.js";
 
 import {
   getAdminWebsiteContent,
@@ -67,9 +76,7 @@ import {
 
 
 const router = express.Router();
-// ========================================
 // MEMORIAL SUBMISSIONS
-// ========================================
 
 router.get(
   "/memorial-submissions",
@@ -102,12 +109,18 @@ router.patch(
   ),
   reviewMemorialSubmission
 );
-
-
-
 // ========================================
+
+
+
+
+
+
+
+
+
+
 // ADMIN DASHBOARD
-// ========================================
 
 router.get(
   "/dashboard",
@@ -120,11 +133,16 @@ router.get(
   ),
   getAdminDashboard
 );
+// ===============================================//
 
 
-// ========================================
-// MEMBER MANAGEMENT
-// ========================================
+
+
+
+
+
+
+// MEMBER MANAGEMENT  //
 
 router.patch(
   "/members/:userId/approve",
@@ -148,15 +166,22 @@ router.get(
 );
 
 
-
-
-
 router.post(
   "/members",
   protect,
   requireRole("admin", "superAdmin"),
   createAdminMemberController
 );
+
+// ============================================================================= //
+
+
+
+
+
+
+
+
 
 
 
@@ -210,14 +235,19 @@ router.delete(
   ),
   deleteNewsEvent
 );
+// =================================================//
 
 
 
 
 
-// ========================================
+
+
+
+
+
 // MEMORIAL MANAGEMENT
-// ========================================
+
 
 router.get(
   "/memorials",
@@ -288,6 +318,7 @@ router.delete(
   ),
   deleteMemorial
 );
+// ============================================================//
 
 
 
@@ -297,9 +328,10 @@ router.delete(
 
 
 
-// ========================================
-// CALENDAR MANAGEMENT
-// ========================================
+
+
+
+// CALENDAR MANAGEMENT //
 
 router.get(
   "/calendar",
@@ -350,12 +382,18 @@ router.delete(
   ),
   deleteCalendarEvent
 );
+// =========================================================//
 
 
 
-// ========================================
-// PAYMENT MANAGEMENT
-// ========================================
+
+
+
+
+
+
+// PAYMENT MANAGEMENT  //
+
 
 router.get(
     "/payments",
@@ -380,24 +418,32 @@ router.get(
 );
 
 
-// ========================================
-// AUDIT LOGS
-// ========================================
+// ===========================================//
 
+
+
+
+
+
+
+
+
+// AUDIT LOGS //
 router.get(
   "/audit-logs",
   protect,
   requireRole("admin", "superAdmin"),
   getAdminAuditLogs
 );
+// ===========================================//
 
 
 
 
 
-// ========================================
-// GALLERY MANAGEMENT
-// ========================================
+
+
+// GALLERY MANAGEMENT  //
 
 router.get(
   "/gallery",
@@ -428,10 +474,18 @@ router.delete(
   requireRole("admin", "superAdmin"),
   deleteGalleryImage
 );
+// =========================================================//
 
 
 
-// team route .. 
+
+
+
+
+
+
+
+// team route .. //
 
 router.get(
   "/team",
@@ -453,10 +507,16 @@ router.patch(
     requireRole("admin", "superAdmin"),
     suspendTeamRole
 );
+// ===================================================///
 
 
 
-// ========================================
+
+
+
+
+
+
 // ADMIN GENERAL SETTINGS
 // ========================================
 
@@ -473,6 +533,14 @@ router.patch(
   requireRole("admin", "superAdmin"),
   updateGeneralSettings
 );
+// ==========================================================//
+
+
+
+
+
+
+
 
 
 
@@ -506,4 +574,66 @@ router.post(
   galleryUpload.single("image"),
   uploadWebsiteContentImage
 );
+// ===================================================//
+
+
+
+
+
+
+
+
+// LEGACY LEADERSHIP MANAGEMENT
+router.get(
+  "/legacy-leaders",
+  protect,
+  requireRole("admin", "superAdmin"),
+  getAdminLegacyLeaders
+);
+
+router.get(
+  "/legacy-leaders/:id",
+  protect,
+  requireRole("admin", "superAdmin"),
+  getAdminLegacyLeaderById
+);
+
+router.post(
+  "/legacy-leaders",
+  protect,
+  requireRole("admin", "superAdmin"),
+  galleryUpload.single("portrait"),
+  createLegacyLeader
+);
+
+router.patch(
+  "/legacy-leaders/:id",
+  protect,
+  requireRole("admin", "superAdmin"),
+  galleryUpload.single("portrait"),
+  updateLegacyLeader
+);
+
+router.delete(
+  "/legacy-leaders/:id",
+  protect,
+  requireRole("admin", "superAdmin"),
+  deleteLegacyLeader
+);
+// ===========================================================//
+
+
+
+// YEAR SET MANAGEMENT
+
+router.post(
+  "/year-sets",
+  protect,
+  requireRole("admin", "superAdmin"),
+  createYearSet
+);
+
+
+
+
 export default router;

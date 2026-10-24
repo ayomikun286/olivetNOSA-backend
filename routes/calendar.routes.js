@@ -16,9 +16,7 @@ import requireRole from "../middleware/roleMiddleware.js";
 
 const router = express.Router();
 
-// ============================================================
 // MEMBER CALENDAR
-// ============================================================
 
 router.get(
   "/",
@@ -31,6 +29,12 @@ router.get(
   protect,
   getCalendarEventById
 );
+// ====================================================//
+
+
+
+
+
 
 
 // Admin calendar — viewing
@@ -69,5 +73,9 @@ router.delete(
   requireRole("admin", "superAdmin"),
   deleteCalendarEvent
 );
+
+// ==================================================//
+
+
 
 export default router;

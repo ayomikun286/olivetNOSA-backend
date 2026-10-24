@@ -101,7 +101,7 @@ export const WEBSITE_CONTENT_PAGES = {
 
   "legacy-leadership": {
     label: "Legacy Leadership",
-    fields: ["pageTitle", "intro", "historyText"],
+    fields: ["pageTitle", "intro", "historyText","heroImage"],
   },
 
   // "privacy-policy": {

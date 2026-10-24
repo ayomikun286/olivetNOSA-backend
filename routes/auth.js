@@ -11,13 +11,13 @@ import {
   checkVerificationStatus,
   Login,
   getCurrentUser,
-   getMemberProfile,
-   updateMemberProfile,
+  getMemberProfile,
+  updateMemberProfile,
   uploadProfilePhoto,
   refreshActivity
 } from "../controller/auth.controller.js";
-import {protect} from "../middleware/authmiddleware.js";
-import {requireFinancialMember} from "../middleware/financialMiddleware.js";
+import { protect } from "../middleware/authmiddleware.js";
+import { requireFinancialMember } from "../middleware/financialMiddleware.js";
 
 
 
@@ -25,6 +25,9 @@ import {
   getPublicWebsiteContent,
 } from "../controller/websiteContent.controller.js";
 
+import {
+  getPublishedLegacyLeaders,
+} from "../controller/admin/legacyLeader.controller.js";
 
 import {
   getMemberArticles,
@@ -38,23 +41,23 @@ import {
   passwordResetLimiter,
   verificationLimiter,
 } from "../middleware/rateLimiter.js";// import { updateMemberFinancialStatus } from "../services/memberFinancialStatus.service.js";
-import  requireRole  from "../middleware/roleMiddleware.js";
-import {getPublishedFinancialReports} from "../controller/membersFinancialReport.js";  
+import requireRole from "../middleware/roleMiddleware.js";
+import { getPublishedFinancialReports } from "../controller/membersFinancialReport.js";
 import {
   getPublicGeneralSettings,
 } from "../controller/admin/adminSettings.controller.js";
 
 
-import {contactForm} from "../controller/ContactFormController.js";
+import { contactForm } from "../controller/ContactFormController.js";
 const router = express.Router();
 
 
 router.post("/user/create", signupLimiter, Signup);
 router.get("/user/verify-email", verifyEmail);
 router.get("/user/verification-status", checkVerificationStatus);
-router.post("/user/login",loginLimiter , Login);
-router.get("/user/logout",logout)
-router.get("/auth/me",protect,getCurrentUser)
+router.post("/user/login", loginLimiter, Login);
+router.get("/user/logout", logout)
+router.get("/auth/me", protect, getCurrentUser)
 
 
 router.post("/auth/activity", protect, refreshActivity);
@@ -88,32 +91,35 @@ router.get(
   requireRole("member"),
   requireFinancialMember,
   getPublishedFinancialReports
-);  
-  
+);
 
 
 
 
-router.get("/member/articles", protect,requireFinancialMember, getMemberArticles);
-router.get("/member/articles/:slug", protect,requireFinancialMember, getMemberArticleBySlug);
+
+router.get("/member/articles", protect, requireFinancialMember, getMemberArticles);
+router.get("/member/articles/:slug", protect, requireFinancialMember, getMemberArticleBySlug);
 
 
 
-router.post("/user/resendVerifyEmailLink",  verificationLimiter, resendVerifyEmailLink)
-router.post("/user/forgetPassword",serverLimiter, forgetPassword);
-router.post("/user/reset-password",  passwordResetLimiter,resetPassword)
-router.get( "/api/auth/activate-account",serverLimiter, verifyAccountSetupController);
-router.post( "/api/auth/set-password",serverLimiter, setPasswordController );
+router.post("/user/resendVerifyEmailLink", verificationLimiter, resendVerifyEmailLink)
+router.post("/user/forgetPassword", serverLimiter, forgetPassword);
+router.post("/user/reset-password", passwordResetLimiter, resetPassword)
+router.get("/api/auth/activate-account", serverLimiter, verifyAccountSetupController);
+router.post("/api/auth/set-password", serverLimiter, setPasswordController);
 
 
 
 router.get("/api/public/settings/general", getPublicGeneralSettings);
 
-
+router.get( "/api/public/legacy-leaders", getPublishedLegacyLeaders);
 
 router.post("/api/contact", contactForm)
 router.get(
   "/api/content/:pageKey",
   getPublicWebsiteContent
 );
+
+
+
 export default router
