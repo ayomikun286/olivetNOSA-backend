@@ -6,6 +6,8 @@ import {
   handlePaymentVerificationMismatch,
 } from "./paymentService.js";
 
+import { isPaystackAmountValid } from "./paystackAmount.js";
+
 export const verifyPendingPayments = async () => {
   try {
     const pendingPayments = await Payment.find({
@@ -42,21 +44,18 @@ export const verifyPendingPayments = async () => {
           continue;
         }
 
-        const expectedAmount = Number(payment.amount) * 100;
-        const receivedAmount = Number(transaction.amount);
         const expectedCurrency = payment.currency || "NGN";
         const receivedCurrency = transaction.currency;
 
-        // Do not mark a payment failed if Paystack has not
-        // returned a valid amount or currency to verify.
-        const amountMismatch =
-          !Number.isFinite(receivedAmount) ||
-          receivedAmount !== expectedAmount;
+        const amountMismatch = !isPaystackAmountValid(
+          payment,
+          transaction
+        );
 
         const currencyMismatch =
           !receivedCurrency ||
           receivedCurrency.toUpperCase() !==
-            expectedCurrency.toUpperCase();
+          expectedCurrency.toUpperCase();
 
         // Record amount/currency discrepancies.
         if (amountMismatch || currencyMismatch) {

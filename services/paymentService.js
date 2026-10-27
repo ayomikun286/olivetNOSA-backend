@@ -16,6 +16,7 @@ export const completeSuccessfulPayment = async (
     actor = null,
     req = null,
     source = "system",
+    recoveryReason = null,
   } = {}
 ) => {
   const session = await mongoose.startSession();
@@ -51,6 +52,7 @@ export const completeSuccessfulPayment = async (
       return {
         payment,
         assignment,
+        alreadyProcessed: true,
       };
     }
 
@@ -195,8 +197,10 @@ export const completeSuccessfulPayment = async (
   targetUser: payment.user,
   req,
   session,
+
   details: {
     reference: payment.gatewayReference,
+    recoveryReason: source === "superadmin_recovery"  ? recoveryReason : null,
     transactionId: transaction?.id ?? null,
     amount: payment.amount,
     currency: transaction?.currency ?? payment.currency,
@@ -546,6 +550,10 @@ export const handleFailedPayment = async (
     source = "system",
   } = {}
 ) => {
+
+   if (payment.status === "successful") {
+    return payment;
+  }
   // Prevent duplicate processing of the same failure status.
   if (payment.status === status) {
     return payment;

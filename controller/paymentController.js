@@ -7,6 +7,8 @@ import { paystackRequest } from "../config/paystack.js";
 import { completeSuccessfulPayment } from "../services/paymentService.js";
 import { verifyPendingPayments } from "../services/pendingPaymentVerificationService.js";
 import { handleFailedPayment, handlePaymentVerificationMismatch } from "../services/paymentService.js";
+import {isPaystackAmountValid} from "../services/paystackAmount.js";
+
 
 
 
@@ -313,309 +315,309 @@ export const initializePayment = async (
 };
 
 export const verifyPayment = async (req, res) => {
-  try {
-    const userId = req.user._id;
-    const { reference } = req.params;
+    try {
+        const userId = req.user._id;
+        const { reference } = req.params;
 
-    if (!reference) {
-      return res.status(400).json({
-        success: false,
-        message: "Payment reference is required.",
-      });
-    }
-
-    const payment = await Payment.findOne({
-      gatewayReference: reference,
-      user: userId,
-      gateway: "paystack",
-    });
-
-    if (!payment) {
-      return res.status(404).json({
-        success: false,
-        message: "Payment record not found.",
-      });
-    }
-
-    if (payment.status === "successful") {
-      return res.status(200).json({
-        success: true,
-        message: "Payment already verified.",
-        payment,
-      });
-    }
-
-    const paystackResponse = await paystackRequest(
-      `/transaction/verify/${encodeURIComponent(reference)}`,
-      { method: "GET" }
-    );
-
-    const transaction = paystackResponse.data;
-
-    if (!transaction) {
-      return res.status(502).json({
-        success: false,
-        message: "Unable to verify the transaction with Paystack.",
-      });
-    }
-
-    const expectedAmount = Number(payment.amount) * 100;
-    const receivedAmount = Number(transaction.amount);
-    const expectedCurrency = payment.currency || "NGN";
-
-    const amountMismatch =
-      !Number.isFinite(receivedAmount) ||
-      receivedAmount !== expectedAmount;
-
-    const currencyMismatch =
-      !transaction.currency ||
-      transaction.currency.toUpperCase() !==
-        expectedCurrency.toUpperCase();
-
-    if (amountMismatch || currencyMismatch) {
-      const reason = amountMismatch
-        ? "Paystack transaction amount mismatch."
-        : "Paystack transaction currency mismatch.";
-
-      await handlePaymentVerificationMismatch(
-        payment,
-        transaction,
-        {
-          actor: userId,
-          req,
-          source: "member_verification",
-          reason,
+        if (!reference) {
+            return res.status(400).json({
+                success: false,
+                message: "Payment reference is required.",
+            });
         }
-      );
 
-      return res.status(400).json({
-        success: false,
-        message:
-          "Payment verification failed. Please contact support.",
-      });
-    }
+        const payment = await Payment.findOne({
+            gatewayReference: reference,
+            user: userId,
+            gateway: "paystack",
+        });
 
-    if (transaction.status === "success") {
-      const result = await completeSuccessfulPayment(
-        payment._id,
-        transaction,
-        {
-          actor: userId,
-          req,
-          source: "member_verification",
+        if (!payment) {
+            return res.status(404).json({
+                success: false,
+                message: "Payment record not found.",
+            });
         }
-      );
 
-      return res.status(200).json({
-        success: true,
-        message: result.alreadyProcessed
-          ? "Payment already verified."
-          : "Payment verified successfully.",
-        payment: result.payment,
-        assignment: result.assignment,
-      });
-    }
-
-    if (
-      ["failed", "reversed", "abandoned"].includes(
-        transaction.status
-      )
-    ) {
-      const failedStatus =
-        transaction.status === "abandoned"
-          ? "cancelled"
-          : "failed";
-
-      await handleFailedPayment(
-        payment,
-        transaction,
-        failedStatus,
-        {
-          actor: userId,
-          req,
-          source: "member_verification",
+        if (payment.status === "successful") {
+            return res.status(200).json({
+                success: true,
+                message: "Payment already verified.",
+                payment,
+            });
         }
-      );
 
-      return res.status(200).json({
-        success: false,
-        message: "Payment was not successful.",
-      });
+        const paystackResponse = await paystackRequest(
+            `/transaction/verify/${encodeURIComponent(reference)}`,
+            { method: "GET" }
+        );
+
+        const transaction = paystackResponse.data;
+
+        if (!transaction) {
+            return res.status(502).json({
+                success: false,
+                message: "Unable to verify the transaction with Paystack.",
+            });
+        }
+
+       
+        const expectedCurrency = payment.currency || "NGN";
+
+        const amountMismatch = !isPaystackAmountValid(
+            payment,
+            transaction // Use `data` inside the webhook instead.
+        );
+
+        const currencyMismatch =
+            !transaction.currency ||
+            transaction.currency.toUpperCase() !==
+            expectedCurrency.toUpperCase();
+
+        if (amountMismatch || currencyMismatch) {
+            const reason = amountMismatch
+                ? "Paystack transaction amount mismatch."
+                : "Paystack transaction currency mismatch.";
+
+            await handlePaymentVerificationMismatch(
+                payment,
+                transaction,
+                {
+                    actor: userId,
+                    req,
+                    source: "member_verification",
+                    reason,
+                }
+            );
+
+            return res.status(400).json({
+                success: false,
+                message:
+                    "Payment verification failed. Please contact support.",
+            });
+        }
+
+        if (transaction.status === "success") {
+            const result = await completeSuccessfulPayment(
+                payment._id,
+                transaction,
+                {
+                    actor: userId,
+                    req,
+                    source: "member_verification",
+                }
+            );
+
+            return res.status(200).json({
+                success: true,
+                message: result.alreadyProcessed
+                    ? "Payment already verified."
+                    : "Payment verified successfully.",
+                payment: result.payment,
+                assignment: result.assignment,
+            });
+        }
+
+        if (
+            ["failed", "reversed", "abandoned"].includes(
+                transaction.status
+            )
+        ) {
+            const failedStatus =
+                transaction.status === "abandoned"
+                    ? "cancelled"
+                    : "failed";
+
+            await handleFailedPayment(
+                payment,
+                transaction,
+                failedStatus,
+                {
+                    actor: userId,
+                    req,
+                    source: "member_verification",
+                }
+            );
+
+            return res.status(200).json({
+                success: false,
+                message: "Payment was not successful.",
+            });
+        }
+
+        return res.status(200).json({
+            success: false,
+            message: "Payment is still being processed.",
+            payment,
+        });
+    } catch (error) {
+        console.error("Verify payment error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Failed to verify payment.",
+        });
     }
-
-    return res.status(200).json({
-      success: false,
-      message: "Payment is still being processed.",
-      payment,
-    });
-  } catch (error) {
-    console.error("Verify payment error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Failed to verify payment.",
-    });
-  }
 };
 
 
 
 export const handlePaystackWebhook = async (req, res) => {
-  try {
-    const signature = req.headers["x-paystack-signature"];
-
-    if (!signature || !process.env.PAYSTACK_SECRET_KEY) {
-      return res.status(401).json({
-        success: false,
-        message: "Missing or invalid Paystack signature.",
-      });
-    }
-
-    const rawBody = req.body;
-
-    if (!Buffer.isBuffer(rawBody)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid webhook body.",
-      });
-    }
-
-    const expectedSignature = crypto
-      .createHmac("sha512", process.env.PAYSTACK_SECRET_KEY)
-      .update(rawBody)
-      .digest("hex");
-
-    const receivedBuffer = Buffer.from(signature);
-    const expectedBuffer = Buffer.from(expectedSignature);
-
-    if (
-      receivedBuffer.length !== expectedBuffer.length ||
-      !crypto.timingSafeEqual(receivedBuffer, expectedBuffer)
-    ) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid Paystack signature.",
-      });
-    }
-
-    let payload;
-
     try {
-      payload = JSON.parse(rawBody.toString("utf8"));
-    } catch {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid webhook payload.",
-      });
-    }
+        const signature = req.headers["x-paystack-signature"];
 
-    const { event, data } = payload;
-    const reference = data?.reference;
-
-    if (!reference) {
-      return res.status(200).json({
-        success: true,
-        message: "Webhook received without reference.",
-      });
-    }
-
-    const payment = await Payment.findOne({
-      gatewayReference: reference,
-      gateway: "paystack",
-    });
-
-    if (!payment) {
-      console.warn("Paystack payment not found:", reference);
-
-      // Acknowledge unknown references to prevent endless retries.
-      return res.status(200).json({
-        success: true,
-        message: "Payment record not found.",
-      });
-    }
-
-    if (payment.status === "successful") {
-      return res.status(200).json({
-        success: true,
-        message: "Payment already processed.",
-      });
-    }
-
-    if (event === "charge.failed") {
-      await handleFailedPayment(payment, data, "failed", {
-        req,
-        source: "paystack_webhook",
-      });
-
-      return res.status(200).json({
-        success: true,
-        message: "Failed payment event handled.",
-      });
-    }
-
-    if (event !== "charge.success") {
-      return res.status(200).json({
-        success: true,
-        message: "Event received.",
-      });
-    }
-
-    const expectedAmount = Number(payment.amount) * 100;
-    const receivedAmount = Number(data.amount);
-    const expectedCurrency = payment.currency || "NGN";
-
-    const amountMismatch =
-      !Number.isFinite(receivedAmount) ||
-      receivedAmount !== expectedAmount;
-
-    const currencyMismatch =
-      !data.currency ||
-      data.currency.toUpperCase() !==
-        expectedCurrency.toUpperCase();
-
-    if (amountMismatch || currencyMismatch) {
-      const reason = amountMismatch
-        ? "Paystack transaction amount mismatch."
-        : "Paystack transaction currency mismatch.";
-
-      await handlePaymentVerificationMismatch(
-        payment,
-        data,
-        {
-          req,
-          source: "paystack_webhook",
-          reason,
+        if (!signature || !process.env.PAYSTACK_SECRET_KEY) {
+            return res.status(401).json({
+                success: false,
+                message: "Missing or invalid Paystack signature.",
+            });
         }
-      );
 
-      console.error(
-        `Payment verification mismatch for ${reference}: ${reason}`
-      );
+        const rawBody = req.body;
 
-      // The event was handled and recorded. Do not retry it endlessly.
-      return res.status(200).json({
-        success: true,
-        message: "Payment verification discrepancy recorded.",
-      });
+        if (!Buffer.isBuffer(rawBody)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid webhook body.",
+            });
+        }
+
+        const expectedSignature = crypto
+            .createHmac("sha512", process.env.PAYSTACK_SECRET_KEY)
+            .update(rawBody)
+            .digest("hex");
+
+        const receivedBuffer = Buffer.from(signature);
+        const expectedBuffer = Buffer.from(expectedSignature);
+
+        if (
+            receivedBuffer.length !== expectedBuffer.length ||
+            !crypto.timingSafeEqual(receivedBuffer, expectedBuffer)
+        ) {
+            return res.status(401).json({
+                success: false,
+                message: "Invalid Paystack signature.",
+            });
+        }
+
+        let payload;
+
+        try {
+            payload = JSON.parse(rawBody.toString("utf8"));
+        } catch {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid webhook payload.",
+            });
+        }
+
+        const { event, data } = payload;
+        const reference = data?.reference;
+
+        if (!reference) {
+            return res.status(200).json({
+                success: true,
+                message: "Webhook received without reference.",
+            });
+        }
+
+        const payment = await Payment.findOne({
+            gatewayReference: reference,
+            gateway: "paystack",
+        });
+
+        if (!payment) {
+            console.warn("Paystack payment not found:", reference);
+
+            // Acknowledge unknown references to prevent endless retries.
+            return res.status(200).json({
+                success: true,
+                message: "Payment record not found.",
+            });
+        }
+
+        if (payment.status === "successful") {
+            return res.status(200).json({
+                success: true,
+                message: "Payment already processed.",
+            });
+        }
+
+        if (event === "charge.failed") {
+            await handleFailedPayment(payment, data, "failed", {
+                req,
+                source: "paystack_webhook",
+            });
+
+            return res.status(200).json({
+                success: true,
+                message: "Failed payment event handled.",
+            });
+        }
+
+        if (event !== "charge.success") {
+            return res.status(200).json({
+                success: true,
+                message: "Event received.",
+            });
+        }
+
+       
+        const expectedCurrency = payment.currency || "NGN";
+
+        const amountMismatch = !isPaystackAmountValid(
+            payment,
+            data // Use `data` inside the webhook instead.
+        );
+
+        const currencyMismatch =
+            !data.currency ||
+            data.currency.toUpperCase() !==
+            expectedCurrency.toUpperCase();
+
+        if (amountMismatch || currencyMismatch) {
+            const reason = amountMismatch
+                ? "Paystack transaction amount mismatch."
+                : "Paystack transaction currency mismatch.";
+
+            await handlePaymentVerificationMismatch(
+                payment,
+                data,
+                {
+                    req,
+                    source: "paystack_webhook",
+                    reason,
+                }
+            );
+
+            console.error(
+                `Payment verification mismatch for ${reference}: ${reason}`
+            );
+
+            // The event was handled and recorded. Do not retry it endlessly.
+            return res.status(200).json({
+                success: true,
+                message: "Payment verification discrepancy recorded.",
+            });
+        }
+
+        await completeSuccessfulPayment(payment._id, data, {
+            req,
+            source: "paystack_webhook",
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: "Payment processed successfully.",
+        });
+    } catch (error) {
+        console.error("Paystack webhook error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Webhook processing failed.",
+        });
     }
-
-    await completeSuccessfulPayment(payment._id, data, {
-      req,
-      source: "paystack_webhook",
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: "Payment processed successfully.",
-    });
-  } catch (error) {
-    console.error("Paystack webhook error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Webhook processing failed.",
-    });
-  }
 };
 
 
@@ -1221,6 +1223,174 @@ export const getAdminPaymentById = async (
             success: false,
             message:
                 "Failed to load payment details.",
+        });
+    }
+};
+
+
+export const recoverFailedPayment = async (req, res) => {
+    try {
+        const { paymentId } = req.params;
+        const reason = req.body?.reason?.trim();
+
+        // Validate payment ID
+        if (!mongoose.isValidObjectId(paymentId)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid payment ID.",
+            });
+        }
+
+        // Require an audit reason
+        if (!reason || reason.length < 10) {
+            return res.status(400).json({
+                success: false,
+                message:
+                    "Please provide a recovery reason of at least 10 characters.",
+            });
+        }
+
+        if (reason.length > 500) {
+            return res.status(400).json({
+                success: false,
+                message:
+                    "Recovery reason cannot exceed 500 characters.",
+            });
+        }
+
+        const payment = await Payment.findById(paymentId);
+
+        if (!payment) {
+            return res.status(404).json({
+                success: false,
+                message: "Payment not found.",
+            });
+        }
+
+        // Only recover failed or cancelled Paystack payments
+        if (
+            payment.gateway !== "paystack" ||
+            !payment.gatewayReference
+        ) {
+            return res.status(400).json({
+                success: false,
+                message:
+                    "This payment cannot be recovered through Paystack.",
+            });
+        }
+
+        if (
+            !["failed", "cancelled"].includes(payment.status)
+        ) {
+            return res.status(409).json({
+                success: false,
+                message:
+                    "Only failed or cancelled payments can be recovered.",
+            });
+        }
+
+        // Always verify against Paystack before recovery
+        const paystackResponse = await paystackRequest(
+            `/transaction/verify/${encodeURIComponent(
+                payment.gatewayReference
+            )}`,
+            { method: "GET" }
+        );
+
+        const transaction = paystackResponse?.data;
+
+        if (!transaction) {
+            return res.status(502).json({
+                success: false,
+                message:
+                    "Paystack did not return transaction details.",
+            });
+        }
+
+        // Confirm this is the exact transaction
+        if (
+            transaction.reference !== payment.gatewayReference
+        ) {
+            return res.status(409).json({
+                success: false,
+                message:
+                    "Paystack transaction reference does not match.",
+            });
+        }
+
+        if (transaction.status !== "success") {
+            return res.status(409).json({
+                success: false,
+                message:
+                    "Paystack has not confirmed this transaction as successful.",
+            });
+        }
+
+        // Validate original payment amount, including fee handling
+        if (!isPaystackAmountValid(payment, transaction)) {
+            return res.status(409).json({
+                success: false,
+                message:
+                    "The verified transaction amount does not match the payment record.",
+            });
+        }
+
+        const expectedCurrency = (
+            payment.currency || "NGN"
+        ).toUpperCase();
+
+        if (
+            !transaction.currency ||
+            transaction.currency.toUpperCase() !==
+                expectedCurrency
+        ) {
+            return res.status(409).json({
+                success: false,
+                message:
+                    "The verified transaction currency does not match the payment record.",
+            });
+        }
+
+        // Use the existing service to update the payment,
+        // obligation assignment, financial status and audit log.
+        const result = await completeSuccessfulPayment(
+            payment._id,
+            transaction,
+            {
+                actor: req.user._id,
+                req,
+                source: "superadmin_recovery",
+                recoveryReason: reason,
+            }
+        );
+
+        if (result.alreadyProcessed) {
+            return res.status(409).json({
+                success: false,
+                message:
+                    "This payment has already been processed.",
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message:
+                "Payment recovered and verified successfully.",
+            data: {
+                payment: result.payment,
+                assignment: result.assignment,
+            },
+        });
+    } catch (error) {
+        console.error(
+            "Super Admin payment recovery error:",
+            error
+        );
+
+        return res.status(500).json({
+            success: false,
+            message:
+                "Payment recovery failed. Check the server logs before retrying.",
         });
     }
 };

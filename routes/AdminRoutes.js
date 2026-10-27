@@ -51,6 +51,7 @@ import galleryUpload from "../middleware/galleryUpload.middleware.js";
 import {
     getAdminPayments,
     getAdminPaymentById,
+     recoverFailedPayment,
 } from "../controller/paymentController.js";
 import upload from "../middleware/upload.middleware.js";
 import { protect } from "../middleware/authmiddleware.js";
@@ -442,6 +443,13 @@ router.get(
         "superAdmin"
     ),
     getAdminPaymentById
+);
+
+router.post(
+    "/payments/:paymentId/recover",
+    protect,
+    requireRole("superAdmin"),
+    recoverFailedPayment
 );
 
 
