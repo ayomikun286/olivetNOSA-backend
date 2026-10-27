@@ -29,6 +29,7 @@ export const getAdminChapters = async (req, res) => {
       {
         $match: {
           chapter: { $in: chapterIds },
+          role: "member",
         },
       },
       {

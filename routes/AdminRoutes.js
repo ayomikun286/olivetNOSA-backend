@@ -3,10 +3,14 @@ import express from "express";
 
 import {
   approveMemberController,
+  suspendMemberController,
+  reactivateMemberController,
   getAdminDashboard,
   getAdminMembersController,
-  createAdminMemberController
+  createAdminMemberController,
+  deleteMemberController
 } from "../controller/adminController.js";
+
 import {createNewsEvent, getAdminNewsEvents, updateNewsEvent,deleteNewsEvent,} from "../controller/newsEvent.controller.js"
 
 import {
@@ -153,6 +157,29 @@ router.patch(
   ),
   approveMemberController
 );
+
+router.patch(
+  "/members/:userId/suspend",
+  protect,
+  requireRole("admin", "superAdmin"),
+  suspendMemberController
+);
+
+router.patch(
+  "/members/:userId/reactivate",
+  protect,
+  requireRole("admin", "superAdmin"),
+  reactivateMemberController
+);
+
+
+router.delete(
+  "/members/:userId",
+  protect,
+  requireRole("admin", "superAdmin"),
+  deleteMemberController
+);
+
 
 
 router.get(

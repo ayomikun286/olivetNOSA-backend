@@ -8,7 +8,7 @@ import { approveMember } from "../services/memberApproval.service.js";
 import { createAuditLog } from "../services/auditLog.service.js";
 import Chapter from "../models/Chapter.js";
 import YearSet from "../models/YearSet.js";
-import {memberApprovalTemplate} from "../utils/member-approval.template.js";
+import { memberApprovalTemplate } from "../utils/member-approval.template.js";
 import generateAlumniId from "../utils/generateAlumniId.js";
 
 import { assignIndividualObligationsToUser, } from "../services/obligationAssignmentService.js";
@@ -32,30 +32,30 @@ export const approveMemberController = async (req, res) => {
 
     const result = await approveMember(userId, req.user._id);
 
-    // AUDIT: Record the successful approval before sending notifications.
-    await createAuditLog({
-      actor: req.user._id,
-      action: "member.approved",
-      resource: "User",
-      resourceId: result.user._id,
-      targetUser: result.user._id,
-      details: {
-        alumniId: result.alumniId ?? null,
-        obligationsAssigned: result.obligationsAssigned ?? 0,
-      },
-      req,
-    });
+    // // AUDIT: Record the successful approval before sending notifications.
+    // await createAuditLog({
+    //   actor: req.user._id,
+    //   action: "member.approved",
+    //   resource: "User",
+    //   resourceId: result.user._id,
+    //   targetUser: result.user._id,
+    //   details: {
+    //     alumniId: result.alumniId ?? null,
+    //     obligationsAssigned: result.obligationsAssigned ?? 0,
+    //   },
+    //   req,
+    // });
 
     // SEND ACCOUNT APPROVAL EMAIL
     await sendEmail({
-    to: result.user.email,
-    subject: "Your OlivetGOSA Account Has Been Approved",
-    html: memberApprovalTemplate({
+      to: result.user.email,
+      subject: "Your OlivetGOSA Account Has Been Approved",
+      html: memberApprovalTemplate({
         name: result.user.firstName,
         alumniId: result.user.alumniId,
-       
-    }),
-});
+
+      }),
+    });
 
     // OBLIGATION NOTIFICATIONS
     for (const assignment of result.obligationAssignments || []) {
@@ -95,6 +95,190 @@ export const approveMemberController = async (req, res) => {
     return res.status(400).json({
       success: false,
       message: error.message || "Failed to approve member.",
+    });
+  }
+};
+
+
+// ========================================
+// SUSPEND MEMBER
+// ========================================
+
+export const suspendMemberController = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const member = await User.findOne({
+      _id: userId,
+      role: "member",
+    });
+
+    if (!member) {
+      return res.status(404).json({
+        success: false,
+        message: "Member not found.",
+      });
+    }
+
+    if (member.status !== "active") {
+      return res.status(400).json({
+        success: false,
+        message: "Only active members can be suspended.",
+      });
+    }
+
+    member.status = "suspended";
+    await member.save();
+
+    await createAuditLog({
+      actor: req.user._id,
+      action: "member.suspended",
+      resource: "User",
+      resourceId: member._id,
+      targetUser: member._id,
+      details: {
+        previousStatus: "active",
+        newStatus: "suspended",
+      },
+      req,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Member suspended successfully.",
+      data: { user: member },
+    });
+  } catch (error) {
+    console.error("Suspend member error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to suspend member.",
+    });
+  }
+};
+
+
+// ========================================
+// REACTIVATE MEMBER
+// ========================================
+
+export const reactivateMemberController = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const member = await User.findOne({
+      _id: userId,
+      role: "member",
+    });
+
+    if (!member) {
+      return res.status(404).json({
+        success: false,
+        message: "Member not found.",
+      });
+    }
+
+    if (member.status !== "suspended") {
+      return res.status(400).json({
+        success: false,
+        message: "Only suspended members can be reactivated.",
+      });
+    }
+
+    member.status = "active";
+    await member.save();
+
+    await createAuditLog({
+      actor: req.user._id,
+      action: "member.reactivated",
+      resource: "User",
+      resourceId: member._id,
+      targetUser: member._id,
+      details: {
+        previousStatus: "suspended",
+        newStatus: "active",
+      },
+      req,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Member reactivated successfully.",
+      data: { user: member },
+    });
+  } catch (error) {
+    console.error("Reactivate member error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to reactivate member.",
+    });
+  }
+};
+
+
+export const deleteMemberController = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid member ID.",
+      });
+    }
+
+    const member = await User.findOne({
+      _id: userId,
+      role: "member",
+    });
+
+    if (!member) {
+      return res.status(404).json({
+        success: false,
+        message: "Member not found.",
+      });
+    }
+
+    // Only unapproved members can be permanently deleted.
+    if (member.status !== "pending" || member.alumniId) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Only pending applicants who have not been assigned an Alumni ID can be deleted.",
+      });
+    }
+
+    const memberId = member._id;
+
+    // Preserve an audit record before removing the account.
+    await createAuditLog({
+      actor: req.user._id,
+      action: "member.deleted",
+      resource: "User",
+      resourceId: memberId,
+      targetUser: memberId,
+      details: {
+        email: member.email,
+        previousStatus: member.status,
+        reason: "Pending applicant deleted by administrator",
+      },
+      req,
+    });
+
+    await User.deleteOne({ _id: memberId });
+
+    return res.status(200).json({
+      success: true,
+      message: "Pending member deleted successfully.",
+    });
+  } catch (error) {
+    console.error("Delete member error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete member.",
     });
   }
 };
@@ -619,8 +803,13 @@ export const getAdminMembersController = async (req, res) => {
     // FETCH MEMBERS
     // ========================================
 
+    const memberFilter = {
+      ...filter,
+      role: "member",
+    };
+
     const [members, total] = await Promise.all([
-      User.find(filter)
+      User.find(memberFilter)
         .select(
           "firstName middleName lastName email phone enrollmentYear graduationYear alumniId status isEmailVerified role yearSet chapter createdAt updatedAt"
         )
@@ -866,31 +1055,31 @@ export const createAdminMemberController = async (req, res) => {
     member.accountSetupExpires = setupExpires;
 
     await member.save({
-  session,
-});
+      session,
+    });
 
-// AUDIT ADMIN-CREATED MEMBER
-await createAuditLog({
-  actor: req.user?._id || null,
-  action: "member.admin_created",
-  resource: "User",
-  resourceId: member._id,
-  targetUser: member._id,
-  session,
-  req,
-  details: {
-    alumniId,
-    email: member.email,
-    chapter: chapterDoc._id,
-    yearSet: yearSetDoc._id,
-    enrollmentYear: enrollmentYearNumber,
-    graduationYear: graduationYearNumber,
-    status: member.status,
-    obligationsAssigned: obligationResult.assigned,
-  },
-});
+    // AUDIT ADMIN-CREATED MEMBER
+    await createAuditLog({
+      actor: req.user?._id || null,
+      action: "member.admin_created",
+      resource: "User",
+      resourceId: member._id,
+      targetUser: member._id,
+      session,
+      req,
+      details: {
+        alumniId,
+        email: member.email,
+        chapter: chapterDoc._id,
+        yearSet: yearSetDoc._id,
+        enrollmentYear: enrollmentYearNumber,
+        graduationYear: graduationYearNumber,
+        status: member.status,
+        obligationsAssigned: obligationResult.assigned,
+      },
+    });
 
-await session.commitTransaction();
+    await session.commitTransaction();
 
 
     const frontendUrl =
