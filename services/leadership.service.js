@@ -9,128 +9,67 @@ import ObligationAssignment from "../models/ObligationAssignment.js";
 import { createAuditLog } from "./auditLog.service.js";
 
 // ========================================
-// REASSIGN COLLECTIVE OBLIGATIONS
+// ENSURE COLLECTIVE OBLIGATIONS EXIST FOR GROUP
 // ========================================
 
-const reassignCollectiveAssignments = async ({
-  category,
-  previousLeaderId,
-  newLeaderId,
-  assignedBy,
-  session,
-}) => {
-  let transferred = 0;
-  let assigned = 0;
+// const reassignCollectiveAssignments = async ({
+//   category,
+//   assignedBy,
+//   session,
+// }) => {
+//   const currentYear = new Date().getFullYear();
 
-  const previousId = previousLeaderId
-    ? previousLeaderId.toString()
-    : null;
+//   const obligations = await Obligation.find({
+//     category,
+//     isActive: true,
+//     year: currentYear,
+//   })
+//     .select("_id amount dueDate")
+//     .session(session);
 
-  const nextId = newLeaderId.toString();
+//   let assigned = 0;
 
-  // ========================================
-  // 1. TRANSFER EXISTING COLLECTIVE ASSIGNMENTS
-  // ========================================
+//   for (const obligation of obligations) {
+//     const result = await ObligationAssignment.updateOne(
+//       category === "yearSet"
+//         ? {
+//           obligation: obligation._id,
+//           yearSet: {
+//             $exists: true,
+//             $ne: null,
+//           },
+//         }
+//         : {
+//           obligation: obligation._id,
+//           chapter: {
+//             $exists: true,
+//             $ne: null,
+//           },
+//         },
+//       {
+//         $setOnInsert: {
+//           obligation: obligation._id,
+//           amountDue: obligation.amount,
+//           amountPaid: 0,
+//           status: "pending",
+//           dueDate: obligation.dueDate || null,
+//           assignedBy: assignedBy || null,
+//         },
+//       },
+//       {
+//         upsert: false,
+//         session,
+//       }
+//     );
 
-  if (previousId && previousId !== nextId) {
-    const previousAssignments = await ObligationAssignment.find({
-      user: previousId,
-    })
-      .populate({
-        path: "obligation",
-        select: "category year",
-      })
-      .session(session);
+//     assigned += result.upsertedCount || 0;
+//   }
 
-    for (const assignment of previousAssignments) {
-      const obligation = assignment.obligation;
-
-      // Only transfer the requested collective category.
-      // Individual obligations remain with their original users.
-      if (!obligation || obligation.category !== category) {
-        continue;
-      }
-
-      // The unique index is { obligation, user }.
-      // Never merge two assignments blindly: the current schema
-      // cannot prove that they belong to the same collective group.
-      const conflictingAssignment = await ObligationAssignment.findOne({
-        obligation: obligation._id,
-        user: nextId,
-        _id: { $ne: assignment._id },
-      }).session(session);
-
-      if (conflictingAssignment) {
-        throw new Error(
-          `Cannot safely transfer "${obligation.category}" obligation ` +
-            `"${obligation._id}" because the incoming leader already has ` +
-            `an assignment for it. No balances have been merged. ` +
-            `This requires manual review.`
-        );
-      }
-
-      // Change the assignment owner, not the financial values.
-      // amountDue, amountPaid, status, dueDate, reminders and
-      // existing Payment references remain unchanged.
-      assignment.user = newLeaderId;
-      assignment.assignedBy = assignedBy || assignment.assignedBy;
-
-      await assignment.save({ session });
-
-      transferred++;
-    }
-  }
-
-  // ========================================
-  // 2. ENSURE CURRENT-YEAR OBLIGATIONS EXIST
-  // ========================================
-
-  const currentYear = new Date().getFullYear();
-
-  const obligations = await Obligation.find({
-    category,
-    isActive: true,
-    year: currentYear,
-  })
-    .select("_id amount dueDate")
-    .session(session);
-
-  for (const obligation of obligations) {
-    const existing = await ObligationAssignment.findOne({
-      obligation: obligation._id,
-      user: nextId,
-    }).session(session);
-
-    // An existing assignment may be a transferred assignment.
-    // Do not reset its balance or create a duplicate.
-    if (existing) {
-      continue;
-    }
-
-    await ObligationAssignment.create(
-      [
-        {
-          obligation: obligation._id,
-          user: newLeaderId,
-          amountDue: obligation.amount,
-          amountPaid: 0,
-          status: "pending",
-          dueDate: obligation.dueDate || null,
-          assignedBy: assignedBy || null,
-        },
-      ],
-      { session }
-    );
-
-    assigned++;
-  }
-
-  return {
-    transferred,
-    assigned,
-  };
-};
-
+//   return {
+//     transferred: 0,
+//     assigned,
+//   };
+// };
 // ========================================
 // ASSIGN / REASSIGN YEAR SET LEADER
 // ========================================
@@ -197,13 +136,13 @@ export const assignYearSetLeader = async (
     // REASSIGN COLLECTIVE OBLIGATIONS
     // ========================================
 
-    const reassignment = await reassignCollectiveAssignments({
-      category: "yearSet",
-      previousLeaderId: previousLeader,
-      newLeaderId: user._id,
-      assignedBy,
-      session,
-    });
+    // const reassignment = await reassignCollectiveAssignments({
+    //   category: "yearSet",
+    //   previousLeaderId: previousLeader,
+    //   newLeaderId: user._id,
+    //   assignedBy,
+    //   session,
+    // });
 
     // ========================================
     // AUDIT LOG
@@ -223,8 +162,8 @@ export const assignYearSetLeader = async (
         previousLeader,
         newLeader: nextLeader,
         isReassignment,
-        obligationsAssigned: reassignment.assigned,
-        collectiveAssignmentsTransferred: reassignment.transferred,
+        obligationsAssigned: 0,
+        collectiveAssignmentsTransferred: 0,
       },
     });
 
@@ -235,8 +174,8 @@ export const assignYearSetLeader = async (
       previousLeader,
       newLeader: user._id,
       isReassignment,
-      obligationsAssigned: reassignment.assigned,
-      collectiveAssignmentsTransferred: reassignment.transferred,
+     obligationsAssigned: 0,
+collectiveAssignmentsTransferred: 0,
     };
   } catch (error) {
     await session.abortTransaction();
@@ -312,13 +251,13 @@ export const assignChapterLeader = async (
     // REASSIGN COLLECTIVE OBLIGATIONS
     // ========================================
 
-    const reassignment = await reassignCollectiveAssignments({
-      category: "chapter",
-      previousLeaderId: previousLeader,
-      newLeaderId: user._id,
-      assignedBy,
-      session,
-    });
+    // const reassignment = await reassignCollectiveAssignments({
+    //   category: "chapter",
+    //   previousLeaderId: previousLeader,
+    //   newLeaderId: user._id,
+    //   assignedBy,
+    //   session,
+    // });
 
     // ========================================
     // AUDIT LOG
@@ -338,8 +277,8 @@ export const assignChapterLeader = async (
         previousLeader,
         newLeader: nextLeader,
         isReassignment,
-        obligationsAssigned: reassignment.assigned,
-        collectiveAssignmentsTransferred: reassignment.transferred,
+        obligationsAssigned: 0,
+        collectiveAssignmentsTransferred: 0,
       },
     });
 
@@ -350,8 +289,8 @@ export const assignChapterLeader = async (
       previousLeader,
       newLeader: user._id,
       isReassignment,
-      obligationsAssigned: reassignment.assigned,
-      collectiveAssignmentsTransferred: reassignment.transferred,
+      obligationsAssigned: 0,
+collectiveAssignmentsTransferred: 0,
     };
   } catch (error) {
     await session.abortTransaction();

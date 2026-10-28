@@ -3,6 +3,8 @@ import ObligationAssignment from "../models/ObligationAssignment.js";
 
 import {
   assignIndividualObligationToMembers,
+    assignCollectiveObligationToGroups,
+
 } from "../services/obligationAssignmentService.js";
 
 import YearSet from "../models/YearSet.js";
@@ -73,8 +75,7 @@ export const createObligation = async (req, res) => {
       createdBy: req.user._id,
     });
 
-
-   // ASSIGN OBLIGATION TO THE APPROPRIATE RECIPIENTS
+// ASSIGN OBLIGATION TO THE APPROPRIATE RECIPIENTS
 let obligationsAssigned = 0;
 
 if (category === "individual") {
@@ -85,80 +86,91 @@ if (category === "individual") {
 
   obligationsAssigned = result.assigned;
 } else if (category === "yearSet" || category === "chapter") {
-  const entities =
-    category === "yearSet"
-      ? await YearSet.find({
-          isActive: true,
-          leader: { $ne: null },
-        }).select("leader")
-      : await Chapter.find({
-          isActive: true,
-          leader: { $ne: null },
-        }).select("leader");
+  const result = await assignCollectiveObligationToGroups(
+    obligation._id,
+    req.user._id
+  );
 
-  // Avoid duplicate assignments if a leader heads multiple entities.
-  const leaderIds = [
-    ...new Set(
-      entities
-        .map((entity) => entity.leader?.toString())
-        .filter(Boolean)
-    ),
-  ];
-
-  for (const leaderId of leaderIds) {
-    const result = await ObligationAssignment.updateOne(
-      {
-        obligation: obligation._id,
-        user: leaderId,
-      },
-      {
-        $setOnInsert: {
-          obligation: obligation._id,
-          user: leaderId,
-          amountDue: obligation.amount,
-          amountPaid: 0,
-          status: "pending",
-          dueDate: obligation.dueDate || null,
-          assignedBy: req.user._id,
-        },
-      },
-      { upsert: true }
-    );
-
-    obligationsAssigned += result.upsertedCount || 0;
-  }
+  obligationsAssigned = result.assigned;
 }
-    // ========================================
-    // NOTIFY ASSIGNED MEMBERS
-    // ========================================
 
-    try {
-      const assignments = await ObligationAssignment.find({
-        obligation: obligation._id,
-      }).select("user");
+// ========================================
+// NOTIFY THE APPROPRIATE RECIPIENTS
+// ========================================
 
-      if (assignments.length > 0) {
-        await Promise.all(
-          assignments.map((assignment) =>
-            createNotification({
-              userId: assignment.user,
-              type: "obligation",
-              title: "New Payment Obligation",
-              message: `A new payment obligation, ${obligation.name}, of ₦${Number(
-                obligation.amount
-              ).toLocaleString()} has been added to your account. Please review the obligation details.`,
-              link: "/portal/member/dashboard/my-obligation",
-            })
-          )
-        );
-      }
-    } catch (notificationError) {
-      console.error(
-        "Obligation creation notification error:",
-        notificationError
-      );
-    }
+try {
+  if (category === "individual") {
+    const assignments = await ObligationAssignment.find({
+      obligation: obligation._id,
+      user: { $exists: true, $ne: null },
+    }).select("user");
 
+    await Promise.all(
+      assignments.map((assignment) =>
+        createNotification({
+          userId: assignment.user,
+          type: "obligation",
+          title: "New Payment Obligation",
+          message: `A new payment obligation, ${obligation.name}, of ₦${Number(
+            obligation.amount
+          ).toLocaleString()} has been added to your account. Please review the obligation details.`,
+          link: "/portal/member/dashboard/my-obligation",
+        })
+      )
+    );
+  } else if (category === "yearSet" || category === "chapter") {
+    const ownerField = category === "yearSet" ? "yearSet" : "chapter";
+    const GroupModel = category === "yearSet" ? YearSet : Chapter;
+
+    const assignments = await ObligationAssignment.find({
+      obligation: obligation._id,
+      [ownerField]: { $exists: true, $ne: null },
+    })
+      .select(ownerField)
+      .lean();
+
+    const groupIds = [
+      ...new Set(
+        assignments
+          .map((assignment) => assignment[ownerField]?.toString())
+          .filter(Boolean)
+      ),
+    ];
+
+    const groups = await GroupModel.find({
+      _id: { $in: groupIds },
+      isActive: true,
+      leader: { $exists: true, $ne: null },
+    })
+      .select("leader")
+      .lean();
+
+    const leaderIds = [
+      ...new Set(
+        groups.map((group) => group.leader?.toString()).filter(Boolean)
+      ),
+    ];
+
+    await Promise.all(
+      leaderIds.map((userId) =>
+        createNotification({
+          userId,
+          type: "obligation",
+          title: "New Payment Obligation",
+          message: `A new ${category === "yearSet" ? "Year Set" : "Chapter"} payment obligation, ${obligation.name}, of ₦${Number(
+            obligation.amount
+          ).toLocaleString()} has been added. Please review your group's obligation details.`,
+          link: "/portal/member/dashboard/my-obligation",
+        })
+      )
+    );
+  }
+} catch (notificationError) {
+  console.error(
+    "Obligation creation notification error:",
+    notificationError
+  );
+}
     // ========================================
     // AUDIT LOG
     // ========================================
@@ -229,6 +241,7 @@ export const getObligations = async (req, res) => {
     });
   }
 };
+
 
 
 // get single obligation 
@@ -509,39 +522,104 @@ export const toggleObligationStatus = async (req, res) => {
       },
     });
 
-    // NOTIFY ASSIGNED MEMBERS
-    try {
-      const assignments = await ObligationAssignment.find({
-        obligation: obligation._id,
-      }).select("user");
+  
+ // NOTIFY ASSIGNED MEMBERS AND GROUP LEADERS
+try {
+  const ownerField =
+    obligation.category === "yearSet"
+      ? "yearSet"
+      : obligation.category === "chapter"
+        ? "chapter"
+        : null;
 
-      const title = obligation.isActive
-        ? "Payment Obligation Activated"
-        : "Payment Obligation Deactivated";
+  const title = obligation.isActive
+    ? "Payment Obligation Activated"
+    : "Payment Obligation Deactivated";
 
-      const message = obligation.isActive
-        ? `The ${obligation.name} payment obligation is now active. Please review your obligation details.`
-        : `The ${obligation.name} payment obligation has been deactivated. Please review your obligation details for the latest status.`;
+  const message = obligation.isActive
+    ? `The ${obligation.name} payment obligation is now active. Please review your obligation details.`
+    : `The ${obligation.name} payment obligation has been deactivated. Please review your obligation details for the latest status.`;
 
-      if (assignments.length > 0) {
-        await Promise.all(
-          assignments.map((assignment) =>
-            createNotification({
-              userId: assignment.user,
-              type: "obligation",
-              title,
-              message,
-              link: "/portal/member/dashboard/my-obligation",
-            })
-          )
-        );
-      }
-    } catch (notificationError) {
-      console.error(
-        "Obligation status notification error:",
-        notificationError
-      );
-    }
+  if (!ownerField) {
+    // Individual obligation: notify assigned members.
+    const assignments = await ObligationAssignment.find({
+      obligation: obligation._id,
+      user: { $exists: true, $ne: null },
+    }).select("user");
+
+    const userIds = [
+      ...new Set(
+        assignments
+          .map((assignment) => assignment.user?.toString())
+          .filter(Boolean)
+      ),
+    ];
+
+    await Promise.all(
+      userIds.map((userId) =>
+        createNotification({
+          userId,
+          type: "obligation",
+          title,
+          message,
+          link: "/portal/member/dashboard/my-obligation",
+        })
+      )
+    );
+  } else {
+    // Collective obligation: notify current group leaders.
+    const GroupModel =
+      ownerField === "yearSet" ? YearSet : Chapter;
+
+    const assignments = await ObligationAssignment.find({
+      obligation: obligation._id,
+      [ownerField]: { $exists: true, $ne: null },
+    })
+      .select(ownerField)
+      .lean();
+
+    const groupIds = [
+      ...new Set(
+        assignments
+          .map((assignment) => assignment[ownerField]?.toString())
+          .filter(Boolean)
+      ),
+    ];
+
+    const groups = await GroupModel.find({
+      _id: { $in: groupIds },
+      isActive: true,
+      leader: { $exists: true, $ne: null },
+    })
+      .select("leader")
+      .lean();
+
+    const leaderIds = [
+      ...new Set(
+        groups
+          .map((group) => group.leader?.toString())
+          .filter(Boolean)
+      ),
+    ];
+
+    await Promise.all(
+      leaderIds.map((userId) =>
+        createNotification({
+          userId,
+          type: "obligation",
+          title,
+          message,
+          link: "/portal/member/dashboard/my-obligation",
+        })
+      )
+    );
+  }
+} catch (notificationError) {
+  console.error(
+    "Obligation status notification error:",
+    notificationError
+  );
+}
 
     return res.status(200).json({
       success: true,

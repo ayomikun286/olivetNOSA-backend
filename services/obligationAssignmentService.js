@@ -2,7 +2,8 @@ import Obligation from "../models/Obligation.js";
 import ObligationAssignment from "../models/ObligationAssignment.js";
 import User from "../models/User.js";
 import { createAuditLog } from "./auditLog.service.js";
-
+import YearSet from "../models/YearSet.js";
+import Chapter from "../models/Chapter.js";
 
 export const assignIndividualObligationsToUser = async (
   userId,
@@ -286,5 +287,97 @@ await createAuditLog({
   return {
     assigned: createdAssignments.length,
     assignments: createdAssignments,
+  };
+};
+
+
+
+
+export const assignCollectiveObligationToGroups = async (
+  obligationId,
+  assignedBy = null,
+  session = null
+) => {
+  const obligation = await Obligation.findOne({
+    _id: obligationId,
+    category: { $in: ["yearSet", "chapter"] },
+    isActive: true,
+  })
+    .select("_id category amount dueDate year")
+    .session(session);
+
+  if (!obligation) {
+    throw new Error("Active collective obligation not found.");
+  }
+
+  const isYearSet = obligation.category === "yearSet";
+  const ownerField = isYearSet ? "yearSet" : "chapter";
+  const GroupModel = isYearSet ? YearSet : Chapter;
+
+  const groups = await GroupModel.find({ isActive: true })
+    .select("_id")
+    .session(session)
+    .lean();
+
+  if (!groups.length) {
+    return { assigned: 0, assignments: [] };
+  }
+
+  const groupIds = groups.map((group) => group._id);
+
+  const existing = await ObligationAssignment.find({
+    obligation: obligation._id,
+    [ownerField]: { $in: groupIds },
+  })
+    .select(ownerField)
+    .session(session)
+    .lean();
+
+  const existingIds = new Set(
+    existing
+      .map((assignment) => assignment[ownerField]?.toString())
+      .filter(Boolean)
+  );
+
+  const assignments = groups
+    .filter((group) => !existingIds.has(group._id.toString()))
+    .map((group) => ({
+      obligation: obligation._id,
+      [ownerField]: group._id,
+      amountDue: obligation.amount,
+      amountPaid: 0,
+      status: "pending",
+      dueDate: obligation.dueDate || null,
+      assignedBy,
+    }));
+
+  if (!assignments.length) {
+    return { assigned: 0, assignments: [] };
+  }
+
+  const created = await ObligationAssignment.insertMany(assignments, {
+    session,
+    ordered: true,
+  });
+
+  await createAuditLog({
+    actor: assignedBy,
+    action: "obligation.assignments_created",
+    resource: "ObligationAssignment",
+    session,
+    details: {
+      assignmentType: isYearSet
+        ? "year_set_obligations_assigned_to_groups"
+        : "chapter_obligations_assigned_to_groups",
+      obligationId: obligation._id,
+      category: obligation.category,
+      year: obligation.year,
+      assignmentsCreated: created.length,
+    },
+  });
+
+  return {
+    assigned: created.length,
+    assignments: created,
   };
 };

@@ -52,6 +52,7 @@ import {
     getAdminPayments,
     getAdminPaymentById,
      recoverFailedPayment,
+     getAdminPaymentHistoryExport
 } from "../controller/paymentController.js";
 import upload from "../middleware/upload.middleware.js";
 import { protect } from "../middleware/authmiddleware.js";
@@ -429,10 +430,24 @@ router.get(
     requireRole(
         "admin",
         "treasurer",
+        "secretary",
         "superAdmin"
     ),
     getAdminPayments
 );
+
+router.get(
+    "/payments/export-history",
+    protect,
+    requireRole(
+        "admin",
+        "treasurer",
+        "secretary",
+        "superAdmin"
+    ),
+    getAdminPaymentHistoryExport
+);
+
 
 router.get(
     "/payments/:paymentId",
@@ -440,10 +455,13 @@ router.get(
     requireRole(
         "admin",
         "treasurer",
-        "superAdmin"
+        "superAdmin",
+        "secretary"
     ),
     getAdminPaymentById
 );
+
+
 
 router.post(
     "/payments/:paymentId/recover",
@@ -451,6 +469,7 @@ router.post(
     requireRole("superAdmin"),
     recoverFailedPayment
 );
+
 
 
 // ===========================================//

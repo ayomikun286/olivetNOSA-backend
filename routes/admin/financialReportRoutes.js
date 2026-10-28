@@ -25,7 +25,7 @@ const router = express.Router();
 router.get(
   "/",
   protect,
-  requireRole("admin", "superAdmin"),
+  requireRole("admin", "superAdmin", "treasurer",),
   getFinancialReports
 );
 
@@ -33,7 +33,7 @@ router.get(
 router.get(
   "/:id",
   protect,
-  requireRole("admin", "superAdmin"),
+  requireRole("admin", "superAdmin", "treasurer"),
   getFinancialReportById
 );
 
@@ -41,7 +41,7 @@ router.get(
 router.post(
   "/",
   protect,
-  requireRole("admin", "superAdmin"),
+  requireRole("admin", "superAdmin", "treasurer"),
   createFinancialReport
 );
 
@@ -49,7 +49,7 @@ router.post(
 router.put(
   "/:id",
   protect,
-  requireRole("admin", "superAdmin"),
+  requireRole("admin", "superAdmin", "treasurer",),
   updateFinancialReport
 );
 
@@ -57,7 +57,7 @@ router.put(
 router.post(
   "/:id/publish",
   protect,
-  requireRole("admin", "superAdmin"),
+  requireRole("admin", "superAdmin","treasurer",),
   publishFinancialReport
 );
 
@@ -65,7 +65,7 @@ router.post(
 router.post(
   "/:id/unpublish",
   protect,
-  requireRole("admin", "superAdmin"),
+  requireRole("admin", "superAdmin" ,"treasurer"),
   unpublishFinancialReport
 );
 

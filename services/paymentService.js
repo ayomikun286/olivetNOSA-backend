@@ -72,10 +72,10 @@ export const completeSuccessfulPayment = async (
     }
 
     const obligation = await Obligation.findById(
-      assignment.obligation
-    )
-      .select("year")
-      .session(session);
+  assignment.obligation
+)
+  .select("year category")
+  .session(session);
 
     if (!obligation) {
       throw new Error(
@@ -173,18 +173,20 @@ export const completeSuccessfulPayment = async (
       session,
     });
 
-    await updateMemberFinancialStatus(
-  payment.user,
-  obligation.year,
-  session,
-  {
-    actor,
-    req,
-    source: "payment",
-    paymentId: payment._id,
-    reference: payment.gatewayReference,
-  }
-);
+   if (obligation.category === "individual") {
+  await updateMemberFinancialStatus(
+    payment.user,
+    obligation.year,
+    session,
+    {
+      actor,
+      req,
+      source: "payment",
+      paymentId: payment._id,
+      reference: payment.gatewayReference,
+    }
+  );
+}
     // ========================================
     // COMMIT DATABASE TRANSACTION
     // ========================================
