@@ -61,6 +61,7 @@ export const approveMember = async (
     const alumniId = await generateAlumniId(
       user.yearSet._id,
       user.chapter._id,
+      user.graduationYear,
       session
     );
 
@@ -85,36 +86,36 @@ export const approveMember = async (
       );
 
     // ========================================
-// AUDIT MEMBER APPROVAL
-// ========================================
+    // AUDIT MEMBER APPROVAL
+    // ========================================
 
-await createAuditLog({
-  actor: approvedBy,
-  action: "member.approved",
-  resource: "User",
-  resourceId: user._id,
-  targetUser: user._id,
-  session,
-  details: {
-    alumniId,
-    chapter: user.chapter._id,
-    yearSet: user.yearSet._id,
-    graduationYear: user.graduationYear,
-    obligationsAssigned: obligationResult.assigned,
-  },
-});
+    await createAuditLog({
+      actor: approvedBy,
+      action: "member.approved",
+      resource: "User",
+      resourceId: user._id,
+      targetUser: user._id,
+      session,
+      details: {
+        alumniId,
+        chapter: user.chapter._id,
+        yearSet: user.yearSet._id,
+        graduationYear: user.graduationYear,
+        obligationsAssigned: obligationResult.assigned,
+      },
+    });
 
-// ========================================
-// COMMIT
-// ========================================
+    // ========================================
+    // COMMIT
+    // ========================================
 
-await session.commitTransaction();
+    await session.commitTransaction();
 
     return {
       user,
       alumniId,
       obligationsAssigned: obligationResult.assigned,
-       obligationAssignments: obligationResult.assignments,
+      obligationAssignments: obligationResult.assignments,
     };
   } catch (error) {
     await session.abortTransaction();

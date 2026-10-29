@@ -969,6 +969,7 @@ export const createAdminMemberController = async (req, res) => {
     const alumniId = await generateAlumniId(
       yearSetDoc._id,
       chapterDoc._id,
+      graduationYear,
       session
     );
 
