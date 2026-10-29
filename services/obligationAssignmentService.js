@@ -94,41 +94,41 @@ export const assignIndividualObligationsToUser = async (
       ordered: false,
     });
 
-   const hasMandatoryAssignment = obligations.some(
-  (obligation) =>
-    !obligation.isOptional &&
-    !existingObligationIds.has(obligation._id.toString())
-);
-
-if (hasMandatoryAssignment) {
-  await User.updateOne(
-    { _id: userId, role: "member" },
-    {
-      $set: {
-        financialStatus: "non_financial",
-      },
-    },
-    { session }
+  const hasMandatoryAssignment = obligations.some(
+    (obligation) =>
+      !obligation.isOptional &&
+      !existingObligationIds.has(obligation._id.toString())
   );
-}
+
+  if (hasMandatoryAssignment) {
+    await User.updateOne(
+      { _id: userId, role: "member" },
+      {
+        $set: {
+          financialStatus: "non_financial",
+        },
+      },
+      { session }
+    );
+  }
 
 
-await createAuditLog({
-  actor: assignedBy,
-  action: "obligation.assignments_created",
-  resource: "ObligationAssignment",
-  targetUser: userId,
-  req: null,
-  session,
-  details: {
-    assignmentType: "individual_obligations_assigned_to_user",
-    assignmentsCreated: createdAssignments.length,
-    obligationIds: createdAssignments.map((assignment) =>
-      assignment.obligation.toString()
-    ),
-    year: currentYear,
-  },
-});
+  await createAuditLog({
+    actor: assignedBy,
+    action: "obligation.assignments_created",
+    resource: "ObligationAssignment",
+    targetUser: userId,
+    req: null,
+    session,
+    details: {
+      assignmentType: "individual_obligations_assigned_to_user",
+      assignmentsCreated: createdAssignments.length,
+      obligationIds: createdAssignments.map((assignment) =>
+        assignment.obligation.toString()
+      ),
+      year: currentYear,
+    },
+  });
 
   return {
     assigned: createdAssignments.length,
@@ -173,9 +173,12 @@ export const assignIndividualObligationToMembers = async (
     status: "active",
     isEmailVerified: true,
   })
-    .select("_id")
+    .select("_id role status isEmailVerified")
     .lean()
     .session(session);
+
+  console.log("Eligible members:", members.length);
+  console.log(members);
 
   if (!members.length) {
     return {
@@ -183,6 +186,18 @@ export const assignIndividualObligationToMembers = async (
       assignments: [],
     };
   }
+
+
+  console.log("Eligible members for obligation:", members.length);
+
+  console.log(
+    members.map((member) => ({
+      id: member._id,
+      role: member.role,
+      status: member.status,
+      isEmailVerified: member.isEmailVerified,
+    }))
+  );
 
   const memberIds = members.map(
     (member) => member._id
@@ -209,6 +224,14 @@ export const assignIndividualObligationToMembers = async (
     )
   );
 
+
+  console.log("Obligation ID:", obligation._id.toString());
+  console.log("Eligible member IDs:", memberIds.map(String));
+  console.log("Existing assignments found:", existingAssignments.length);
+  console.log(
+    "Existing assignment user IDs:",
+    existingAssignments.map((a) => a.user?.toString())
+  );
   // ----------------------------------------------------------
   // ONLY ASSIGN MEMBERS WHO DON'T ALREADY HAVE IT
   // ----------------------------------------------------------
@@ -237,52 +260,77 @@ export const assignIndividualObligationToMembers = async (
     };
   }
 
+
+  console.log("New assignments prepared:", assignments.length);
+  console.log(
+    "Assignment preview:",
+    assignments.slice(0, 3).map((a) => ({
+      obligation: a.obligation.toString(),
+      user: a.user.toString(),
+      amountDue: a.amountDue,
+    }))
+  );
+
   // ----------------------------------------------------------
   // INSERT
   // ----------------------------------------------------------
 
-  const createdAssignments =
-    await ObligationAssignment.insertMany(assignments, {
-      session,
-      ordered: false,
-    });
+  let createdAssignments;
 
-    if (obligation.isOptional !== true) {
-  await User.updateMany(
-    {
-      _id: { $in: assignments.map((assignment) => assignment.user) },
-      role: "member",
+  try {
+    createdAssignments = await ObligationAssignment.insertMany(
+      assignments,
+      {
+        ordered: false,
+        ...(session ? { session } : {}),
+      }
+    );
+
+   console.log("Model name:", ObligationAssignment.modelName);
+console.log("Collection name:", ObligationAssignment.collection.name);
+console.log("Database name:", ObligationAssignment.db.name);
+console.log("Prepared documents:", assignments.length);
+console.log(
+  "First document validation:",
+  await new ObligationAssignment(assignments[0]).validate().then(
+    () => "valid",
+    (error) => error.message
+  )
+);
+  } catch (error) {
+    console.error("INSERT ERROR:", error.message);
+    console.error("WRITE ERRORS:", error.writeErrors);
+    console.error("RESULT:", error.result);
+    throw error;
+  }
+
+  console.log(
+  "Collection count after insert:",
+  await ObligationAssignment.countDocuments({
+    obligation: obligation._id,
+  })
+);
+  await createAuditLog({
+    actor: assignedBy,
+    action: "obligation.assignments_created",
+    resource: "ObligationAssignment",
+    resourceId: obligation._id,
+    session,
+    details: {
+      assignmentType: "individual_obligation_assigned_to_members",
+      obligationName: obligation.name,
+      year: obligation.year,
+      isOptional: obligation.isOptional,
+      assignmentsCreated: createdAssignments.length,
+      userIds: createdAssignments.map((assignment) =>
+        assignment.user.toString()
+      ),
     },
-    {
-      $set: {
-        financialStatus: "non_financial",
-      },
-    },
-    { session }
-  );
-}
-
-await createAuditLog({
-  actor: assignedBy,
-  action: "obligation.assignments_created",
-  resource: "ObligationAssignment",
-  resourceId: obligation._id,
-  session,
-  details: {
-    assignmentType: "individual_obligation_assigned_to_members",
-    obligationName: obligation.name,
-    year: obligation.year,
-    isOptional: obligation.isOptional,
-    assignmentsCreated: createdAssignments.length,
-    userIds: createdAssignments.map((assignment) =>
-      assignment.user.toString()
-    ),
-  },
-});
+  });
 
 
 
-    
+
 
   return {
     assigned: createdAssignments.length,

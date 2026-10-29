@@ -92,7 +92,7 @@ obligationAssignmentSchema.pre("validate", function (next) {
     );
   }
 
-  next();
+  
 });
 
 // Prevent duplicates for each owner type independently.
