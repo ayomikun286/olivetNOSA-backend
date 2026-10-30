@@ -2307,6 +2307,8 @@ export const getCurrentUser = async (req, res) => {
     chapter: user.chapter,
     yearSet: user.yearSet,
     financialStatus: user.financialStatus,
+    approvedAt: user.approvedAt,
+    hasCompletedOnboarding: user.hasCompletedOnboarding,
 
     createdAt: user.createdAt
 
@@ -2382,7 +2384,7 @@ export const updateMemberProfile = async (req, res) => {
       lastName,
       phone,
       profile,
-       chapter,
+      chapter,
     } = req.body;
 
     const changedFields = [];
@@ -2473,55 +2475,55 @@ export const updateMemberProfile = async (req, res) => {
 
     // CHAPTER CHANGE
 
-// CHAPTER CHANGE
+    // CHAPTER CHANGE
 
-if (chapter !== undefined) {
-  if (typeof chapter !== "string" || !chapter.trim()) {
-    return errorResponse(res, 400, "Please select a valid chapter.");
-  }
+    if (chapter !== undefined) {
+      if (typeof chapter !== "string" || !chapter.trim()) {
+        return errorResponse(res, 400, "Please select a valid chapter.");
+      }
 
-  const chapterId = chapter.trim();
+      const chapterId = chapter.trim();
 
-  if (!mongoose.isValidObjectId(chapterId)) {
-    return errorResponse(res, 400, "Invalid chapter ID.");
-  }
+      if (!mongoose.isValidObjectId(chapterId)) {
+        return errorResponse(res, 400, "Invalid chapter ID.");
+      }
 
-  const selectedChapter = await Chapter.findOne({
-    _id: chapterId,
-    isActive: true,
-  });
+      const selectedChapter = await Chapter.findOne({
+        _id: chapterId,
+        isActive: true,
+      });
 
-  if (!selectedChapter) {
-    return errorResponse(res, 400, "Invalid or inactive chapter.");
-  }
+      if (!selectedChapter) {
+        return errorResponse(res, 400, "Invalid or inactive chapter.");
+      }
 
-  if (String(user.chapter) !== String(selectedChapter._id)) {
-    // Check whether this member currently leads any chapter
-    const currentLeadership = await Chapter.findOne({
-      leader: user._id,
-    });
+      if (String(user.chapter) !== String(selectedChapter._id)) {
+        // Check whether this member currently leads any chapter
+        const currentLeadership = await Chapter.findOne({
+          leader: user._id,
+        });
 
-    if (currentLeadership) {
-  await createNotification({
-    userId: user._id,
-    type: "account",
-    title: "Chapter Change Restricted",
-    message:
-      "You cannot change your chapter while you hold an active Chapter Leader position. Please contact an administrator to have your leadership responsibilities reassigned before trying again.",
-    link: "/portal/member/dashboard/help-support",
-  });
+        if (currentLeadership) {
+          await createNotification({
+            userId: user._id,
+            type: "account",
+            title: "Chapter Change Restricted",
+            message:
+              "You cannot change your chapter while you hold an active Chapter Leader position. Please contact an administrator to have your leadership responsibilities reassigned before trying again.",
+            link: "/portal/member/dashboard/help-support",
+          });
 
-  return errorResponse(
-    res,
-    403,
-    "Your chapter change is restricted because you are an active Chapter Leader. Please check your notifications and contact support."
-  );
-}
+          return errorResponse(
+            res,
+            403,
+            "Your chapter change is restricted because you are an active Chapter Leader. Please check your notifications and contact support."
+          );
+        }
 
-    user.chapter = selectedChapter._id;
-    changedFields.push("chapter");
-  }
-}
+        user.chapter = selectedChapter._id;
+        changedFields.push("chapter");
+      }
+    }
 
     await user.save();
 
@@ -2845,6 +2847,41 @@ export const refreshActivity = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Unable to refresh session activity.",
+    });
+  }
+};
+
+
+
+
+
+export const completeOnboardingController = async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        hasCompletedOnboarding: true,
+      },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Onboarding completed successfully.",
+    });
+  } catch (error) {
+    console.error("Complete onboarding error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to complete onboarding.",
     });
   }
 };

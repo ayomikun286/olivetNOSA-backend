@@ -34,7 +34,7 @@ const generateAlumniId = async (
 
   const sequence = String(counter.sequence).padStart(5, "0");
 
-  return `GOSA${graduationYear}${sequence}`;
+  return `NOSA${graduationYear}${sequence}`;
 };
 
 export default generateAlumniId;

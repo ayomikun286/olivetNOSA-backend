@@ -32,19 +32,7 @@ export const approveMemberController = async (req, res) => {
 
     const result = await approveMember(userId, req.user._id);
 
-    // // AUDIT: Record the successful approval before sending notifications.
-    // await createAuditLog({
-    //   actor: req.user._id,
-    //   action: "member.approved",
-    //   resource: "User",
-    //   resourceId: result.user._id,
-    //   targetUser: result.user._id,
-    //   details: {
-    //     alumniId: result.alumniId ?? null,
-    //     obligationsAssigned: result.obligationsAssigned ?? 0,
-    //   },
-    //   req,
-    // });
+   
 
     // SEND ACCOUNT APPROVAL EMAIL
     await sendEmail({

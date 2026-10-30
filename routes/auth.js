@@ -14,7 +14,8 @@ import {
   getMemberProfile,
   updateMemberProfile,
   uploadProfilePhoto,
-  refreshActivity
+  refreshActivity,
+  completeOnboardingController,
 } from "../controller/auth.controller.js";
 import { protect } from "../middleware/authmiddleware.js";
 import { requireFinancialMember } from "../middleware/financialMiddleware.js";
@@ -108,7 +109,11 @@ router.post("/user/reset-password", passwordResetLimiter, resetPassword)
 router.get("/api/auth/activate-account", serverLimiter, verifyAccountSetupController);
 router.post("/api/auth/set-password", serverLimiter, setPasswordController);
 
-
+router.patch(
+  "/auth/onboarding/complete",
+  protect,
+  completeOnboardingController
+);
 
 router.get("/api/public/settings/general", getPublicGeneralSettings);
 

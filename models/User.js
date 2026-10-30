@@ -80,25 +80,25 @@ const userSchema = new mongoose.Schema(
     },
 
     financialStatus: {
-  type: String,
-  enum: ["financial", "non_financial"],
-  default: "non_financial",
-},
+      type: String,
+      enum: ["financial", "non_financial"],
+      default: "non_financial",
+    },
 
 
 
-failedLoginAttempts: {
-  type: Number,
-  default: 0,
-  min: 0,
-  select: false,
-},
+    failedLoginAttempts: {
+      type: Number,
+      default: 0,
+      min: 0,
+      select: false,
+    },
 
-loginLockUntil: {
-  type: Date,
-  default: null,
-  select: false,
-},
+    loginLockUntil: {
+      type: Date,
+      default: null,
+      select: false,
+    },
 
     // ========================================
     // MEMBER PROFILE
@@ -440,6 +440,16 @@ loginLockUntil: {
       select: false,
     },
 
+
+    approvedAt: {
+      type: Date,
+      default: null,
+    },
+
+    hasCompletedOnboarding: {
+      type: Boolean,
+      default: false,
+    },
 
 
 

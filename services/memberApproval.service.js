@@ -71,6 +71,8 @@ export const approveMember = async (
 
     user.status = "active";
     user.alumniId = alumniId;
+    user.approvedAt = new Date();
+    user.hasCompletedOnboarding = false;
 
     await user.save({ session });
 
