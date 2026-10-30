@@ -155,6 +155,16 @@ export const getAdminDonationSummary = async (req, res) => {
                         },
                     },
 
+                    unsuccessfulDonations: {
+                        $sum: {
+                            $cond: [
+                                { $in: ["$status", ["failed", "cancelled"]] },
+                                1,
+                                0,
+                            ],
+                        },
+                    },
+
                     totalAmount: {
                         $sum: {
                             $cond: [
@@ -175,6 +185,7 @@ export const getAdminDonationSummary = async (req, res) => {
             failedDonations: 0,
             cancelledDonations: 0,
             totalAmount: 0,
+            unsuccessfulDonations: 0,
         };
 
         return res.status(200).json({
