@@ -13,6 +13,12 @@ import {
 
 
 import {
+  getAdminDonations,
+  getAdminDonationSummary,
+  getAdminDonationById,
+} from "../controller/admin/adminDonation.controller.js";
+
+import {
   getAdminNOSALeaders,
   getAdminNOSALeaderById,
   createNOSALeader,
@@ -741,5 +747,30 @@ router.delete(
 );
 
 // ===========================================================
+
+
+
+
+router.get(
+  "/donations/summary",
+  protect,
+  requireRole("admin", "superAdmin", "treasurer"),
+  getAdminDonationSummary
+);
+
+router.get(
+  "/donations",
+  protect,
+  requireRole("admin", "superAdmin", "treasurer"),
+  getAdminDonations
+);
+
+router.get(
+  "/donations/:donationId",
+  protect,
+  requireRole("admin", "superAdmin", "treasurer"),
+  getAdminDonationById
+);
+
 
 export default router;
