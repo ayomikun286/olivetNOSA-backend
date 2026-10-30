@@ -340,7 +340,7 @@ export const Signup = async (req, res) => {
     try {
       await sendEmail({
         to: emailValue,
-        subject: "Verify Your OlivetGOSA Account",
+        subject: "Verify Your OlivetNOSA Account",
         html: `
         <!DOCTYPE html>
         <html lang="en">
@@ -350,7 +350,7 @@ export const Signup = async (req, res) => {
                 name="viewport"
                 content="width=device-width, initial-scale=1.0"
             />
-            <title>Verify Your OlivetGOSA Account</title>
+            <title>Verify Your OlivetNOSA Account</title>
         </head>
 
         <body
@@ -400,7 +400,7 @@ export const Signup = async (req, res) => {
                                     <!-- Logo / Crest -->
                                     <img
                                         src="https://res.cloudinary.com/bx4pnrek/image/upload/v1792582571/onw-gosa/website-content/ob1t3jspsuqz8wvxnkba.png"
-                                        alt="OlivetGOSA"
+                                        alt="OlivetNOSA"
                                         width="70"
                                         style="
                                             display: block;
@@ -417,7 +417,7 @@ export const Signup = async (req, res) => {
                                             letter-spacing: 0.5px;
                                         "
                                     >
-                                        OlivetGOSA
+                                        OlivetNOSA
                                     </div>
 
                                     <div
@@ -467,7 +467,7 @@ export const Signup = async (req, res) => {
                                             text-transform: uppercase;
                                         "
                                     >
-                                        Welcome to OlivetGOSA
+                                        Welcome to OlivetNOSA
                                     </p>
 
                                     <h1
@@ -502,7 +502,7 @@ export const Signup = async (req, res) => {
                                     >
                                         Thank you for creating your
                                         <strong style="color: #123B6D;">
-                                            OlivetGOSA
+                                            OlivetNOSA
                                         </strong>
                                         alumni account.
                                     </p>
@@ -620,7 +620,7 @@ export const Signup = async (req, res) => {
                                             line-height: 1.6;
                                         "
                                     >
-                                        If you did not create an OlivetGOSA
+                                        If you did not create an OlivetNOSA
                                         account, you can safely ignore this
                                         email. No further action is required.
                                     </p>
@@ -645,7 +645,7 @@ export const Signup = async (req, res) => {
                                             font-weight: bold;
                                         "
                                     >
-                                        OlivetGOSA
+                                        OlivetNOSA
                                     </p>
 
                                     <p
@@ -685,7 +685,7 @@ export const Signup = async (req, res) => {
                                 text-align: center;
                             "
                         >
-                            This is an automated email from OlivetGOSA.
+                            This is an automated email from OlivetNOSA.
                             Please do not reply directly to this message.
                         </p>
 
@@ -1040,7 +1040,7 @@ export const resendVerifyEmailLink = async (req, res) => {
 
     await sendEmail({
       to: normalizedEmail,
-      subject: "Verify Your OlivetGOSA Account",
+      subject: "Verify Your OlivetNOSA Account",
       html: `
         <!DOCTYPE html>
         <html lang="en">
@@ -1050,7 +1050,7 @@ export const resendVerifyEmailLink = async (req, res) => {
                 name="viewport"
                 content="width=device-width, initial-scale=1.0"
             />
-            <title>Verify Your OlivetGOSA Account</title>
+            <title>Verify Your OlivetNOSA Account</title>
         </head>
 
         <body
@@ -1098,7 +1098,7 @@ export const resendVerifyEmailLink = async (req, res) => {
                                 >
                                     <img
                                         src="https://res.cloudinary.com/bx4pnrek/image/upload/v1792582571/onw-gosa/website-content/ob1t3jspsuqz8wvxnkba.png"
-                                        alt="OlivetGOSA"
+                                        alt="OlivetNOSA"
                                         width="70"
                                         style="
                                             display: block;
@@ -1174,7 +1174,7 @@ export const resendVerifyEmailLink = async (req, res) => {
                                     >
                                         Thank you for creating your
                                         <strong style="color: #123B6D;">
-                                            OlivetGOSA
+                                            OlivetNOSA
                                         </strong>
                                         account.
                                     </p>
@@ -1292,7 +1292,7 @@ export const resendVerifyEmailLink = async (req, res) => {
                                             line-height: 1.6;
                                         "
                                     >
-                                        If you did not create an OlivetGOSA
+                                        If you did not create an OlivetNOSA
                                         account, you can safely ignore this
                                         email. No further action is required.
                                     </p>
@@ -1317,7 +1317,7 @@ export const resendVerifyEmailLink = async (req, res) => {
                                             font-weight: bold;
                                         "
                                     >
-                                        OlivetGOSA
+                                        OlivetNOSA
                                     </p>
 
                                     <p
@@ -1357,7 +1357,7 @@ export const resendVerifyEmailLink = async (req, res) => {
                                 text-align: center;
                             "
                         >
-                            This is an automated email from OlivetGOSA.
+                            This is an automated email from OlivetNOSA.
                             Please do not reply directly to this message.
                         </p>
 
@@ -1474,7 +1474,7 @@ export const forgetPassword = async (req, res) => {
     const resetUrl = `${process.env.FRONTEND_URL}/portal/reset-password?token=${resetToken}`;
     await sendEmail({
       to: normalizedEmail,
-      subject: "Reset Your OlivetGOSA Password",
+      subject: "Reset Your OlivetNOSA Password",
       html: `
         <!DOCTYPE html>
         <html lang="en">
@@ -1484,7 +1484,7 @@ export const forgetPassword = async (req, res) => {
                 name="viewport"
                 content="width=device-width, initial-scale=1.0"
             />
-            <title>Reset Your OlivetGOSA Password</title>
+            <title>Reset Your OlivetNOSA Password</title>
         </head>
 
         <body
@@ -1535,7 +1535,7 @@ export const forgetPassword = async (req, res) => {
                                 >
                                     <img
                                         src="https://res.cloudinary.com/bx4pnrek/image/upload/v1792582571/onw-gosa/website-content/ob1t3jspsuqz8wvxnkba.png"
-                                        alt="OlivetGOSA"
+                                        alt="OlivetNOSA"
                                         width="70"
                                         style="
                                             display: block;
@@ -1612,7 +1612,7 @@ export const forgetPassword = async (req, res) => {
                                         We received a request to reset the
                                         password for your
                                         <strong style="color: #123B6D;">
-                                            OlivetGOSA
+                                            OlivetNOSA
                                         </strong>
                                         account.
                                     </p>
@@ -1756,7 +1756,7 @@ export const forgetPassword = async (req, res) => {
                                             font-weight: bold;
                                         "
                                     >
-                                        OlivetGOSA
+                                        OlivetNOSA
                                     </p>
 
                                     <p
@@ -1796,7 +1796,7 @@ export const forgetPassword = async (req, res) => {
                                 text-align: center;
                             "
                         >
-                            This is an automated email from OlivetGOSA.
+                            This is an automated email from OlivetNOSA.
                             Please do not reply directly to this message.
                         </p>
 
@@ -2309,7 +2309,7 @@ export const getCurrentUser = async (req, res) => {
     financialStatus: user.financialStatus,
     approvedAt: user.approvedAt,
     hasCompletedOnboarding: user.hasCompletedOnboarding,
-
+    isPresident: user.isPresident,
     createdAt: user.createdAt
 
 
@@ -2759,7 +2759,7 @@ export const uploadProfilePhoto = async (req, res) => {
     const uploadResult = await new Promise((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
         {
-          folder: "olivetgosa/profile-photos",
+          folder: "olivetnosa/profile-photos",
           resource_type: "image",
           transformation: [
             {

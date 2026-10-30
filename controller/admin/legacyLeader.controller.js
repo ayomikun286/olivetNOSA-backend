@@ -12,7 +12,7 @@ const uploadToCloudinary = (buffer) => {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       {
-        folder: "onw-gosa/legacy-leaders",
+        folder: "onw-nosa/legacy-leaders",
         resource_type: "image",
         transformation: [
           {

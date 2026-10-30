@@ -276,7 +276,7 @@ const sendObligationReminder = async ({
     await sendEmail({
       to: email,
 
-      subject: `OlivetGOSA - ${title}`,
+      subject: `OlivetNOSA - ${title}`,
 
       html: emailHtml,
     });

@@ -193,7 +193,7 @@ export const uploadWebsiteContentImage = async (req, res) => {
     const result = await new Promise((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
         {
-          folder: "onw-gosa/website-content",
+          folder: "onw-nosa/website-content",
           resource_type: "image",
         },
         (error, uploadedImage) => {

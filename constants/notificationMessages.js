@@ -1,7 +1,7 @@
 export const NOTIFICATION_MESSAGES = {
     account: {
         welcome: {
-            title: "Welcome to OlivetGOSA",
+            title: "Welcome to OlivetNOSA",
             message:
                 "Your account has been created successfully. Please verify your email to continue, then complete the remaining information required for the member directory.",
             link: "/portal/member/dashboard/profile",
@@ -31,7 +31,7 @@ export const NOTIFICATION_MESSAGES = {
         approved: {
             title: "Membership Approved",
             message:
-                "Your OlivetGOSA membership has been approved. Your member account is now active.",
+                "Your OlivetNOSA membership has been approved. Your member account is now active.",
             link: "/portal/member/dashboard",
         },
 

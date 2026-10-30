@@ -37,7 +37,7 @@ export const approveMemberController = async (req, res) => {
     // SEND ACCOUNT APPROVAL EMAIL
     await sendEmail({
       to: result.user.email,
-      subject: "Your OlivetGOSA Account Has Been Approved",
+      subject: "Your OlivetNOSA Account Has Been Approved",
       html: memberApprovalTemplate({
         name: result.user.firstName,
         alumniId: result.user.alumniId,
@@ -1084,7 +1084,7 @@ export const createAdminMemberController = async (req, res) => {
       await sendEmail({
         to: normalizedEmail,
 
-        subject: "Welcome to OlivetGOSA – Activate Your Account",
+        subject: "Welcome to OlivetNOSA – Activate Your Account",
 
         html: `
       <div style="
@@ -1143,7 +1143,7 @@ export const createAdminMemberController = async (req, res) => {
               line-height: 1.3;
               font-weight: 700;
             ">
-              OlivetGOSA
+              OlivetNOSA
             </h1>
 
             <p style="
@@ -1177,7 +1177,7 @@ export const createAdminMemberController = async (req, res) => {
               line-height: 1.7;
               color: #555555;
             ">
-              Welcome to <strong style="color: #123B6D;">OlivetGOSA</strong>.
+              Welcome to <strong style="color: #123B6D;">OlivetNOSA</strong>.
               Your member account has been created successfully by the
               association administration.
             </p>
@@ -1281,7 +1281,7 @@ export const createAdminMemberController = async (req, res) => {
               color: #666666;
             ">
               If you did not expect this email or believe your account was
-              created in error, please contact the OlivetGOSA administration.
+              created in error, please contact the OlivetNOSA administration.
             </p>
 
             <p style="
@@ -1292,7 +1292,7 @@ export const createAdminMemberController = async (req, res) => {
             ">
               Warm regards,<br />
               <strong style="color: #123B6D;">
-                OlivetGOSA Administration
+                OlivetNOSA Administration
               </strong>
             </p>
 
@@ -1312,7 +1312,7 @@ export const createAdminMemberController = async (req, res) => {
               font-size: 13px;
               font-weight: 700;
             ">
-              OlivetGOSA
+              OlivetNOSA
             </p>
 
             <p style="

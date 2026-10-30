@@ -233,7 +233,7 @@ export const completeSuccessfulPayment = async (
         await sendEmail({
           to: user.email,
 
-          subject: "Payment Successful – OlivetGOSA",
+          subject: "Payment Successful – OlivetNOSA",
 
           html: `
     <div style="
@@ -292,7 +292,7 @@ export const completeSuccessfulPayment = async (
             line-height: 1.3;
             font-weight: 700;
           ">
-            OlivetGOSA
+            OlivetNOSA
           </h1>
 
           <p style="
@@ -348,7 +348,7 @@ export const completeSuccessfulPayment = async (
             color: #666666;
           ">
             Your payment has been successfully received and recorded
-            by OlivetGOSA.
+            by OlivetNOSA.
           </p>
 
 
@@ -445,7 +445,7 @@ export const completeSuccessfulPayment = async (
           ">
             Hello <strong>${user.firstName || "Member"}</strong>,
             thank you for fulfilling your payment obligation and
-            supporting the OlivetGOSA community.
+            supporting the OlivetNOSA community.
           </p>
 
           <p style="
@@ -466,7 +466,7 @@ export const completeSuccessfulPayment = async (
           ">
             Warm regards,<br />
             <strong style="color: #123B6D;">
-              OlivetGOSA Administration
+              OlivetNOSA Administration
             </strong>
           </p>
 
@@ -486,7 +486,7 @@ export const completeSuccessfulPayment = async (
             font-size: 13px;
             font-weight: 700;
           ">
-            OlivetGOSA
+            OlivetNOSA
           </p>
 
           <p style="
@@ -630,7 +630,7 @@ export const handleFailedPayment = async (
       await sendEmail({
         to: user.email,
 
-        subject: "Payment Failed – OlivetGOSA",
+        subject: "Payment Failed – OlivetNOSA",
 
         html: `
     <div style="
@@ -689,7 +689,7 @@ export const handleFailedPayment = async (
             line-height: 1.3;
             font-weight: 700;
           ">
-            OlivetGOSA
+            OlivetNOSA
           </h1>
 
           <p style="
@@ -857,7 +857,7 @@ export const handleFailedPayment = async (
 
               Please return to your payment history and try the
               payment again. If the problem continues, contact the
-              OlivetGOSA administration for assistance.
+              OlivetNOSA administration for assistance.
             </p>
 
           </div>
@@ -881,7 +881,7 @@ export const handleFailedPayment = async (
           ">
             Warm regards,<br />
             <strong style="color: #123B6D;">
-              OlivetGOSA Administration
+              OlivetNOSA Administration
             </strong>
           </p>
 
@@ -901,7 +901,7 @@ export const handleFailedPayment = async (
             font-size: 13px;
             font-weight: 700;
           ">
-            OlivetGOSA
+            OlivetNOSA
           </p>
 
           <p style="

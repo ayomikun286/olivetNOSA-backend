@@ -4,7 +4,7 @@ import express from "express";
 import cors from "cors";
 
 
-
+import announcementRoutes from "./routes/announcement.routes.js";
 import galleryRoutes from "./routes/galleryRoutes.js";
 import jobRoutes from "./routes/jobRoutes.js";
 import helmet from "helmet";
@@ -29,7 +29,7 @@ import memberDuesStatus from "./routes/membershipStatus.route.js";
 import leaderShipRoutes from "./routes/leadership.route.js";
 import dns from "dns";
 import supportRoutes from "./routes/support.routes.js";
-
+import donation from "./routes/donation.route.js";;
 import financialReportNotificationRoutes from "./routes/financialReportNotificationRoutes.js";
 
 import financialReportRoutes from "./routes/admin/financialReportRoutes.js";
@@ -64,7 +64,7 @@ app.use(session(sessionConfig));
 
 
 app.get("/", (req, res) => {
-  res.send("Welcome to the GOSA Alumni API");
+  res.send("Welcome to the NOSA Alumni API");
 });
 
 
@@ -75,6 +75,8 @@ app.use("/api/gallery", galleryRoutes);
 
 app.use("/api/yearSet", yearSetRoutes);
 app.use(userRoutes)
+
+app.use("/api/donation", donation)
 app.use("/api/admin", AdminRoute);
 app.use("/api/news-events", newsEventRoutes);
 app.use("/api/memorials", memorial)
@@ -84,6 +86,7 @@ app.use("/api/jobs", jobRoutes);
 
 app.use("/api/financial-report-notifications", financialReportNotificationRoutes);
 
+app.use("/api/announcements", announcementRoutes);
 
 app.use("/api/obligations", obligationRoutes);
 app.use(obligationAssignmentRoutes);

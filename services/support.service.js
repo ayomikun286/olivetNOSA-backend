@@ -11,7 +11,7 @@ const ADMIN_ROLES = [
 ];
 
 const createTicketNumber = () =>
-  `GOSA-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+  `NOSA-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
 const getSenderRole = (user) => {
   if (user.role === "member") return "member";

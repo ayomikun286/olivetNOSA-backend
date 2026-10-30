@@ -50,7 +50,7 @@ const verifyEmailTemplate = ({ firstName, verificationUrl }) => {
 
               <img
                                         src="https://res.cloudinary.com/bx4pnrek/image/upload/v1792582571/onw-gosa/website-content/ob1t3jspsuqz8wvxnkba.png"
-                                        alt="OlivetGOSA"
+                                        alt="OlivetNOSA"
                                         width="70"
                                         style="
                                             display: block;

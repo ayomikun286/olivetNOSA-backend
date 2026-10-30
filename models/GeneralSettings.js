@@ -11,13 +11,13 @@ const generalSettingsSchema = new mongoose.Schema(
     },
     associationName: {
       type: String,
-      default: "ONW GOSA",
+      default: "NOSA",
       trim: true,
       maxlength: 150,
     },
     shortName: {
       type: String,
-      default: "ONW GOSA",
+      default: "NOSA",
       trim: true,
       maxlength: 50,
     },

@@ -5,48 +5,22 @@ import {
     initializePayment,
     verifyPayment,
     handlePaystackCallback,
-    handlePaystackWebhook,
     verifyPendingPaymentsInternal
 } from "../controller/paymentController.js";
+
+import {
+    dispatchPaystackWebhook
+} from "../controller/paystackWebhook.controller.js";
 
 import { protect } from "../middleware/authmiddleware.js";
 
 const router = express.Router();
 
 router.get("/", protect, getMyPayments);
-
-router.post(
-    "/initialize",
-    protect,
-    initializePayment
-);
-
-router.get(
-    "/verify/:reference",
-    protect,
-    verifyPayment
-);
-
-// Paystack redirects here after checkout
-router.get(
-    "/callback",
-    handlePaystackCallback
-);
-
-// Paystack server-to-server webhook
-router.post(
-    "/webhook",
-    handlePaystackWebhook
-);
-
-router.get(
-    "/internal/verify-pending",
-    verifyPendingPaymentsInternal
-);
-
-
+router.post("/initialize", protect, initializePayment);
+router.get("/verify/:reference", protect, verifyPayment);
+router.get("/callback", handlePaystackCallback);
+router.post("/webhook", dispatchPaystackWebhook);
+router.get("/internal/verify-pending", verifyPendingPaymentsInternal);
 
 export default router;
-
-// GET /api/payments/:paymentId
-// POST /api/payments/internal/verify-pending

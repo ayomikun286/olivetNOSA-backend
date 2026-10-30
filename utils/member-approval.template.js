@@ -17,7 +17,7 @@ export const memberApprovalTemplate = ({
     alumniId,
     loginUrl,
 }) => {
-    const safeName = escapeHtml(name || "OlivetGOSA Member");
+    const safeName = escapeHtml(name || "OlivetNOSA Member");
     const safeAlumniId = escapeHtml(alumniId || "See your member portal");
     const safeLoginUrl = escapeHtml(
         loginUrl || "https://res.cloudinary.com/bx4pnrek/image/upload/v1792582571/onw-gosa/website-content/ob1t3jspsuqz8wvxnkba.png"
@@ -29,7 +29,7 @@ export const memberApprovalTemplate = ({
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Your OlivetGOSA Account Has Been Approved</title>
+    <title>Your OlivetNOSA Account Has Been Approved</title>
 </head>
 
 <body style="margin:0;padding:0;background-color:#EAF1F8;font-family:Arial,Helvetica,sans-serif;color:#0B294D;">
@@ -47,14 +47,14 @@ export const memberApprovalTemplate = ({
                         <td align="center" style="background-color:#0B294D;padding:32px 24px 26px;">
 
                             <img
-                                src="https://olivetbhsnosa.org/images/olivet-crest.png"
-                                alt="OlivetGOSA Crest"
+                                src="https://res.cloudinary.com/bx4pnrek/image/upload/v1792582571/onw-gosa/website-content/ob1t3jspsuqz8wvxnkba.png"
+                                alt="OlivetNOSA Crest"
                                 width="76"
                                 style="display:block;width:76px;max-width:76px;height:auto;margin:0 auto 16px;"
                             />
 
                             <h1 style="margin:0;color:#FFFFFF;font-size:25px;line-height:1.3;letter-spacing:0.5px;">
-                                OlivetGOSA
+                                OlivetNOSA
                             </h1>
 
                             <p style="margin:7px 0 0;color:#EAF1F8;font-size:12px;line-height:1.6;letter-spacing:1.5px;text-transform:uppercase;">
@@ -88,14 +88,14 @@ export const memberApprovalTemplate = ({
                             </h2>
 
                             <p style="margin:0 0 18px;color:#536579;font-size:15px;line-height:1.9;">
-                                We are pleased to inform you that your OlivetGOSA
+                                We are pleased to inform you that your OlivetNOSA
                                 membership application has been reviewed and
                                 <strong style="color:#0B294D;">approved</strong>
                                 by the administration.
                             </p>
 
                             <p style="margin:0 0 25px;color:#536579;font-size:15px;line-height:1.9;">
-                                Welcome to the OlivetGOSA online community. Your
+                                Welcome to the OlivetNOSA online community. Your
                                 account is now approved, and you can sign in to
                                 access your member portal and the services
                                 available to you.
@@ -167,7 +167,7 @@ export const memberApprovalTemplate = ({
 
                             <p style="margin:0;color:#536579;font-size:13px;line-height:1.9;">
                                 We are delighted to welcome you. Thank you for
-                                being part of the OlivetGOSA family as we
+                                being part of the OlivetNOSA family as we
                                 strengthen our bonds and continue to support
                                 the Olivet Baptist High School community.
                             </p>
@@ -180,7 +180,7 @@ export const memberApprovalTemplate = ({
                         <td align="center" style="padding:25px;background-color:#F5F8FC;border-top:1px solid #DCE5EF;">
 
                             <p style="margin:0 0 7px;color:#0B294D;font-size:14px;font-weight:700;">
-                                OlivetGOSA
+                                OlivetNOSA
                             </p>
 
                             <p style="margin:0 0 10px;color:#718096;font-size:12px;line-height:1.8;">
@@ -193,12 +193,12 @@ export const memberApprovalTemplate = ({
                             </p>
 
                             <p style="margin:0;color:#94A3B8;font-size:11px;line-height:1.7;">
-                                This is an official account notification from OlivetGOSA.
+                                This is an official account notification from OlivetNOSA.
                                 Please keep your login credentials secure.
                             </p>
 
                             <p style="margin:12px 0 0;color:#94A3B8;font-size:11px;">
-                                &copy; ${new Date().getFullYear()} OlivetGOSA. All rights reserved.
+                                &copy; ${new Date().getFullYear()} OlivetNOSA. All rights reserved.
                             </p>
 
                         </td>

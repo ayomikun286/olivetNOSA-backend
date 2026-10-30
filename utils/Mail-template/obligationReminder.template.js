@@ -27,7 +27,7 @@ export const buildObligationReminderEmail = ({
       eyebrow: "PAYMENT REMINDER",
       title: "Your payment is due in 30 days",
       message:
-        "This is a friendly reminder that you have an outstanding payment obligation on your OlivetGOSA account.",
+        "This is a friendly reminder that you have an outstanding payment obligation on your OlivetNOSA account.",
     },
 
     sevenDay: {
@@ -118,7 +118,7 @@ export const buildObligationReminderEmail = ({
 
         <img
           src="https://res.cloudinary.com/bx4pnrek/image/upload/v1792582571/onw-gosa/website-content/ob1t3jspsuqz8wvxnkba.png"
-          alt="OlivetGOSA Crest"
+          alt="OlivetNOSA Crest"
           width="70"
           style="
             width:70px;
@@ -136,7 +136,7 @@ export const buildObligationReminderEmail = ({
             line-height:1.2;
           "
         >
-          OlivetGOSA
+          OlivetNOSA
         </div>
 
         <div
@@ -392,7 +392,7 @@ export const buildObligationReminderEmail = ({
             line-height:1.7;
           "
         >
-          You can also log in to your OlivetGOSA member portal to view your
+          You can also log in to your OlivetNOSA member portal to view your
           complete payment history, outstanding obligations and account
           information.
         </p>
@@ -416,7 +416,7 @@ export const buildObligationReminderEmail = ({
             margin-bottom:8px;
           "
         >
-          OlivetGOSA
+          OlivetNOSA
         </div>
 
         <div
@@ -449,7 +449,7 @@ export const buildObligationReminderEmail = ({
             line-height:1.6;
           "
         >
-          This is an automated email from OlivetGOSA.
+          This is an automated email from OlivetNOSA.
           <br />
           Please do not reply to this email.
         </div>

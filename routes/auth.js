@@ -20,7 +20,9 @@ import {
 import { protect } from "../middleware/authmiddleware.js";
 import { requireFinancialMember } from "../middleware/financialMiddleware.js";
 
-
+import {
+  getPublishedNOSALeaders,
+} from "../controller/admin/nosaLeadership.controller.js";
 
 import {
   getPublicWebsiteContent,
@@ -124,6 +126,9 @@ router.get(
   "/api/content/:pageKey",
   getPublicWebsiteContent
 );
+
+
+router.get("/api/public/nosa-leaders", getPublishedNOSALeaders);
 
 
 

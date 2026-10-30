@@ -11,6 +11,16 @@ import {
   deleteMemberController
 } from "../controller/adminController.js";
 
+
+import {
+  getAdminNOSALeaders,
+  getAdminNOSALeaderById,
+  createNOSALeader,
+  updateNOSALeader,
+  deleteNOSALeader,
+} from "../controller/admin/nosaLeadership.controller.js";
+
+
 import {createNewsEvent, getAdminNewsEvents, updateNewsEvent,deleteNewsEvent,} from "../controller/newsEvent.controller.js"
 
 import {
@@ -689,5 +699,47 @@ router.post(
 
 
 
+
+
+// NOSA LEADERSHIP MANAGEMENT
+
+router.get(
+  "/nosa-leaders",
+  protect,
+  requireRole("admin", "superAdmin"),
+  getAdminNOSALeaders
+);
+
+router.get(
+  "/nosa-leaders/:id",
+  protect,
+  requireRole("admin", "superAdmin"),
+  getAdminNOSALeaderById
+);
+
+router.post(
+  "/nosa-leaders",
+  protect,
+  requireRole("admin", "superAdmin"),
+  galleryUpload.single("image"),
+  createNOSALeader
+);
+
+router.patch(
+  "/nosa-leaders/:id",
+  protect,
+  requireRole("admin", "superAdmin"),
+  galleryUpload.single("image"),
+  updateNOSALeader
+);
+
+router.delete(
+  "/nosa-leaders/:id",
+  protect,
+  requireRole("admin", "superAdmin"),
+  deleteNOSALeader
+);
+
+// ===========================================================
 
 export default router;

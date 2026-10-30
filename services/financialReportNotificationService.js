@@ -177,13 +177,13 @@ const processDeliveryChannel = async (delivery, channel, report) => {
       <div style="background:#0B294D;padding:30px 35px;text-align:center;">
         <img
           src="https://res.cloudinary.com/bx4pnrek/image/upload/v1792582571/onw-gosa/website-content/ob1t3jspsuqz8wvxnkba.png"
-          alt="OlivetGOSA Crest"
+          alt="OlivetNOSA Crest"
           width="70"
           style="width:70px;height:auto;display:block;margin:0 auto 15px;"
         />
 
         <div style="color:#ffffff;font-size:25px;font-weight:700;line-height:1.2;">
-          OlivetGOSA
+          OlivetNOSA
         </div>
 
         <div style="margin-top:7px;color:#C9A227;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">
@@ -238,7 +238,7 @@ const processDeliveryChannel = async (delivery, channel, report) => {
         </div>
 
         <p style="margin:0;color:#4B6075;font-size:13px;line-height:1.7;">
-          You can also log in to your OlivetGOSA member portal to access
+          You can also log in to your OlivetNOSA member portal to access
           available financial reports and other membership information.
         </p>
       </div>
@@ -246,7 +246,7 @@ const processDeliveryChannel = async (delivery, channel, report) => {
       <!-- FOOTER -->
       <div style="background:#0B294D;padding:25px 35px;text-align:center;">
         <div style="color:#ffffff;font-size:15px;font-weight:700;margin-bottom:8px;">
-          OlivetGOSA
+          OlivetNOSA
         </div>
 
         <div style="color:rgba(255,255,255,0.72);font-size:12px;line-height:1.6;">
@@ -258,7 +258,7 @@ const processDeliveryChannel = async (delivery, channel, report) => {
         </div>
 
         <div style="margin-top:18px;color:rgba(255,255,255,0.55);font-size:11px;line-height:1.6;">
-          This is an automated email from OlivetGOSA.
+          This is an automated email from OlivetNOSA.
           <br />
           Please do not reply to this email.
         </div>

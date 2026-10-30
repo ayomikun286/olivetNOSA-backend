@@ -232,7 +232,7 @@ export const initializePayment = async (
 
         // GENERATE UNIQUE REFERENCE
         const reference =
-            `GOSA-${Date.now()}-${Math.random()
+            `NOSA-${Date.now()}-${Math.random()
                 .toString(36)
                 .substring(2, 8)
                 .toUpperCase()}`;

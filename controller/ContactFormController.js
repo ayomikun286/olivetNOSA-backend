@@ -63,7 +63,7 @@ export const contactForm = async (req, res) => {
         await sendEmail({
     to: process.env.CONTACT_FORM_EMAIL,
     replyTo: cleanEmail,
-    subject: `New OlivetGOSA Enquiry: ${cleanSubject}`,
+    subject: `New OlivetNOSA Enquiry: ${cleanSubject}`,
     text: `Name: ${cleanName}\nEmail: ${cleanEmail}\nSubject: ${cleanSubject}\n\nMessage:\n${cleanMessage}`,
     html: contactEmailTemplate({
         name: cleanName,

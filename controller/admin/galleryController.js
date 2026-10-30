@@ -23,7 +23,7 @@ const uploadToCloudinary = (file) =>
     new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
             {
-                folder: "onw-gosa/gallery",
+                folder: "onw-nosa/gallery",
                 resource_type: "image",
             },
             (error, result) => {

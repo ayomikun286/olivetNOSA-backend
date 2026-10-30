@@ -441,12 +441,19 @@ const userSchema = new mongoose.Schema(
     },
 
 
+
+
     approvedAt: {
       type: Date,
       default: null,
     },
 
     hasCompletedOnboarding: {
+      type: Boolean,
+      default: false,
+    },
+
+    isPresident: {
       type: Boolean,
       default: false,
     },
