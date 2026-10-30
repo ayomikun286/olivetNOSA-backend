@@ -1,14 +1,14 @@
+
 import Donation from "../models/Donation.js";
 import { paystackRequest } from "../config/paystack.js";
 
 import {
-    logDonationAudit,
-    sendDonationStatusEmail,
-} from "../controller/donation.controller.js";
+    completeSuccessfulDonation,
+    handleFailedDonation,
+    handleDonationVerificationMismatch,
+} from "./donationService.js";
 
-// ========================================
-// VERIFY PENDING DONATIONS
-// ========================================
+import { isPaystackAmountValid } from "./paystackAmount.js";
 
 export const verifyPendingDonations = async () => {
     try {
@@ -48,35 +48,38 @@ export const verifyPendingDonations = async () => {
                     continue;
                 }
 
+                console.log("PAYSTACK DONATION VERIFICATION:", {
+                    reference: transaction.reference,
+                    status: transaction.status,
+                    amount: transaction.amount,
+                    fees: transaction.fees,
+                    requested_amount: transaction.requested_amount,
+                    currency: transaction.currency,
+                });
+
                 // Verify transaction reference.
                 if (
                     transaction.reference !== donation.gatewayReference
                 ) {
                     mismatched++;
 
-                    await logDonationAudit({
-                        actor: null,
-                        action: "donation.verification_mismatch",
-                        resource: "Donation",
-                        resourceId: donation._id,
-                        details: {
+                    await handleDonationVerificationMismatch(
+                        donation,
+                        transaction,
+                        {
                             source: "scheduled_reconciliation",
                             reason: "Transaction reference mismatch.",
-                            expectedReference: donation.gatewayReference,
-                            receivedReference: transaction.reference || null,
-                        },
-                    });
+                        }
+                    );
 
                     continue;
                 }
 
                 // Verify amount and currency.
-                const expectedAmount = donation.amount * 100;
-
-                const amountMatches =
-                    Number.isSafeInteger(expectedAmount) &&
-                    Number.isSafeInteger(transaction.amount) &&
-                    transaction.amount === expectedAmount;
+                const amountMatches = isPaystackAmountValid(
+                    donation,
+                    transaction
+                );
 
                 const expectedCurrency = String(
                     donation.currency || "NGN"
@@ -92,23 +95,16 @@ export const verifyPendingDonations = async () => {
                 if (!amountMatches || !currencyMatches) {
                     mismatched++;
 
-                    await logDonationAudit({
-                        actor: null,
-                        action: "donation.verification_mismatch",
-                        resource: "Donation",
-                        resourceId: donation._id,
-                        details: {
+                    await handleDonationVerificationMismatch(
+                        donation,
+                        transaction,
+                        {
                             source: "scheduled_reconciliation",
                             reason: amountMatches
                                 ? "Transaction currency mismatch."
                                 : "Transaction amount mismatch.",
-                            expectedAmount,
-                            receivedAmount: transaction.amount ?? null,
-                            expectedCurrency,
-                            receivedCurrency,
-                            gatewayReference: donation.gatewayReference,
-                        },
-                    });
+                        }
+                    );
 
                     console.warn(
                         `Donation ${donation.gatewayReference}: amount/currency mismatch.`
@@ -117,71 +113,24 @@ export const verifyPendingDonations = async () => {
                     continue;
                 }
 
-                // ====================================
-                // SUCCESSFUL TRANSACTION
-                // ====================================
-
+                // SUCCESSFUL TRANSACTION.
                 if (transaction.status === "success") {
-                    const updatedDonation =
-                        await Donation.findOneAndUpdate(
-                            {
-                                _id: donation._id,
-                                status: "pending",
-                            },
-                            {
-                                $set: {
-                                    status: "successful",
-                                    paidAt: transaction.paid_at
-                                        ? new Date(transaction.paid_at)
-                                        : new Date(),
+                    const result = await completeSuccessfulDonation(
+                        donation._id,
+                        transaction,
+                        {
+                            source: "scheduled_reconciliation",
+                        }
+                    );
 
-                                    "metadata.paystackTransactionId":
-                                        transaction.id || null,
-
-                                    "metadata.channel":
-                                        transaction.channel || null,
-
-                                    "metadata.verifiedAt": new Date(),
-
-                                    "metadata.verificationSource":
-                                        "scheduled_reconciliation",
-                                },
-                            },
-                            { returndocument: "after" }
-                        );
-
-                    if (updatedDonation) {
-                        await sendDonationStatusEmail(
-                            updatedDonation,
-                            "successful"
-                        );
-
-                        await logDonationAudit({
-                            actor: null,
-                            action: "donation.successful",
-                            resource: "Donation",
-                            resourceId: updatedDonation._id,
-                            details: {
-                                amount: updatedDonation.amount,
-                                currency: updatedDonation.currency,
-                                gatewayReference:
-                                    updatedDonation.gatewayReference,
-                                paystackTransactionId: transaction.id,
-                                source: "scheduled_reconciliation",
-                                isAnonymous: updatedDonation.isAnonymous,
-                            },
-                        });
-
+                    if (!result.alreadyProcessed) {
                         successful++;
                     }
 
                     continue;
                 }
 
-                // ====================================
-                // FAILED / REVERSED / ABANDONED
-                // ====================================
-
+                // FAILED / REVERSED / ABANDONED.
                 if (
                     ["failed", "reversed", "abandoned"].includes(
                         transaction.status
@@ -192,47 +141,17 @@ export const verifyPendingDonations = async () => {
                             ? "cancelled"
                             : "failed";
 
-                    const updatedDonation =
-                        await Donation.findOneAndUpdate(
-                            {
-                                _id: donation._id,
-                                status: "pending",
-                            },
-                            {
-                                $set: {
-                                    status: newStatus,
+                    const result = await handleFailedDonation(
+                        donation,
+                        transaction,
+                        newStatus,
+                        {
+                            source: "scheduled_reconciliation",
+                        }
+                    );
 
-                                    "metadata.verificationStatus":
-                                        transaction.status,
-
-                                    "metadata.verifiedAt": new Date(),
-
-                                    "metadata.verificationSource":
-                                        "scheduled_reconciliation",
-                                },
-                            },
-                            { returndocument: "after" }
-                        );
-
-                    if (updatedDonation) {
-                        await sendDonationStatusEmail(
-                            updatedDonation,
-                            "failed"
-                        );
-
-                        await logDonationAudit({
-                            actor: null,
-                            action: `donation.${newStatus}`,
-                            resource: "Donation",
-                            resourceId: updatedDonation._id,
-                            details: {
-                                gatewayReference:
-                                    updatedDonation.gatewayReference,
-                                paystackStatus: transaction.status,
-                                source: "scheduled_reconciliation",
-                            },
-                        });
-
+                    // Count only when this process actually updates it.
+                    if (!result.alreadyProcessed) {
                         if (newStatus === "cancelled") {
                             cancelled++;
                         } else {
@@ -243,10 +162,7 @@ export const verifyPendingDonations = async () => {
                     continue;
                 }
 
-                // ====================================
-                // STILL PROCESSING
-                // ====================================
-
+                // STILL PROCESSING.
                 stillPending++;
 
                 console.log(

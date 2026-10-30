@@ -3,311 +3,22 @@ import crypto from "crypto";
 
 import Donation from "../models/Donation.js";
 import { paystackRequest } from "../config/paystack.js";
-import { createAuditLog } from "../services/auditLog.service.js";
-import { sendEmail } from "../services/email.service.js";
-import { verifyPendingDonations } from "../services/donationVerification.service.js";
-// ========================================
-// SAFE AUDIT LOGGER
-// ========================================
 
-export const logDonationAudit = async (auditData) => {
-    try {
-        await createAuditLog(auditData);
-    } catch (error) {
-        // Audit failure must never interfere with payment processing.
-        console.error("Donation audit log error:", error);
-    }
-};
+import {
+    verifyPendingDonations,
+} from "../services/donationVerification.service.js";
 
+import {
+    logDonationAudit,
+    completeSuccessfulDonation,
+    handleFailedDonation,
+    handleDonationVerificationMismatch,
+} from "../services/donationService.js";
 
-export const sendDonationStatusEmail = async (donation, status) => {
-    const isSuccessful = status === "successful";
+import {
+    isPaystackAmountValid,
+} from "../services/paystackAmount.js";
 
-    const subject = isSuccessful
-        ? "Thank You for Your Donation - OlivetNOSA"
-        : "Donation Payment Unsuccessful - OlivetNOSA";
-
-    const heading = isSuccessful
-        ? "Thank you for your generosity!"
-        : "Your donation payment was unsuccessful";
-
-    const message = isSuccessful
-        ? `We sincerely appreciate your generous contribution to
-           <strong style="color: #123B6D;">OlivetNOSA</strong>.
-           Your support helps us strengthen our alumni community
-           and support our shared initiatives.`
-        : `Unfortunately, your donation payment could not be completed.
-           You may try making your donation again. If you believe this
-           is an error, please contact the OlivetNOSA support team.`;
-
-    try {
-        await sendEmail({
-            to: donation.email,
-            subject,
-            html: `
-            <!DOCTYPE html>
-            <html lang="en">
-            <head>
-                <meta charset="UTF-8" />
-                <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-                <title>${subject}</title>
-            </head>
-
-            <body style="
-                margin: 0;
-                padding: 0;
-                background-color: #EAF1F8;
-                font-family: Arial, Helvetica, sans-serif;
-                color: #0B294D;
-            ">
-
-                <table width="100%" cellpadding="0" cellspacing="0" border="0"
-                    style="background-color: #EAF1F8; padding: 40px 15px;">
-                    <tr>
-                        <td align="center">
-
-                            <table width="100%" cellpadding="0" cellspacing="0" border="0"
-                                style="
-                                    max-width: 620px;
-                                    background-color: #ffffff;
-                                    border-radius: 12px;
-                                    overflow: hidden;
-                                ">
-
-                                <!-- Header -->
-                                <tr>
-                                    <td style="
-                                        background-color: #0B294D;
-                                        padding: 30px 35px;
-                                        text-align: center;
-                                    ">
-                                        <img
-                                            src="https://res.cloudinary.com/bx4pnrek/image/upload/v1792582571/onw-gosa/website-content/ob1t3jspsuqz8wvxnkba.png"
-                                            alt="OlivetNOSA"
-                                            width="70"
-                                            style="display: block; margin: 0 auto 15px; max-width: 70px;"
-                                        />
-
-                                        <div style="
-                                            color: #ffffff;
-                                            font-size: 22px;
-                                            font-weight: bold;
-                                            letter-spacing: 0.5px;
-                                        ">
-                                            OlivetNOSA
-                                        </div>
-
-                                        <div style="
-                                            color: #C9A227;
-                                            font-size: 11px;
-                                            font-weight: bold;
-                                            letter-spacing: 2px;
-                                            margin-top: 7px;
-                                            text-transform: uppercase;
-                                        ">
-                                            Global Old Students' Association
-                                        </div>
-                                    </td>
-                                </tr>
-
-                                <!-- Gold Divider -->
-                                <tr>
-                                    <td style="
-                                        height: 4px;
-                                        background-color: #C9A227;
-                                        font-size: 0;
-                                        line-height: 0;
-                                    ">&nbsp;</td>
-                                </tr>
-
-                                <!-- Content -->
-                                <tr>
-                                    <td style="padding: 40px 35px;">
-
-                                        <p style="
-                                            margin: 0 0 8px;
-                                            color: #C9A227;
-                                            font-size: 12px;
-                                            font-weight: bold;
-                                            letter-spacing: 1.5px;
-                                            text-transform: uppercase;
-                                        ">
-                                            Donation Update
-                                        </p>
-
-                                        <h1 style="
-                                            margin: 0 0 20px;
-                                            color: #0B294D;
-                                            font-size: 28px;
-                                            line-height: 1.25;
-                                        ">
-                                            ${heading}
-                                        </h1>
-
-                                        <p style="
-                                            margin: 0 0 18px;
-                                            color: #4B6075;
-                                            font-size: 15px;
-                                            line-height: 1.7;
-                                        ">
-                                            Hello ${donation.isAnonymous ? "Donor" : donation.donorName},
-                                        </p>
-
-                                        <p style="
-                                            margin: 0 0 25px;
-                                            color: #4B6075;
-                                            font-size: 15px;
-                                            line-height: 1.7;
-                                        ">
-                                            ${message}
-                                        </p>
-
-                                        <!-- Donation Details -->
-                                        <table width="100%" cellpadding="0" cellspacing="0" border="0"
-                                            style="
-                                                background-color: #EAF1F8;
-                                                border-radius: 7px;
-                                                padding: 18px;
-                                            ">
-                                            <tr>
-                                                <td style="padding: 7px 0; color: #4B6075; font-size: 13px;">
-                                                    Donation Reference
-                                                </td>
-                                                <td align="right" style="padding: 7px 0; color: #0B294D; font-size: 13px; font-weight: bold;">
-                                                    ${donation.gatewayReference}
-                                                </td>
-                                            </tr>
-
-                                            <tr>
-                                                <td style="padding: 7px 0; color: #4B6075; font-size: 13px;">
-                                                    Amount
-                                                </td>
-                                                <td align="right" style="padding: 7px 0; color: #0B294D; font-size: 13px; font-weight: bold;">
-                                                    ${donation.currency} ${donation.amount.toLocaleString("en-NG")}
-                                                </td>
-                                            </tr>
-
-                                            <tr>
-                                                <td style="padding: 7px 0; color: #4B6075; font-size: 13px;">
-                                                    Payment Status
-                                                </td>
-                                                <td align="right" style="
-                                                    padding: 7px 0;
-                                                    color: ${isSuccessful ? "#16803C" : "#B42318"};
-                                                    font-size: 13px;
-                                                    font-weight: bold;
-                                                ">
-                                                    ${isSuccessful ? "Successful" : "Unsuccessful"}
-                                                </td>
-                                            </tr>
-                                        </table>
-
-                                        ${
-                                            isSuccessful
-                                                ? `
-                                                <p style="
-                                                    margin: 25px 0 0;
-                                                    color: #4B6075;
-                                                    font-size: 15px;
-                                                    line-height: 1.7;
-                                                ">
-                                                    Thank you for being part of the OlivetNOSA community.
-                                                    Your generosity is truly appreciated.
-                                                </p>
-                                                `
-                                                : `
-                                                <p style="
-                                                    margin: 25px 0 0;
-                                                    color: #4B6075;
-                                                    font-size: 13px;
-                                                    line-height: 1.7;
-                                                ">
-                                                    If you have already been charged, please allow some time
-                                                    for your payment to be reconciled before trying again.
-                                                </p>
-                                                `
-                                        }
-
-                                        <p style="
-                                            margin: 30px 0 0;
-                                            padding-top: 25px;
-                                            border-top: 1px solid #E5EAF0;
-                                            color: #6B7C8F;
-                                            font-size: 12px;
-                                            line-height: 1.6;
-                                        ">
-                                            This email confirms the payment status recorded for your donation.
-                                            Please keep it for your records.
-                                        </p>
-
-                                    </td>
-                                </tr>
-
-                                <!-- Footer -->
-                                <tr>
-                                    <td style="
-                                        background-color: #0B294D;
-                                        padding: 25px 35px;
-                                        text-align: center;
-                                    ">
-                                        <p style="
-                                            margin: 0;
-                                            color: #ffffff;
-                                            font-size: 13px;
-                                            font-weight: bold;
-                                        ">
-                                            OlivetNOSA
-                                        </p>
-
-                                        <p style="
-                                            margin: 7px 0 0;
-                                            color: rgba(255,255,255,0.65);
-                                            font-size: 11px;
-                                            line-height: 1.6;
-                                        ">
-                                            Global Old Students' Association
-                                            <br />
-                                            Olivet Baptist High School
-                                        </p>
-
-                                        <p style="
-                                            margin: 15px 0 0;
-                                            color: #C9A227;
-                                            font-size: 10px;
-                                            letter-spacing: 1px;
-                                        ">
-                                            CUM CHRISTO PROGREDERE
-                                        </p>
-                                    </td>
-                                </tr>
-
-                            </table>
-
-                            <p style="
-                                margin: 20px 0 0;
-                                color: #7A8A9A;
-                                font-size: 10px;
-                                text-align: center;
-                            ">
-                                This is an automated email from OlivetNOSA.
-                                Please do not reply directly to this message.
-                            </p>
-
-                        </td>
-                    </tr>
-                </table>
-
-            </body>
-            </html>
-            `,
-        });
-    } catch (emailErr) {
-        console.error(
-            "Failed to deliver donation status email via provider:",
-            emailErr
-        );
-    }
-};
 
 // ========================================
 // INITIALIZE DONATION
@@ -325,9 +36,7 @@ export const initializeDonation = async (req, res) => {
             isAnonymous = false,
         } = req.body;
 
-        // ====================================
         // VALIDATION
-        // ====================================
 
         if (typeof isAnonymous !== "boolean") {
             return res.status(400).json({
@@ -345,7 +54,6 @@ export const initializeDonation = async (req, res) => {
 
         const normalizedEmail = email.trim().toLowerCase();
 
-        // Basic email validation
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
         if (!emailRegex.test(normalizedEmail)) {
@@ -360,7 +68,8 @@ export const initializeDonation = async (req, res) => {
         if (
             !Number.isFinite(donationAmount) ||
             !Number.isSafeInteger(donationAmount) ||
-            donationAmount < 100
+            donationAmount < 100 ||
+            !Number.isSafeInteger(donationAmount * 100)
         ) {
             return res.status(400).json({
                 success: false,
@@ -405,18 +114,14 @@ export const initializeDonation = async (req, res) => {
             });
         }
 
-        // ====================================
         // GENERATE UNIQUE REFERENCE
-        // ====================================
 
         const reference = `NOSA-DON-${Date.now()}-${crypto
             .randomBytes(4)
             .toString("hex")
             .toUpperCase()}`;
 
-        // ====================================
         // CREATE PENDING DONATION
-        // ====================================
 
         donation = await Donation.create({
             donorName: isAnonymous
@@ -424,27 +129,17 @@ export const initializeDonation = async (req, res) => {
                 : normalizedName || "Anonymous",
 
             email: normalizedEmail,
-
             amount: donationAmount,
-
             currency: "NGN",
-
             message: normalizedMessage,
-
             isAnonymous,
-
             user: req.user?._id || null,
-
             status: "pending",
-
             gateway: "paystack",
-
             gatewayReference: reference,
         });
 
-        // ====================================
         // INITIALIZE PAYSTACK
-        // ====================================
 
         let paystackData;
 
@@ -456,20 +151,16 @@ export const initializeDonation = async (req, res) => {
 
                     body: JSON.stringify({
                         email: normalizedEmail,
-
                         amount: donationAmount * 100,
-
                         currency: "NGN",
-
                         reference,
 
                         callback_url:
-    process.env.PAYSTACK_DONATION_CALLBACK_URL,
+                            process.env.PAYSTACK_DONATION_CALLBACK_URL,
+
                         metadata: {
                             donationId: donation._id.toString(),
-
                             donationType: "NOSA_DONATION",
-
                             isAnonymous,
                         },
                     }),
@@ -486,10 +177,6 @@ export const initializeDonation = async (req, res) => {
             }
 
         } catch (paystackError) {
-            // =================================
-            // MARK INITIALIZATION AS FAILED
-            // =================================
-
             donation.status = "failed";
 
             donation.metadata = {
@@ -499,17 +186,10 @@ export const initializeDonation = async (req, res) => {
 
             await donation.save();
 
-            // =================================
-            // AUDIT INITIALIZATION FAILURE
-            // =================================
-
             await logDonationAudit({
                 actor: req.user?._id || null,
-
                 action: "donation.initialization_failed",
-
                 resource: "Donation",
-
                 resourceId: donation._id,
 
                 details: {
@@ -525,17 +205,12 @@ export const initializeDonation = async (req, res) => {
             throw paystackError;
         }
 
-        // ====================================
-        // AUDIT SUCCESSFUL INITIALIZATION
-        // ====================================
+        // AUDIT INITIALIZATION
 
         await logDonationAudit({
             actor: req.user?._id || null,
-
             action: "donation.initialized",
-
             resource: "Donation",
-
             resourceId: donation._id,
 
             details: {
@@ -550,13 +225,8 @@ export const initializeDonation = async (req, res) => {
             req,
         });
 
-        // ====================================
-        // RESPONSE
-        // ====================================
-
         return res.status(200).json({
             success: true,
-
             message: "Donation payment initialized successfully.",
 
             donation: {
@@ -577,15 +247,15 @@ export const initializeDonation = async (req, res) => {
 
         return res.status(500).json({
             success: false,
-
-            message:
-                "Failed to initialize donation. Please try again.",
+            message: "Failed to initialize donation. Please try again.",
         });
     }
 };
 
 
-
+// ========================================
+// INTERNAL DONATION RECONCILIATION
+// ========================================
 
 export const verifyPendingDonationsInternal = async (req, res) => {
     try {
@@ -593,6 +263,7 @@ export const verifyPendingDonationsInternal = async (req, res) => {
 
         if (
             !internalSecret ||
+            !process.env.INTERNAL_PAYMENT_SECRET ||
             internalSecret !== process.env.INTERNAL_PAYMENT_SECRET
         ) {
             return res.status(401).json({
@@ -623,8 +294,6 @@ export const verifyPendingDonationsInternal = async (req, res) => {
 };
 
 
-
-
 // ========================================
 // VERIFY DONATION
 // ========================================
@@ -636,9 +305,7 @@ export const verifyDonation = async (req, res) => {
             req.query.reference ||
             req.body.reference;
 
-        // ====================================
         // VALIDATE REFERENCE
-        // ====================================
 
         if (
             typeof reference !== "string" ||
@@ -652,12 +319,11 @@ export const verifyDonation = async (req, res) => {
 
         const normalizedReference = reference.trim();
 
-        // ====================================
         // FIND DONATION
-        // ====================================
 
         const donation = await Donation.findOne({
             gatewayReference: normalizedReference,
+            gateway: "paystack",
         });
 
         if (!donation) {
@@ -667,14 +333,13 @@ export const verifyDonation = async (req, res) => {
             });
         }
 
-        // ====================================
         // IDEMPOTENCY CHECK
-        // ====================================
 
         if (donation.status === "successful") {
             return res.status(200).json({
                 success: true,
                 message: "This donation has already been verified.",
+
                 donation: {
                     id: donation._id,
                     amount: donation.amount,
@@ -686,9 +351,19 @@ export const verifyDonation = async (req, res) => {
             });
         }
 
-        // ====================================
+        if (donation.status !== "pending") {
+            return res.status(409).json({
+                success: false,
+                message: `This donation is already marked as ${donation.status}.`,
+                donation: {
+                    id: donation._id,
+                    reference: donation.gatewayReference,
+                    status: donation.status,
+                },
+            });
+        }
+
         // VERIFY TRANSACTION WITH PAYSTACK
-        // ====================================
 
         const paystackResponse = await paystackRequest(
             `/transaction/verify/${encodeURIComponent(normalizedReference)}`,
@@ -706,23 +381,19 @@ export const verifyDonation = async (req, res) => {
             });
         }
 
-        // ====================================
         // VERIFY REFERENCE
-        // ====================================
 
         if (transaction.reference !== normalizedReference) {
-            await logDonationAudit({
-                actor: req.user?._id || null,
-                action: "donation.verification_mismatch",
-                resource: "Donation",
-                resourceId: donation._id,
-                details: {
+            await handleDonationVerificationMismatch(
+                donation,
+                transaction,
+                {
+                    actor: req.user?._id || null,
+                    req,
+                    source: "browser_verification",
                     reason: "Transaction reference mismatch.",
-                    expectedReference: normalizedReference,
-                    receivedReference: transaction.reference || null,
-                },
-                req,
-            });
+                }
+            );
 
             return res.status(409).json({
                 success: false,
@@ -730,33 +401,38 @@ export const verifyDonation = async (req, res) => {
             });
         }
 
-        // ====================================
         // VERIFY AMOUNT AND CURRENCY
-        // ====================================
 
-        const expectedAmount = donation.amount * 100;
+        const amountMatches = isPaystackAmountValid(
+            donation,
+            transaction
+        );
 
-        const amountMatches =
-            Number.isSafeInteger(transaction.amount) &&
-            transaction.amount === expectedAmount;
+        const expectedCurrency = String(
+            donation.currency || "NGN"
+        ).toUpperCase();
+
+        const receivedCurrency = String(
+            transaction.currency || ""
+        ).toUpperCase();
 
         const currencyMatches =
-            transaction.currency === donation.currency;
+            receivedCurrency === expectedCurrency;
 
         if (!amountMatches || !currencyMatches) {
-            await logDonationAudit({
-                actor: req.user?._id || null,
-                action: "donation.verification_mismatch",
-                resource: "Donation",
-                resourceId: donation._id,
-                details: {
-                    expectedAmount,
-                    receivedAmount: transaction.amount ?? null,
-                    expectedCurrency: donation.currency,
-                    receivedCurrency: transaction.currency || null,
-                },
-                req,
-            });
+            await handleDonationVerificationMismatch(
+                donation,
+                transaction,
+                {
+                    actor: req.user?._id || null,
+                    req,
+                    source: "browser_verification",
+
+                    reason: amountMatches
+                        ? "Transaction currency mismatch."
+                        : "Transaction amount mismatch.",
+                }
+            );
 
             return res.status(409).json({
                 success: false,
@@ -764,133 +440,78 @@ export const verifyDonation = async (req, res) => {
             });
         }
 
-        // ====================================
-        // HANDLE SUCCESSFUL TRANSACTION
-        // ====================================
+        // SUCCESSFUL TRANSACTION
 
         if (transaction.status === "success") {
-            const updatedDonation = await Donation.findOneAndUpdate(
+            const result = await completeSuccessfulDonation(
+                donation._id,
+                transaction,
                 {
-                    _id: donation._id,
-                    status: { $ne: "successful" },
-                },
-                {
-                    $set: {
-                        status: "successful",
-                        paidAt: transaction.paid_at
-                            ? new Date(transaction.paid_at)
-                            : new Date(),
-                        "metadata.paystackTransactionId": transaction.id || null,
-                        "metadata.channel": transaction.channel || null,
-                        "metadata.verifiedAt": new Date(),
-                    },
-                },
-                {
-                    new: true,
+                    actor: req.user?._id || null,
+                    req,
+                    source: "browser_verification",
                 }
             );
 
-            // Only the request that successfully changes the status
-            // sends the email and creates the success audit log.
-            if (updatedDonation) {
-                await sendDonationStatusEmail(
-                    updatedDonation,
-                    "successful"
-                );
+            const finalDonation = result.donation;
 
-                await logDonationAudit({
-                    actor: req.user?._id || null,
-                    action: "donation.successful",
-                    resource: "Donation",
-                    resourceId: updatedDonation._id,
-                    details: {
-                        amount: updatedDonation.amount,
-                        currency: updatedDonation.currency,
-                        gatewayReference: updatedDonation.gatewayReference,
-                        paystackTransactionId: transaction.id,
-                        isAnonymous: updatedDonation.isAnonymous,
+            if (finalDonation.status === "successful") {
+                return res.status(200).json({
+                    success: true,
+                    message: "Donation payment verified successfully.",
+
+                    donation: {
+                        id: finalDonation._id,
+                        amount: finalDonation.amount,
+                        currency: finalDonation.currency,
+                        reference: finalDonation.gatewayReference,
+                        status: finalDonation.status,
+                        paidAt: finalDonation.paidAt,
                     },
-                    req,
                 });
             }
 
-            const finalDonation =
-                updatedDonation ||
-                await Donation.findById(donation._id);
-
-            return res.status(200).json({
-                success: true,
-                message: "Donation payment verified successfully.",
+            return res.status(409).json({
+                success: false,
+                message: `Donation is currently marked as ${finalDonation.status}. Please contact support if you have been charged.`,
                 donation: {
                     id: finalDonation._id,
-                    amount: finalDonation.amount,
-                    currency: finalDonation.currency,
                     reference: finalDonation.gatewayReference,
                     status: finalDonation.status,
-                    paidAt: finalDonation.paidAt,
                 },
             });
         }
 
-        // ====================================
-        // HANDLE FAILED TRANSACTION
-        // ====================================
+        // FAILED / REVERSED / ABANDONED TRANSACTION
 
         if (
-            transaction.status === "failed" ||
-            transaction.status === "abandoned"
+            ["failed", "reversed", "abandoned"].includes(
+                transaction.status
+            )
         ) {
             const newStatus =
                 transaction.status === "abandoned"
                     ? "cancelled"
                     : "failed";
 
-            const updatedDonation = await Donation.findOneAndUpdate(
+            const result = await handleFailedDonation(
+                donation,
+                transaction,
+                newStatus,
                 {
-                    _id: donation._id,
-                    status: "pending",
-                },
-                {
-                    $set: {
-                        status: newStatus,
-                        "metadata.verificationStatus": transaction.status,
-                        "metadata.verifiedAt": new Date(),
-                    },
-                },
-                {
-                    new: true,
+                    actor: req.user?._id || null,
+                    req,
+                    source: "browser_verification",
                 }
             );
 
-            // Only send the failure email and audit once.
-            if (updatedDonation) {
-                await sendDonationStatusEmail(
-                    updatedDonation,
-                    "failed"
-                );
+            const finalDonation = result.donation;
 
-                await logDonationAudit({
-                    actor: req.user?._id || null,
-                    action: `donation.${updatedDonation.status}`,
-                    resource: "Donation",
-                    resourceId: updatedDonation._id,
-                    details: {
-                        gatewayReference: updatedDonation.gatewayReference,
-                        paystackStatus: transaction.status,
-                    },
-                    req,
-                });
-            }
-
-            const finalDonation =
-                updatedDonation ||
-                await Donation.findById(donation._id);
-
-            // A successful payment must never be reported as failed.
-            if (finalDonation.status === "successful") {
+            if (finalDonation?.status === "successful") {
                 return res.status(200).json({
                     success: true,
                     message: "Donation payment verified successfully.",
+
                     donation: {
                         id: finalDonation._id,
                         reference: finalDonation.gatewayReference,
@@ -902,29 +523,31 @@ export const verifyDonation = async (req, res) => {
 
             return res.status(200).json({
                 success: false,
+
                 message:
-                    finalDonation.status === "cancelled"
+                    finalDonation?.status === "cancelled"
                         ? "Donation checkout was abandoned."
                         : "Donation payment was not successful.",
+
                 donation: {
-                    id: finalDonation._id,
-                    reference: finalDonation.gatewayReference,
-                    status: finalDonation.status,
+                    id: finalDonation?._id,
+                    reference: finalDonation?.gatewayReference,
+                    status: finalDonation?.status,
                 },
             });
         }
 
-        // ====================================
         // TRANSACTION STILL PROCESSING
-        // ====================================
 
-        const currentDonation =
-            await Donation.findById(donation._id);
+        const currentDonation = await Donation.findById(
+            donation._id
+        );
 
         return res.status(202).json({
             success: false,
             pending: true,
             message: "Donation payment is still being processed. Please check again shortly.",
+
             donation: {
                 id: currentDonation._id,
                 reference: currentDonation.gatewayReference,
@@ -943,50 +566,67 @@ export const verifyDonation = async (req, res) => {
 };
 
 
-
-
-
+// ========================================
+// PAYSTACK DONATION WEBHOOK
+// ========================================
 
 export const handleDonationWebhook = async (req, res) => {
     try {
         const secret = process.env.PAYSTACK_SECRET_KEY;
         const signature = req.headers["x-paystack-signature"];
 
-        // Confirm that Paystack sent a raw request body.
+        // CONFIRM RAW REQUEST BODY
+
         if (!Buffer.isBuffer(req.body)) {
             return res.status(400).json({
                 success: false,
-                message: "Invalid webhook request body",
+                message: "Invalid webhook request body.",
             });
         }
 
         if (!secret || !signature) {
             return res.status(401).json({
                 success: false,
-                message: "Invalid webhook signature",
+                message: "Invalid webhook signature.",
             });
         }
 
-        // Verify Paystack's signature.
+        // VERIFY PAYSTACK SIGNATURE
+
         const hash = crypto
             .createHmac("sha512", secret)
             .update(req.body)
             .digest("hex");
 
-        const receivedSignature = Buffer.from(signature, "utf8");
-        const expectedSignature = Buffer.from(hash, "utf8");
+        const receivedSignature = Buffer.from(
+            signature,
+            "utf8"
+        );
+
+        const expectedSignature = Buffer.from(
+            hash,
+            "utf8"
+        );
 
         if (
             receivedSignature.length !== expectedSignature.length ||
-            !crypto.timingSafeEqual(receivedSignature, expectedSignature)
+            !crypto.timingSafeEqual(
+                receivedSignature,
+                expectedSignature
+            )
         ) {
             return res.status(401).json({
                 success: false,
-                message: "Invalid webhook signature",
+                message: "Invalid webhook signature.",
             });
         }
 
-        const payload = JSON.parse(req.body.toString("utf8"));
+        // PARSE WEBHOOK
+
+        const payload = JSON.parse(
+            req.body.toString("utf8")
+        );
+
         const { event, data } = payload;
 
         const reference = data?.reference;
@@ -994,9 +634,23 @@ export const handleDonationWebhook = async (req, res) => {
         if (!reference) {
             return res.status(200).json({
                 success: true,
-                message: "Webhook received",
+                message: "Webhook received.",
             });
         }
+
+        // IGNORE UNRELATED EVENTS
+
+        if (
+            event !== "charge.success" &&
+            event !== "charge.failed"
+        ) {
+            return res.status(200).json({
+                success: true,
+                message: "Event ignored.",
+            });
+        }
+
+        // FIND DONATION
 
         const donation = await Donation.findOne({
             gatewayReference: reference,
@@ -1006,155 +660,109 @@ export const handleDonationWebhook = async (req, res) => {
         if (!donation) {
             return res.status(200).json({
                 success: true,
-                message: "Donation not found",
+                message: "Donation not found.",
             });
         }
 
-        // Ignore events we do not need.
-        if (event !== "charge.success" && event !== "charge.failed") {
-            return res.status(200).json({
-                success: true,
-                message: "Event ignored",
-            });
-        }
+        // IDEMPOTENCY CHECK
 
-        // Never allow a failed event to downgrade a successful donation.
         if (donation.status === "successful") {
             return res.status(200).json({
                 success: true,
-                message: "Donation already processed",
+                message: "Donation already processed.",
             });
         }
 
-        // Confirm the amount and currency before updating the donation.
-        const expectedAmount = donation.amount * 100;
-        const receivedAmount = Number(data?.amount);
-        const receivedCurrency = String(data?.currency || "").toUpperCase();
+        // VERIFY REFERENCE
 
-        if (
-            !Number.isSafeInteger(expectedAmount) ||
-            receivedAmount !== expectedAmount ||
-            receivedCurrency !== donation.currency.toUpperCase()
-        ) {
-            await logDonationAudit({
-                action: "donation.webhook_mismatch",
-                resource: "donation",
-                resourceId: donation._id,
-                details: {
-                    reference,
-                    expectedAmount,
-                    receivedAmount,
-                    expectedCurrency: donation.currency,
-                    receivedCurrency,
-                    event,
-                },
-            });
+        if (data.reference !== donation.gatewayReference) {
+            await handleDonationVerificationMismatch(
+                donation,
+                data,
+                {
+                    source: "paystack_webhook",
+                    reason: "Webhook transaction reference mismatch.",
+                }
+            );
 
             return res.status(200).json({
                 success: true,
-                message: "Transaction details did not match",
+                message: "Transaction reference mismatch recorded.",
             });
         }
 
-        // ====================================
-        // HANDLE SUCCESSFUL PAYMENT
-        // ====================================
+        // VERIFY AMOUNT AND CURRENCY
+
+        const amountMatches = isPaystackAmountValid(
+            donation,
+            data
+        );
+
+        const expectedCurrency = String(
+            donation.currency || "NGN"
+        ).toUpperCase();
+
+        const receivedCurrency = String(
+            data.currency || ""
+        ).toUpperCase();
+
+        const currencyMatches =
+            receivedCurrency === expectedCurrency;
+
+        if (!amountMatches || !currencyMatches) {
+            await handleDonationVerificationMismatch(
+                donation,
+                data,
+                {
+                    source: "paystack_webhook",
+
+                    reason: amountMatches
+                        ? "Webhook transaction currency mismatch."
+                        : "Webhook transaction amount mismatch.",
+                }
+            );
+
+            return res.status(200).json({
+                success: true,
+                message: "Transaction amount or currency mismatch recorded.",
+            });
+        }
+
+        // SUCCESSFUL PAYMENT
 
         if (event === "charge.success") {
-            const updatedDonation = await Donation.findOneAndUpdate(
+            const result = await completeSuccessfulDonation(
+                donation._id,
+                data,
                 {
-                    _id: donation._id,
-                    status: { $ne: "successful" },
-                },
-                {
-                    $set: {
-                        status: "successful",
-                        paidAt: data.paid_at
-                            ? new Date(data.paid_at)
-                            : new Date(),
-                        "metadata.paystackTransactionId": data.id || null,
-                        "metadata.paystackChannel": data.channel || null,
-                        "metadata.webhookVerifiedAt": new Date(),
-                    },
-                },
-                {
-                    new: true,
+                    source: "paystack_webhook",
                 }
             );
-
-            if (updatedDonation) {
-                await logDonationAudit({
-                    action: "donation.payment_successful",
-                    resource: "donation",
-                    resourceId: updatedDonation._id,
-                    details: {
-                        reference,
-                        amount: updatedDonation.amount,
-                        currency: updatedDonation.currency,
-                        source: "paystack_webhook",
-                    },
-                });
-
-                await sendDonationStatusEmail(
-                    updatedDonation,
-                    "successful"
-                );
-            }
 
             return res.status(200).json({
                 success: true,
-                message: "Donation webhook processed",
+                message: result.alreadyProcessed
+                    ? "Donation already processed."
+                    : "Donation webhook processed.",
             });
         }
 
-        // ====================================
-        // HANDLE FAILED PAYMENT
-        // ====================================
+        // FAILED PAYMENT
 
         if (event === "charge.failed") {
-            const updatedDonation = await Donation.findOneAndUpdate(
+            await handleFailedDonation(
+                donation,
+                data,
+                "failed",
                 {
-                    _id: donation._id,
-                    status: "pending",
-                },
-                {
-                    $set: {
-                        status: "failed",
-                        "metadata.webhookVerifiedAt": new Date(),
-                        "metadata.failureMessage":
-                            data.gateway_response ||
-                            data.message ||
-                            "Payment failed",
-                    },
-                },
-                {
-                    new: true,
+                    source: "paystack_webhook",
                 }
             );
-
-            if (updatedDonation) {
-                await logDonationAudit({
-                    action: "donation.payment_failed",
-                    resource: "donation",
-                    resourceId: updatedDonation._id,
-                    details: {
-                        reference,
-                        amount: updatedDonation.amount,
-                        currency: updatedDonation.currency,
-                        source: "paystack_webhook",
-                    },
-                });
-
-                await sendDonationStatusEmail(
-                    updatedDonation,
-                    "failed"
-                );
-            }
         }
 
         return res.status(200).json({
             success: true,
-            message: "Donation webhook processed",
+            message: "Donation webhook processed.",
         });
 
     } catch (error) {
@@ -1162,7 +770,7 @@ export const handleDonationWebhook = async (req, res) => {
 
         return res.status(500).json({
             success: false,
-            message: "Donation webhook processing failed",
+            message: "Donation webhook processing failed.",
         });
     }
 };
