@@ -5,12 +5,12 @@ import Donation from "../models/Donation.js";
 import { paystackRequest } from "../config/paystack.js";
 import { createAuditLog } from "../services/auditLog.service.js";
 import { sendEmail } from "../services/email.service.js";
-
+import { verifyPendingDonations } from "../services/donationVerification.service.js";
 // ========================================
 // SAFE AUDIT LOGGER
 // ========================================
 
-const logDonationAudit = async (auditData) => {
+export const logDonationAudit = async (auditData) => {
     try {
         await createAuditLog(auditData);
     } catch (error) {
@@ -20,7 +20,7 @@ const logDonationAudit = async (auditData) => {
 };
 
 
-const sendDonationStatusEmail = async (donation, status) => {
+export const sendDonationStatusEmail = async (donation, status) => {
     const isSuccessful = status === "successful";
 
     const subject = isSuccessful
@@ -586,6 +586,41 @@ export const initializeDonation = async (req, res) => {
 
 
 
+
+export const verifyPendingDonationsInternal = async (req, res) => {
+    try {
+        const internalSecret = req.headers["x-internal-secret"];
+
+        if (
+            !internalSecret ||
+            internalSecret !== process.env.INTERNAL_PAYMENT_SECRET
+        ) {
+            return res.status(401).json({
+                success: false,
+                message: "Unauthorized.",
+            });
+        }
+
+        const result = await verifyPendingDonations();
+
+        return res.status(200).json({
+            success: true,
+            message: "Pending donations checked successfully.",
+            result,
+        });
+
+    } catch (error) {
+        console.error(
+            "Internal pending donation verification error:",
+            error
+        );
+
+        return res.status(500).json({
+            success: false,
+            message: "Pending donation verification failed.",
+        });
+    }
+};
 
 
 
