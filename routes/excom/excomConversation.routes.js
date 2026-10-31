@@ -5,7 +5,10 @@ import {
     getExcomConversations,
     getExcomConversationDetails,
     replyToExcomConversation,
+    updateExcomConversationStatus,
+    deleteExcomConversation,
 } from "../../controller/excom/excomConversation.controller.js";
+
 
 import {protect} from "../../middleware/authMiddleware.js";
 import requireRole from "../../middleware/roleMiddleware.js";
@@ -40,6 +43,19 @@ router.post(
     "/:conversationId/replies",
     requireRole("president", "member"),
     replyToExcomConversation
+);
+
+
+router.patch(
+    "/:conversationId/status",
+    requireRole("president"),
+    updateExcomConversationStatus
+);
+
+router.delete(
+    "/:conversationId",
+    requireRole("president"),
+    deleteExcomConversation
 );
 
 export default router;
