@@ -430,7 +430,7 @@ export const Signup = async (req, res) => {
                                             text-transform: uppercase;
                                         "
                                     >
-                                        Global Old Students' Association
+                                        National Old Students' Association
                                     </div>
                                 </td>
                             </tr>
@@ -656,7 +656,7 @@ export const Signup = async (req, res) => {
                                             line-height: 1.6;
                                         "
                                     >
-                                        Global Old Students' Association
+                                        National Old Students' Association
                                         <br />
                                         Olivet Baptist High School
                                     </p>
@@ -1117,7 +1117,7 @@ export const resendVerifyEmailLink = async (req, res) => {
                                             text-transform: uppercase;
                                         "
                                     >
-                                        Global Old Students' Association
+                                        National Old Students' Association
                                     </div>
                                 </td>
                             </tr>
@@ -1328,7 +1328,7 @@ export const resendVerifyEmailLink = async (req, res) => {
                                             line-height: 1.6;
                                         "
                                     >
-                                        Global Old Students' Association
+                                        National Old Students' Association
                                         <br />
                                         Olivet Baptist High School
                                     </p>
@@ -1554,7 +1554,7 @@ export const forgetPassword = async (req, res) => {
                                             text-transform: uppercase;
                                         "
                                     >
-                                        Global Old Students' Association
+                                        National Old Students' Association
                                     </div>
                                 </td>
                             </tr>
@@ -1767,7 +1767,7 @@ export const forgetPassword = async (req, res) => {
                                             line-height: 1.6;
                                         "
                                     >
-                                        Global Old Students' Association
+                                        National Old Students' Association
                                         <br />
                                         Olivet Baptist High School
                                     </p>
@@ -2345,7 +2345,7 @@ export const getMemberProfile = async (req, res) => {
         enrollmentYear: user.enrollmentYear,
         graduationYear: user.graduationYear,
         financialStatus: user.financialStatus,
-
+       
         alumniId: user.alumniId,
         yearSet: user.yearSet,
         chapter: user.chapter,
@@ -2385,6 +2385,7 @@ export const updateMemberProfile = async (req, res) => {
       phone,
       profile,
       chapter,
+      
     } = req.body;
 
     const changedFields = [];
@@ -2449,29 +2450,71 @@ export const updateMemberProfile = async (req, res) => {
 
     // PROFILE
 
-    if (profile !== undefined) {
-      if (!profile || typeof profile !== "object" || Array.isArray(profile)) {
-        return errorResponse(res, 400, "Invalid profile data.");
-      }
+    // PROFILE
 
-      const existingProfile =
-        user.profile?.toObject?.() || user.profile || {};
+if (profile !== undefined) {
+  if (!profile || typeof profile !== "object" || Array.isArray(profile)) {
+    return errorResponse(res, 400, "Invalid profile data.");
+  }
 
-      const profileChanges = Object.keys(profile).filter(
-        (key) =>
-          JSON.stringify(existingProfile[key]) !==
-          JSON.stringify(profile[key])
-      );
+  const existingProfile =
+    user.profile?.toObject?.() || user.profile || {};
 
-      if (profileChanges.length > 0) {
-        changedFields.push("profile");
-      }
+  // Validate gender
+  if (
+    profile.gender !== undefined &&
+    !["male", "female"].includes(profile.gender)
+  ) {
+    return errorResponse(res, 400, "Invalid gender selection.");
+  }
 
-      user.profile = {
-        ...existingProfile,
-        ...profile,
-      };
+  // Validate privacy settings
+  if (profile.privacy !== undefined) {
+    if (
+      !profile.privacy ||
+      typeof profile.privacy !== "object" ||
+      Array.isArray(profile.privacy)
+    ) {
+      return errorResponse(res, 400, "Invalid privacy settings.");
     }
+
+    for (const [key, value] of Object.entries(profile.privacy)) {
+      if (typeof value !== "boolean") {
+        return errorResponse(
+          res,
+          400,
+          `Invalid value for privacy setting: ${key}`
+        );
+      }
+    }
+  }
+
+  // Preserve existing nested settings
+  const updatedProfile = {
+    ...existingProfile,
+    ...profile,
+
+    socialLinks: {
+      ...(existingProfile.socialLinks || {}),
+      ...(profile.socialLinks || {}),
+    },
+
+    privacy: {
+      ...(existingProfile.privacy || {}),
+      ...(profile.privacy || {}),
+    },
+  };
+
+  const profileChanged =
+    JSON.stringify(existingProfile) !==
+    JSON.stringify(updatedProfile);
+
+  if (profileChanged) {
+    changedFields.push("profile");
+  }
+
+  user.profile = updatedProfile;
+}
 
     // CHAPTER CHANGE
 

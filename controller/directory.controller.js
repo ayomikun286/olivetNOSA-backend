@@ -39,6 +39,10 @@ export const getDirectoryMembers = async (req, res) => {
         yearSet: member.yearSet,
 
         profile: {
+
+          maidenName: profile.maidenName,
+          gender: profile.gender,
+
           olivetName: profile.olivetName,
           preferredName: profile.preferredName,
           profilePhoto: profile.profilePhoto,

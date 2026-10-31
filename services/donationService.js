@@ -97,7 +97,7 @@ export const sendDonationStatusEmail = async (donation, status) => {
                                             margin-top: 7px;
                                             text-transform: uppercase;
                                         ">
-                                            Global Old Students' Association
+                                            National Old Students' Association
                                         </div>
                                     </td>
                                 </tr>
@@ -257,7 +257,7 @@ export const sendDonationStatusEmail = async (donation, status) => {
                                             font-size: 11px;
                                             line-height: 1.6;
                                         ">
-                                            Global Old Students' Association
+                                            National Old Students' Association
                                             <br />
                                             Olivet Baptist High School
                                         </p>

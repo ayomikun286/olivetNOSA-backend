@@ -1151,7 +1151,7 @@ export const createAdminMemberController = async (req, res) => {
               color: #dbe8f5;
               font-size: 13px;
             ">
-              Global Old Students' Association
+              National Old Students' Association
             </p>
 
           </div>
@@ -1321,7 +1321,7 @@ export const createAdminMemberController = async (req, res) => {
               font-size: 12px;
               line-height: 1.6;
             ">
-              Global Old Students' Association
+              National Old Students' Association
             </p>
 
             <p style="

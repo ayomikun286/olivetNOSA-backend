@@ -4,10 +4,17 @@ import express from "express";
 import cors from "cors";
 
 
+import stewardshipReportRoutes from "./routes/stewardshipReportRoutes.js";
 import announcementRoutes from "./routes/announcement.routes.js";
 import galleryRoutes from "./routes/galleryRoutes.js";
 import jobRoutes from "./routes/jobRoutes.js";
 import helmet from "helmet";
+
+
+
+import excomHistoryRoutes from "./routes/excom/excomHistory.routes.js";
+import excomConversationRoutes from "./routes/excom/excomConversation.routes.js";
+import excomMembershipRoutes from "./routes/excom/excomMembership.routes.js";
 import AdminRoute from "./routes/AdminRoutes.js"
 import { corsOptions } from "./config/cors.js";
 import { sessionConfig } from "./config/session.js";
@@ -72,10 +79,11 @@ app.use("/api/chapters", chapterRoutes);
 
 app.use("/api/gallery", galleryRoutes);
 
-
+app.use("/api/excom/history", excomHistoryRoutes);
 app.use("/api/yearSet", yearSetRoutes);
 app.use(userRoutes)
-
+app.use("/api/stewardship-reports", stewardshipReportRoutes);
+app.use("/api/excom/conversations", excomConversationRoutes);
 app.use("/api/donation", donation)
 app.use("/api/admin", AdminRoute);
 app.use("/api/news-events", newsEventRoutes);
@@ -83,6 +91,8 @@ app.use("/api/memorials", memorial)
 app.use("/api/memorial-submissions", memorialSubmissionRoutes);
 app.use("/api/support", supportRoutes);
 app.use("/api/jobs", jobRoutes);
+
+app.use("/api/excom/members", excomMembershipRoutes);
 
 app.use("/api/financial-report-notifications", financialReportNotificationRoutes);
 

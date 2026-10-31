@@ -187,7 +187,7 @@ const processDeliveryChannel = async (delivery, channel, report) => {
         </div>
 
         <div style="margin-top:7px;color:#C9A227;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">
-          Global Old Students' Association
+          National Old Students' Association
         </div>
       </div>
 
@@ -250,7 +250,7 @@ const processDeliveryChannel = async (delivery, channel, report) => {
         </div>
 
         <div style="color:rgba(255,255,255,0.72);font-size:12px;line-height:1.6;">
-          Global Old Students' Association
+          National Old Students' Association
         </div>
 
         <div style="margin-top:10px;color:#C9A227;font-size:11px;font-weight:700;letter-spacing:1.5px;">

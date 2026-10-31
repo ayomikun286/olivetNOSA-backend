@@ -11,7 +11,7 @@ import {
   restoreAnnouncement,
   deleteAnnouncement,
 } from "../controller/announcement.controller.js";
-
+import requireRole from "../middleware/roleMiddleware.js";
 import { protect } from "../middleware/authmiddleware.js";
 
 const router = express.Router();
@@ -27,25 +27,19 @@ router.get("/", protect, getAnnouncements);
 // PRESIDENT MANAGEMENT ROUTES
 // ============================================================
 
-// Get all announcements (drafts, published, archived)
-router.get("/manage", protect, getAllAnnouncements);
+// PRESIDENT MANAGEMENT ROUTES
 
-// Create announcement
-router.post("/", protect, createAnnouncement);
+router.get("/manage", protect, requireRole("president"), getAllAnnouncements);
 
-// Update announcement
-router.patch("/:id", protect, updateAnnouncement);
+router.post("/", protect, requireRole("president"), createAnnouncement);
 
-// Publish announcement
-router.patch("/:id/publish", protect, publishAnnouncement);
+router.patch("/:id", protect, requireRole("president"), updateAnnouncement);
 
-// Archive announcement
-router.patch("/:id/archive", protect, archiveAnnouncement);
+router.patch("/:id/publish", protect, requireRole("president"), publishAnnouncement);
 
-// Restore archived announcement as draft
-router.patch("/:id/restore", protect, restoreAnnouncement);
+router.patch("/:id/archive", protect, requireRole("president"), archiveAnnouncement);
 
-// Permanently delete announcement
-router.delete("/:id", protect, deleteAnnouncement);
+router.patch("/:id/restore", protect, requireRole("president"), restoreAnnouncement);
 
+router.delete("/:id", protect, requireRole("president"), deleteAnnouncement);
 export default router;

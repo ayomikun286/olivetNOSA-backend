@@ -112,7 +112,7 @@ export const contactEmailTemplate = ({
                                 letter-spacing: 1.5px;
                                 text-transform: uppercase;
                             ">
-                                Global Old Students' Association
+                                National Old Students' Association
                             </p>
 
                             <p style="
@@ -366,7 +366,7 @@ export const contactEmailTemplate = ({
                                 font-size: 12px;
                                 line-height: 1.7;
                             ">
-                                Global Old Students' Association<br />
+                                National Old Students' Association<br />
                                 Olivet Baptist High School
                             </p>
 

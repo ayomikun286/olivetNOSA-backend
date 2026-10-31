@@ -9,7 +9,7 @@ import { createAuditLog } from "../services/auditLog.service.js";
 // HELPERS
 // ============================================================
 
-const isPresident = (req) => Boolean(req.user?.isPresident);
+const isPresident = (req) => req.user?.role === "president";
 
 const logAnnouncementAction = async ({
   req,

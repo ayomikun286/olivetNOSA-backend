@@ -78,7 +78,7 @@ const obligationAssignmentSchema = new mongoose.Schema(
 );
 
 // Every assignment must have exactly one owner.
-obligationAssignmentSchema.pre("validate", function (next) {
+obligationAssignmentSchema.pre("validate", function () {
   const ownerCount = [
     this.user,
     this.yearSet,

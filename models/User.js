@@ -124,6 +124,13 @@ const userSchema = new mongoose.Schema(
         maxlength: 100,
       },
 
+      gender: {
+        type: String,
+        enum: ["male", "female"],
+        trim: true,
+
+      },
+
       profilePhoto: {
         type: String,
         trim: true,
@@ -397,6 +404,7 @@ const userSchema = new mongoose.Schema(
         "treasurer",
         "secretary",
         "superAdmin",
+        "president",
       ],
       default: "member",
     },

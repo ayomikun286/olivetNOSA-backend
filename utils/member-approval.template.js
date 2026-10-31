@@ -58,7 +58,7 @@ export const memberApprovalTemplate = ({
                             </h1>
 
                             <p style="margin:7px 0 0;color:#EAF1F8;font-size:12px;line-height:1.6;letter-spacing:1.5px;text-transform:uppercase;">
-                                Global Old Students' Association
+                                National Old Students' Association
                             </p>
 
                             <p style="margin:8px 0 0;color:#D9E3EF;font-size:13px;">
@@ -184,7 +184,7 @@ export const memberApprovalTemplate = ({
                             </p>
 
                             <p style="margin:0 0 10px;color:#718096;font-size:12px;line-height:1.8;">
-                                Global Old Students' Association<br />
+                                National Old Students' Association<br />
                                 Olivet Baptist High School
                             </p>
 

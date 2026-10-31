@@ -53,7 +53,7 @@ import {
 } from "../controller/admin/websiteContent.controller.js";
 
 
-import {createTeam, getTeamMembers, suspendTeamRole } from "../controller/teamController.js";
+import {createTeam, getTeamMembers, suspendTeamRole, assignPresident, } from "../controller/teamController.js";
 import {
   getAdminGallery,
   createGalleryImage,
@@ -582,6 +582,14 @@ router.patch(
     protect,
     requireRole("admin", "superAdmin"),
     suspendTeamRole
+);
+
+
+router.patch(
+  "/team/president",
+  protect,
+  requireRole("superAdmin"),
+  assignPresident
 );
 // ===================================================///
 

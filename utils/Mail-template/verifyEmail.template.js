@@ -67,7 +67,7 @@ const verifyEmailTemplate = ({ firstName, verificationUrl }) => {
               ">
                 Olivet Baptist High School
                 <br />
-                Global Old Students Association
+                National Old Students Association
               </div>
 
             </td>
@@ -206,7 +206,7 @@ const verifyEmailTemplate = ({ firstName, verificationUrl }) => {
               ">
                 OlivetNOSA
                 <br />
-                Global Old Students Association
+                National Old Students Association
               </p>
 
               <p style="

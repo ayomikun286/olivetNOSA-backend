@@ -149,7 +149,7 @@ export const buildObligationReminderEmail = ({
             text-transform:uppercase;
           "
         >
-          Global Old Students' Association
+          National Old Students' Association
         </div>
 
       </div>
@@ -426,7 +426,7 @@ export const buildObligationReminderEmail = ({
             line-height:1.6;
           "
         >
-          Global Old Students' Association
+          National Old Students' Association
         </div>
 
         <div

@@ -300,7 +300,7 @@ export const completeSuccessfulPayment = async (
             color: #dbe8f5;
             font-size: 13px;
           ">
-            Global Old Students' Association
+            National Old Students' Association
           </p>
 
         </div>
@@ -495,7 +495,7 @@ export const completeSuccessfulPayment = async (
             font-size: 12px;
             line-height: 1.6;
           ">
-            Global Old Students' Association
+            National Old Students' Association
           </p>
 
           <p style="
@@ -697,7 +697,7 @@ export const handleFailedPayment = async (
             color: #dbe8f5;
             font-size: 13px;
           ">
-            Global Old Students' Association
+            National Old Students' Association
           </p>
 
         </div>
@@ -910,7 +910,7 @@ export const handleFailedPayment = async (
             font-size: 12px;
             line-height: 1.6;
           ">
-            Global Old Students' Association
+            National Old Students' Association
           </p>
 
           <p style="
