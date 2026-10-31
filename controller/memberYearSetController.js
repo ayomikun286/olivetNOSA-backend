@@ -6,6 +6,12 @@ import {
   errorResponse,
 } from "../utils/response.js";
 
+import { approveMember } from "../services/memberApproval.service.js";
+import { sendEmail } from "../services/email.service.js";
+import { memberApprovalTemplate } from "../utils/member-approval.template.js";
+import { createNotification } from "../services/notificationService.js";
+import { NOTIFICATION_MESSAGES } from "../constants/notificationMessages.js";
+
 export const getMyYearSet = async (req, res) => {
   try {
     const user = await User.findById(req.user._id)
@@ -44,14 +50,14 @@ export const getMyYearSet = async (req, res) => {
 
     const members = await User.find({
       yearSet: yearSet._id,
-       role: "member",
-      status: "active",
+      role: "member",
+
     })
       .select(
-        "_id firstName middleName lastName alumniId email phone graduationYear chapter financialStatus"
+        "_id firstName middleName lastName alumniId email phone graduationYear chapter financialStatus status isEmailVerified"
       )
       .populate("chapter", "name code")
-      .sort({ lastName: 1, firstName: 1 })
+      .sort({ createdAt: -1 })
       .lean();
 
     // ========================================
@@ -238,6 +244,104 @@ export const getMyYearSet = async (req, res) => {
       res,
       500,
       "Failed to fetch your year set information."
+    );
+  }
+};
+
+
+export const approveYearSetMember = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Get the logged-in leader and their assigned Year Set.
+    const leader = await User.findById(req.user._id)
+      .populate("yearSet", "_id name year leader");
+
+    if (!leader) {
+      return errorResponse(res, 404, "Leader not found.");
+    }
+
+    if (!leader.yearSet) {
+      return errorResponse(res, 404, "You are not assigned to a Year Set.");
+    }
+
+    const yearSet = leader.yearSet;
+
+    // Confirm this user is the actual Year Set leader.
+    if (
+      !yearSet.leader ||
+      yearSet.leader.toString() !== leader._id.toString()
+    ) {
+      return errorResponse(
+        res,
+        403,
+        "You are not authorized to approve members."
+      );
+    }
+
+    // Confirm the target member belongs to this same Year Set.
+    const targetMember = await User.findOne({
+      _id: userId,
+      yearSet: yearSet._id,
+      role: "member",
+    });
+
+    if (!targetMember) {
+      return errorResponse(
+        res,
+        404,
+        "Member not found in your Year Set."
+      );
+    }
+
+    // Reuse the existing approval service.
+    const result = await approveMember(userId, leader._id);
+
+    // Send approval email.
+    await sendEmail({
+      to: result.user.email,
+      subject: "Your OlivetNOSA Account Has Been Approved",
+      html: memberApprovalTemplate({
+        name: result.user.firstName,
+        alumniId: result.user.alumniId,
+      }),
+    });
+
+    // Notify the member about newly assigned obligations.
+    for (const assignment of result.obligationAssignments || []) {
+      await createNotification({
+        userId,
+        type: "obligation",
+        title: "New Payment Obligation",
+        message:
+          "A new payment obligation has been assigned to your account. Please review your obligations for the current year.",
+        link: "/portal/member/dashboard/directory",
+      });
+    }
+
+    // Notify the member that their account was approved.
+    const notification = NOTIFICATION_MESSAGES.account.approved;
+
+    await createNotification({
+      userId,
+      type: "account",
+      title: notification.title,
+      message: notification.message,
+      link: notification.link,
+    });
+
+    return successResponse(res, "Member approved successfully.", {
+      user: result.user,
+      alumniId: result.alumniId,
+      obligationsAssigned: result.obligationsAssigned,
+    });
+  } catch (error) {
+    console.error("Year Set member approval error:", error);
+
+    return errorResponse(
+      res,
+      400,
+      error.message || "Failed to approve member."
     );
   }
 };

@@ -8,8 +8,9 @@ export const createAuditLog = async ({
   targetUser = null,
   details = {},
   req = null,
+  session = null,
 }) => {
-  return await AuditLog.create({
+  const auditLog = new AuditLog({
     actor,
     action,
     resource,
@@ -22,4 +23,6 @@ export const createAuditLog = async ({
       null,
     userAgent: req?.headers?.["user-agent"] || null,
   });
+
+  return auditLog.save(session ? { session } : {});
 };

@@ -11,6 +11,12 @@ import {
   deleteMemberController
 } from "../controller/adminController.js";
 
+import {
+  getTreasurerMembers,
+  getTreasurerMemberDetails,
+  recordOfflinePayment
+} from "../controller/treasurer/treasurer.controller.js";
+
 
 import {
   getAdminDonations,
@@ -770,6 +776,29 @@ router.get(
   protect,
   requireRole("admin", "superAdmin", "treasurer"),
   getAdminDonationById
+);
+
+
+router.get(
+  "/treasurer/members",
+  protect,
+  requireRole("admin", "treasurer", "superAdmin"),
+  getTreasurerMembers
+);
+
+router.get(
+    "/treasurer/members/:userId",
+    protect,
+    requireRole("admin", "treasurer", "superAdmin"),
+    getTreasurerMemberDetails
+);
+
+
+router.post(
+  "/treasurer/payments/offline",
+  protect,
+  requireRole("admin", "treasurer", "superAdmin"),
+  recordOfflinePayment
 );
 
 

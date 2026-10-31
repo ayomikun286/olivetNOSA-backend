@@ -67,6 +67,7 @@ const paymentSchema = new mongoose.Schema(
                 "mobile_money",
                 "paypal",
                 "other",
+                "cash",
             ],
             default: "card",
         },
