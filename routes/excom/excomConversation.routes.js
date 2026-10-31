@@ -10,9 +10,8 @@ import {
 } from "../../controller/excom/excomConversation.controller.js";
 
 
-import {protect} from "../../middleware/authMiddleware.js";
+import {protect} from "../../middleware/authmiddleware.js";
 import requireRole from "../../middleware/roleMiddleware.js";
-
 const router = express.Router();
 
 // Only Presidents and EXCOM members can access discussions

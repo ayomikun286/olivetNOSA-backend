@@ -7,9 +7,8 @@ import {
     removeExcomMember,
 } from "../../controller/excom/excomMembership.controller.js";
 
-import {protect} from "../../middleware/authMiddleware.js";
+import {protect} from "../../middleware/authmiddleware.js";
 import requireRole from "../../middleware/roleMiddleware.js";
-
 const router = express.Router();
 
 // All EXCOM membership management routes are President-only

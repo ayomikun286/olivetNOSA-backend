@@ -6,7 +6,7 @@ import {
      exportPresidentialTenurePDF,
 } from "../../controller/excom/excomHistory.controller.js";
 
-import {protect} from "../../middleware/authMiddleware.js";
+import {protect} from "../../middleware/authmiddleware.js";
 import requireRole from "../../middleware/roleMiddleware.js";
 
 const router = express.Router();
