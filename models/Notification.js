@@ -19,7 +19,8 @@ const notificationSchema = new mongoose.Schema(
                 "announcement",
                 "system",
                 "payment_failed",
-                "financial_report"
+                "financial_report",
+                "excom"
             ],
             required: true,
         },

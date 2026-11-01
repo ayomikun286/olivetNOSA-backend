@@ -10,7 +10,8 @@ import Chapter from "../models/Chapter.js";
 import { validateEmail } from "../utils/validator.js";
 import cloudinary from "../config/cloudinary.js";
 import { createAuditLog } from "../services/auditLog.service.js";
-
+import ExcomMembership from "../models/ExcomMembership.js";
+import PresidentialTenure from "../models/PresidentialTenure.js";
 // import Chapter from "../models/Chapter.js";
 import {
   successResponse,
@@ -2287,12 +2288,24 @@ export const getCurrentUser = async (req, res) => {
     .populate("chapter", "_id name code country leader")
     .populate("yearSet", "_id year name leader");
 
-
-
   if (!user) {
     return errorResponse(res, "User not found.", 404);
   }
 
+  // Check whether the user belongs to the current active EXCOM.
+  const activeTenure = await PresidentialTenure.findOne({
+    status: "active",
+  }).select("_id");
+
+  const isExcomMember = activeTenure
+    ? await ExcomMembership.exists({
+        tenure: activeTenure._id,
+        user: user._id,
+        status: "active",
+      })
+    : false;
+
+   
   return successResponse(res, "Current user retrieved.", {
     id: user._id,
     firstName: user.firstName,
@@ -2310,10 +2323,8 @@ export const getCurrentUser = async (req, res) => {
     approvedAt: user.approvedAt,
     hasCompletedOnboarding: user.hasCompletedOnboarding,
     isPresident: user.isPresident,
-    createdAt: user.createdAt
-
-
-
+    isExcomMember: Boolean(isExcomMember),
+    createdAt: user.createdAt,
   });
 };
 

@@ -57,3 +57,31 @@ export const createNotification = async ({
   return null;
 }
 };
+
+
+
+export const notifyUsers = async ({
+  userIds,
+  type,
+  title,
+  message,
+  link,
+  deduplicationKey,
+}) => {
+  const uniqueUserIds = [
+    ...new Set(userIds.filter(Boolean).map(String)),
+  ];
+
+  return Promise.all(
+    uniqueUserIds.map((userId) =>
+      createNotification({
+        userId,
+        type,
+        title,
+        message,
+        link,
+        deduplicationKey: `${deduplicationKey}:user:${userId}`,
+      })
+    )
+  );
+};

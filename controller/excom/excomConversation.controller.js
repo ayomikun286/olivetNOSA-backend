@@ -4,6 +4,7 @@ import PresidentialTenure from "../../models/PresidentialTenure.js";
 import ExcomMembership from "../../models/ExcomMembership.js";
 import ExcomConversation from "../../models/ExcomConversation.js";
 import ExcomReply from "../../models/ExcomReply.js";
+import { notifyUsers } from "../../services/notificationService.js";
 
 import { createAuditLog } from "../../services/auditLog.service.js";
 
@@ -30,6 +31,26 @@ const getExcomAccess = async (userId, role) => {
 
     return membership?.tenure || null;
 };
+
+
+const getExcomNotificationRecipients = async (tenureId) => {
+    const [tenure, memberships] = await Promise.all([
+        PresidentialTenure.findById(tenureId).select("president"),
+
+        ExcomMembership.find({
+            tenure: tenureId,
+            status: "active",
+        }).select("user"),
+    ]);
+
+    if (!tenure) return [];
+
+    return [
+        tenure.president,
+        ...memberships.map((membership) => membership.user),
+    ].filter(Boolean);
+};
+
 
 
 // ========================================
@@ -147,6 +168,19 @@ export const createExcomConversation = async (req, res) => {
             status: "published",
             publishedAt: new Date(),
             lastActivityAt: new Date(),
+        });
+
+        const recipients = await getExcomNotificationRecipients(tenure._id);
+
+        await notifyUsers({
+            userIds: recipients.filter(
+                (id) => id.toString() !== req.user._id.toString()
+            ),
+            type: "excom",
+            title: "New EXCOM Discussion",
+            message: `A new discussion has been started: ${conversation.subject}`,
+            link: "/portal/member/dashboard/excom",
+            deduplicationKey: `excom:discussion:${conversation._id}`,
         });
 
         await createAuditLog({
@@ -382,6 +416,20 @@ export const replyToExcomConversation = async (req, res) => {
 
         conversation.lastActivityAt = new Date();
         await conversation.save();
+
+        const recipients = await getExcomNotificationRecipients(tenure._id);
+
+        await notifyUsers({
+            userIds: recipients.filter(
+                (id) => id.toString() !== req.user._id.toString()
+            ),
+            type: "excom",
+            title: "New EXCOM Reply",
+            message: `A new reply was added to: ${conversation.subject}`,
+            link: "/portal/member/dashboard/excom",
+            deduplicationKey: `excom:reply:${reply._id}`,
+        });
+
 
         await createAuditLog({
             actor: req.user._id,
