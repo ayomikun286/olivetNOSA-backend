@@ -19,6 +19,19 @@ import {
 
 
 import {
+  getEmailQueueSummary,
+  getAdminEmailJobs,
+  getEmailQueueRuns,
+  retryFailedEmailJob,
+  getEmailJobDetails,
+  cancelEmailJob,
+  markUncertainEmailAsSent,
+  retryUncertainEmailJob,
+} from "../controller/admin/emailQueue.controller.js";
+
+
+
+import {
   getAdminDonations,
   getAdminDonationSummary,
   getAdminDonationById,
@@ -809,5 +822,66 @@ router.post(
   recordOfflinePayment
 );
 
+
+
+// EMAIL QUEUE MONITORING
+
+router.get(
+  "/email-queue/summary",
+  protect,
+  requireRole("admin", "superAdmin"),
+  getEmailQueueSummary
+);
+
+router.get(
+  "/email-queue/jobs",
+  protect,
+  requireRole("admin", "superAdmin"),
+  getAdminEmailJobs
+);
+
+router.get(
+  "/email-queue/runs",
+  protect,
+  requireRole("admin", "superAdmin"),
+  getEmailQueueRuns
+);
+
+
+router.patch(
+    "/email-queue/jobs/:jobId/retry",
+    protect,
+    requireRole("superAdmin"),
+    retryFailedEmailJob
+);
+
+router.get(
+    "/email-queue/jobs/:jobId",
+    protect,
+    requireRole("admin", "superAdmin"),
+    getEmailJobDetails
+);
+
+router.patch(
+    "/email-queue/jobs/:jobId/cancel",
+    protect,
+    requireRole("superAdmin"),
+    cancelEmailJob
+);
+
+
+router.patch(
+    "/email-queue/jobs/:jobId/mark-sent",
+    protect,
+    requireRole("superAdmin"),
+    markUncertainEmailAsSent
+);
+
+router.patch(
+    "/email-queue/jobs/:jobId/retry-uncertain",
+    protect,
+    requireRole("superAdmin"),
+    retryUncertainEmailJob
+);
 
 export default router;

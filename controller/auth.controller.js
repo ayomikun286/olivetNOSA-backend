@@ -37,7 +37,7 @@ const cookieOptions = {
 
 
 export const Signup = async (req, res) => {
-  console.log("working")
+  
 
   try {
     const {
