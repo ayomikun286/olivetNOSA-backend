@@ -10,18 +10,22 @@ import {
     getPresidentStewardshipReports,
     getPublishedStewardshipReports,
     getAdminStewardshipReports,
+    getStewardshipPresidents,
     archivePresidentStewardshipReports,
     restorePresidentStewardshipReports,
 } from "../controller/admin/stewardshipReportController.js";
 
 
+
 const router = express.Router();
+
+
 
 // President: create a report.
 router.post(
     "/",
     protect,
-    requireRole("president"),
+    requireRole("president", "superAdmin"),
     pdfUpload.single("pdf"),
     createStewardshipReport
 );
@@ -75,6 +79,15 @@ router.patch(
     protect,
     requireRole("superAdmin"),
     restorePresidentStewardshipReports
+);
+
+
+// Super Admin: fetch Presidents for stewardship assignment.
+router.get(
+    "/admin/presidents",
+    protect,
+    requireRole("superAdmin"),
+    getStewardshipPresidents
 );
 
 

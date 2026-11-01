@@ -1,4 +1,3 @@
-
 import mongoose from "mongoose";
 
 const stewardshipReportSchema = new mongoose.Schema(
@@ -39,6 +38,15 @@ const stewardshipReportSchema = new mongoose.Schema(
             required: true,
         },
 
+        // President the report belongs to.
+        // Null means a general stewardship report.
+        president: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            default: null,
+        },
+
+        // Actual user who uploaded the report.
         createdBy: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
@@ -59,10 +67,26 @@ const stewardshipReportSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
-// Prevent duplicate reports for the same month and year.
+// Prevent duplicate reports for the same President, month and year.
+stewardshipReportSchema.index(
+    { president: 1, reportingMonth: 1, reportingYear: 1 },
+    {
+        unique: true,
+        partialFilterExpression: {
+            president: { $type: "objectId" },
+        },
+    }
+);
+
+// Prevent duplicate general reports for the same month and year.
 stewardshipReportSchema.index(
     { reportingMonth: 1, reportingYear: 1 },
-    { unique: true }
+    {
+        unique: true,
+        partialFilterExpression: {
+            president: null,
+        },
+    }
 );
 
 const StewardshipReport = mongoose.model(

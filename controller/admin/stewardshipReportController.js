@@ -1,13 +1,10 @@
-
 import mongoose from "mongoose";
-
+import User from "../../models/User.js";
 import StewardshipReport from "../../models/StewardshipReport.js";
-
 import {
     uploadPdfToCloudinary,
     deleteCloudinaryPdf,
 } from "../../services/cloudinaryUpload.service.js";
-
 import { createAuditLog } from "../../services/auditLog.service.js";
 
 
@@ -70,6 +67,42 @@ export const createStewardshipReport = async (req, res) => {
             });
         }
 
+        // Determine report ownership.
+        let presidentId = null;
+
+        if (req.user.role === "president") {
+            // President can only upload for themselves.
+            presidentId = req.user._id;
+        } else if (req.user.role === "superAdmin") {
+            // Super Admin can select a President or leave it unassigned.
+            presidentId = req.body.president?.trim() || null;
+
+            if (presidentId) {
+                if (!mongoose.Types.ObjectId.isValid(presidentId)) {
+                    return res.status(400).json({
+                        success: false,
+                        message: "Invalid President selected.",
+                    });
+                }
+
+                const presidentExists = await User.exists({
+                    _id: presidentId,
+                });
+
+                if (!presidentExists) {
+                    return res.status(404).json({
+                        success: false,
+                        message: "Selected President was not found.",
+                    });
+                }
+            }
+        } else {
+            return res.status(403).json({
+                success: false,
+                message: "You are not authorized to upload stewardship reports.",
+            });
+        }
+
         uploadedPdf = await uploadPdfToCloudinary(req.file);
 
         const report = await StewardshipReport.create({
@@ -79,12 +112,17 @@ export const createStewardshipReport = async (req, res) => {
             content: content.trim(),
             pdfUrl: uploadedPdf.secure_url,
             pdfPublicId: uploadedPdf.public_id,
+
+            // Who the report belongs to.
+            president: presidentId,
+
+            // Who actually uploaded it.
             createdBy: req.user._id,
+
             status,
             publishedAt: status === "published" ? new Date() : null,
         });
 
-        // Confirm that the database record was successfully created.
         databaseCreated = true;
 
         await createAuditLog({
@@ -97,6 +135,8 @@ export const createStewardshipReport = async (req, res) => {
                 title: report.title,
                 reportingMonth: report.reportingMonth,
                 reportingYear: report.reportingYear,
+                president: report.president,
+                createdBy: report.createdBy,
                 status: report.status,
             },
         });
@@ -108,7 +148,6 @@ export const createStewardshipReport = async (req, res) => {
         });
 
     } catch (error) {
-        // Delete the uploaded PDF only if database creation failed.
         if (uploadedPdf?.public_id && !databaseCreated) {
             try {
                 await deleteCloudinaryPdf(uploadedPdf.public_id);
@@ -120,7 +159,7 @@ export const createStewardshipReport = async (req, res) => {
         if (error.code === 11000) {
             return res.status(409).json({
                 success: false,
-                message: "A report already exists for this month and year.",
+                message: "A report already exists for this President or reporting period.",
             });
         }
 
@@ -508,3 +547,28 @@ export const restorePresidentStewardshipReports = async (req, res) => {
 };
 
 
+
+
+export const getStewardshipPresidents = async (req, res) => {
+    try {
+        const presidents = await User.find({
+            role: "president",
+        })
+            .select("_id firstName middleName lastName email")
+            .sort({ firstName: 1, lastName: 1 })
+            .lean();
+
+        return res.status(200).json({
+            success: true,
+            count: presidents.length,
+            data: presidents,
+        });
+    } catch (error) {
+        console.error("Get stewardship Presidents error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch Presidents.",
+        });
+    }
+};
