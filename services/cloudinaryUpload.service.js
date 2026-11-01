@@ -1,15 +1,17 @@
-
+import { randomUUID } from "crypto";
 import cloudinary from "../config/cloudinary.js";
 
 // Upload PDF to Cloudinary.
 export const uploadPdfToCloudinary = (file) =>
     new Promise((resolve, reject) => {
+        const publicId = `stewardship_${randomUUID()}.pdf`;
+
         const stream = cloudinary.uploader.upload_stream(
             {
                 folder: "nosa/stewardship-reports",
+                public_id: publicId,
                 resource_type: "raw",
-                use_filename: true,
-                unique_filename: true,
+                access_mode: "public",
             },
             (error, result) => {
                 if (error) return reject(error);

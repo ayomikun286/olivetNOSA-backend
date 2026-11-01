@@ -407,3 +407,104 @@ export const getPublishedStewardshipReports = async (req, res) => {
         });
     }
 };
+
+
+
+export const archivePresidentStewardshipReports = async (req, res) => {
+    try {
+        const { presidentId } = req.params;
+
+        if (!mongoose.isValidObjectId(presidentId)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid President ID.",
+            });
+        }
+
+        const result = await StewardshipReport.updateMany(
+            {
+                createdBy: presidentId,
+                status: "published",
+            },
+            {
+                $set: { status: "archived" },
+            }
+        );
+
+        await createAuditLog({
+            actor: req.user._id,
+            action: "STEWARDSHIP_REPORTS_ARCHIVED",
+            resource: "StewardshipReport",
+            resourceId: presidentId,
+            req,
+            details: {
+                presidentId,
+                archivedCount: result.modifiedCount,
+            },
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: `${result.modifiedCount} published stewardship report(s) archived successfully.`,
+            archivedCount: result.modifiedCount,
+        });
+    } catch (error) {
+        console.error("Archive President stewardship reports error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to archive stewardship reports.",
+        });
+    }
+};
+
+
+export const restorePresidentStewardshipReports = async (req, res) => {
+    try {
+        const { presidentId } = req.params;
+
+        if (!mongoose.isValidObjectId(presidentId)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid President ID.",
+            });
+        }
+
+        const result = await StewardshipReport.updateMany(
+            {
+                createdBy: presidentId,
+                status: "archived",
+            },
+            {
+                $set: { status: "published" },
+            }
+        );
+
+        await createAuditLog({
+            actor: req.user._id,
+            action: "STEWARDSHIP_REPORTS_RESTORED",
+            resource: "StewardshipReport",
+            resourceId: presidentId,
+            req,
+            details: {
+                presidentId,
+                restoredCount: result.modifiedCount,
+            },
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: `${result.modifiedCount} stewardship report(s) restored successfully.`,
+            restoredCount: result.modifiedCount,
+        });
+    } catch (error) {
+        console.error("Restore President stewardship reports error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to restore stewardship reports.",
+        });
+    }
+};
+
+
