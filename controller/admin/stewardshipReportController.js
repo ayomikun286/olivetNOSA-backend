@@ -481,7 +481,7 @@ export const archivePresidentStewardshipReports = async (req, res) => {
 
         const result = await StewardshipReport.updateMany(
             {
-                createdBy: presidentId,
+                president: presidentId,
                 status: "published",
             },
             {
@@ -530,7 +530,7 @@ export const restorePresidentStewardshipReports = async (req, res) => {
 
         const result = await StewardshipReport.updateMany(
             {
-                createdBy: presidentId,
+                president: presidentId,
                 status: "archived",
             },
             {

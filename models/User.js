@@ -485,6 +485,10 @@ const userSchema = new mongoose.Schema(
 
 
 
+    lastViewedAnnouncementAt: {
+  type: Date,
+  default: null,
+},
 
 
     // ========================================

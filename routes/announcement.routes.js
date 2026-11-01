@@ -1,45 +1,81 @@
-
 import express from "express";
 
 import {
-  createAnnouncement,
-  getAnnouncements,
-  getAllAnnouncements,
-  updateAnnouncement,
-  publishAnnouncement,
-  archiveAnnouncement,
-  restoreAnnouncement,
-  deleteAnnouncement,
+    createAnnouncement,
+    getAnnouncements,
+    getAllAnnouncements,
+    updateAnnouncement,
+    publishAnnouncement,
+    archiveAnnouncement,
+    restoreAnnouncement,
+    deleteAnnouncement,
+     markAnnouncementAsViewed,
 } from "../controller/announcement.controller.js";
+
 import requireRole from "../middleware/roleMiddleware.js";
 import { protect } from "../middleware/authmiddleware.js";
 
 const router = express.Router();
 
-// ============================================================
 // MEMBER ROUTES
-// ============================================================
-
-// Get published announcements
+// MEMBER ROUTES
 router.get("/", protect, getAnnouncements);
 
-// ============================================================
-// PRESIDENT MANAGEMENT ROUTES
-// ============================================================
+router.patch(
+    "/:id/view",
+    protect,
+    markAnnouncementAsViewed
+);
 
-// PRESIDENT MANAGEMENT ROUTES
+// TREASURER & SUPER ADMIN MANAGEMENT ROUTES
+router.get(
+    "/manage",
+    protect,
+    requireRole("president", "treasurer", "superAdmin"),
+    getAllAnnouncements
+);
 
-router.get("/manage", protect, requireRole("president"), getAllAnnouncements);
+router.post(
+    "/",
+    protect,
+    requireRole("treasurer", "superAdmin", "president"),
+    createAnnouncement
+);
 
-router.post("/", protect, requireRole("president"), createAnnouncement);
+router.patch(
+    "/:id",
+    protect,
+    requireRole("treasurer", "superAdmin"),
+    updateAnnouncement
+);
 
-router.patch("/:id", protect, requireRole("president"), updateAnnouncement);
+router.patch(
+    "/:id/publish",
+    protect,
+    requireRole("treasurer", "superAdmin"),
+    publishAnnouncement
+);
 
-router.patch("/:id/publish", protect, requireRole("president"), publishAnnouncement);
+router.patch(
+    "/:id/archive",
+    protect,
+    requireRole("treasurer", "superAdmin"),
+    archiveAnnouncement
+);
 
-router.patch("/:id/archive", protect, requireRole("president"), archiveAnnouncement);
+router.patch(
+    "/:id/restore",
+    protect,
+    requireRole("treasurer", "superAdmin"),
+    restoreAnnouncement
+);
 
-router.patch("/:id/restore", protect, requireRole("president"), restoreAnnouncement);
+// Permanent deletion restricted to Super Admin
+router.delete(
+    "/:id",
+    protect,
+    requireRole("superAdmin"),
+    deleteAnnouncement
+);
 
-router.delete("/:id", protect, requireRole("president"), deleteAnnouncement);
 export default router;
