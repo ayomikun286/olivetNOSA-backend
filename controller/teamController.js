@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import User from "../models/User.js";
 import { createAuditLog } from "../services/auditLog.service.js";
 import PresidentialTenure from "../models/PresidentialTenure.js";
+import ExcomMembership from "../models/ExcomMembership.js";
 
 const ALLOWED_TEAM_ROLES = [
     "admin",
@@ -92,27 +93,27 @@ export const createTeam = async (req, res) => {
 };
 
 export const getTeamMembers = async (req, res) => {
-  try {
-    const teamMembers = await User.find({
-      role: { $in: ["admin", "treasurer", "secretary", "president"] },
-    })
-      .select("firstName lastName email role status createdAt")
-      .sort({ role: 1, firstName: 1 })
-      .lean();
+    try {
+        const teamMembers = await User.find({
+            role: { $in: ["admin", "treasurer", "secretary", "president"] },
+        })
+            .select("firstName lastName email role status createdAt")
+            .sort({ role: 1, firstName: 1 })
+            .lean();
 
-    return res.status(200).json({
-      success: true,
-      count: teamMembers.length,
-      teamMembers,
-    });
-  } catch (error) {
-    console.error("Get team members error:", error);
+        return res.status(200).json({
+            success: true,
+            count: teamMembers.length,
+            teamMembers,
+        });
+    } catch (error) {
+        console.error("Get team members error:", error);
 
-    return res.status(500).json({
-      success: false,
-      message: "Failed to fetch team members.",
-    });
-  }
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch team members.",
+        });
+    }
 };
 
 
@@ -256,9 +257,10 @@ export const assignPresident = async (req, res) => {
                 return;
             }
 
+            
             // Complete the previous President's tenure.
             if (previousPresident) {
-                await PresidentialTenure.findOneAndUpdate(
+                const previousTenure = await PresidentialTenure.findOneAndUpdate(
                     {
                         president: previousPresident._id,
                         status: "active",
@@ -269,8 +271,29 @@ export const assignPresident = async (req, res) => {
                             endDate: startDate,
                         },
                     },
-                    { session }
+                    {
+                        session,
+                        new: true,
+                    }
                 );
+
+                // Deactivate all active EXCOM memberships
+                // belonging to the previous tenure.
+                if (previousTenure) {
+                    await ExcomMembership.updateMany(
+                        {
+                            tenure: previousTenure._id,
+                            status: "active",
+                        },
+                        {
+                            $set: {
+                                status: "inactive",
+                                removedAt: startDate,
+                            },
+                        },
+                        { session }
+                    );
+                }
 
                 previousPresident.role = "member";
                 previousPresident.isPresident = false;
@@ -333,5 +356,113 @@ export const assignPresident = async (req, res) => {
 
     } finally {
         await session.endSession();
+    }
+};
+
+
+
+
+
+export const assignExcomMember = async (req, res) => {
+    try {
+        const { userId, position } = req.body;
+
+        if (!mongoose.isValidObjectId(userId)) {
+            return res.status(400).json({
+                success: false,
+                message: "A valid member ID is required.",
+            });
+        }
+
+        if (!position?.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: "EXCOM position is required.",
+            });
+        }
+
+        const normalizedPosition = position.trim();
+
+        if (normalizedPosition.length > 100) {
+            return res.status(400).json({
+                success: false,
+                message: "Position cannot exceed 100 characters.",
+            });
+        }
+
+        const [member, activeTenure] = await Promise.all([
+            User.findById(userId),
+            PresidentialTenure.findOne({ status: "active" }),
+        ]);
+
+        if (!member) {
+            return res.status(404).json({
+                success: false,
+                message: "Member not found.",
+            });
+        }
+
+        if (member.role === "president" || member.isPresident) {
+            return res.status(400).json({
+                success: false,
+                message: "The President is the head of the tenure and cannot be assigned as an EXCOM member.",
+            });
+        }
+
+        if (member.role !== "member" || member.status !== "active") {
+            return res.status(400).json({
+                success: false,
+                message: "Only active regular members can be appointed to the EXCOM.",
+            });
+        }
+
+        if (!activeTenure) {
+            return res.status(400).json({
+                success: false,
+                message: "There is no active presidential tenure.",
+            });
+        }
+
+        const appointment = await ExcomMembership.create({
+            tenure: activeTenure._id,
+            user: member._id,
+            position: normalizedPosition,
+            appointedBy: req.user._id,
+        });
+
+        await createAuditLog({
+            actor: req.user._id,
+            action: "EXCOM_MEMBER_APPOINTED",
+            resource: "ExcomMembership",
+            resourceId: appointment._id,
+            targetUser: member._id,
+            req,
+            details: {
+                memberName: `${member.firstName} ${member.lastName}`,
+                memberEmail: member.email,
+                position: normalizedPosition,
+                tenureId: activeTenure._id,
+            },
+        });
+
+        return res.status(201).json({
+            success: true,
+            message: `${member.firstName} has been appointed as ${normalizedPosition}.`,
+            appointment,
+        });
+    } catch (error) {
+        console.error("Assign EXCOM member error:", error);
+
+        if (error.code === 11000) {
+            return res.status(409).json({
+                success: false,
+                message: "This member or position already has an active appointment in this tenure.",
+            });
+        }
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to appoint EXCOM member.",
+        });
     }
 };

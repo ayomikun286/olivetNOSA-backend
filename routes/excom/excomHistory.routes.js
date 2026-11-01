@@ -6,6 +6,16 @@ import {
      exportPresidentialTenurePDF,
 } from "../../controller/excom/excomHistory.controller.js";
 
+
+import {
+    assignExcomMember,
+    getExcomMembers,
+    updateExcomMember,
+    removeExcomMember,
+} from "../../controller/excom/adminExcomMembership.controller.js";
+
+
+
 import {protect} from "../../middleware/authmiddleware.js";
 import requireRole from "../../middleware/roleMiddleware.js";
 
@@ -21,5 +31,17 @@ router.get(
     "/tenures/:tenureId/export",
     exportPresidentialTenurePDF
 );
+
+
+// EXCOM Membership Management
+router.post("/members", assignExcomMember);
+
+router.get("/tenures/:tenureId/members", getExcomMembers);
+
+router.patch("/members/:membershipId", updateExcomMember);
+
+router.patch("/members/:membershipId/remove", removeExcomMember);
+
+
 
 export default router;

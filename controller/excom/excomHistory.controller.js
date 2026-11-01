@@ -16,14 +16,41 @@ import ExcomReply from "../../models/ExcomReply.js";
 
 export const getAllPresidentialTenures = async (req, res) => {
     try {
-        const tenures = await PresidentialTenure.find()
-            .populate("president", "firstName lastName email")
-            .sort({ startDate: -1 })
-            .lean();
+        const [
+            tenures,
+            totalAppointments,
+            totalDiscussions,
+            totalReplies,
+        ] = await Promise.all([
+            PresidentialTenure.find()
+                .populate("president", "firstName lastName email")
+                .sort({ startDate: -1 })
+                .lean(),
+
+            ExcomMembership.countDocuments(),
+
+            ExcomConversation.countDocuments(),
+
+            ExcomReply.countDocuments(),
+        ]);
+
+        const activeTenures = tenures.filter(
+            (tenure) => tenure.status === "active"
+        ).length;
 
         return res.status(200).json({
             success: true,
+
             count: tenures.length,
+
+            stats: {
+                totalTenures: tenures.length,
+                activeTenures,
+                totalAppointments,
+                totalDiscussions,
+                totalReplies,
+            },
+
             tenures,
         });
 
@@ -92,12 +119,21 @@ export const getPresidentialTenureDetails = async (req, res) => {
             .sort({ createdAt: 1 })
             .lean();
 
+        const repliesByConversation = new Map();
+
+        for (const reply of replies) {
+            const key = String(reply.conversation);
+
+            if (!repliesByConversation.has(key)) {
+                repliesByConversation.set(key, []);
+            }
+
+            repliesByConversation.get(key).push(reply);
+        }
+
         const discussionsWithReplies = conversations.map((conversation) => ({
             ...conversation,
-            replies: replies.filter(
-                (reply) =>
-                    String(reply.conversation) === String(conversation._id)
-            ),
+            replies: repliesByConversation.get(String(conversation._id)) || [],
         }));
 
         return res.status(200).json({
@@ -124,6 +160,7 @@ export const getPresidentialTenureDetails = async (req, res) => {
 // EXPORT PRESIDENTIAL TENURE COMMUNICATIONS
 // SUPER ADMIN ONLY
 // ========================================
+
 
 export const exportPresidentialTenurePDF = async (req, res) => {
     try {
@@ -163,12 +200,14 @@ export const exportPresidentialTenurePDF = async (req, res) => {
             (conversation) => conversation._id
         );
 
-        const replies = await ExcomReply.find({
-            conversation: { $in: conversationIds },
-        })
-            .populate("sender", "firstName lastName")
-            .sort({ createdAt: 1 })
-            .lean();
+        const replies = conversationIds.length
+            ? await ExcomReply.find({
+                conversation: { $in: conversationIds },
+            })
+                .populate("sender", "firstName lastName")
+                .sort({ createdAt: 1 })
+                .lean()
+            : [];
 
         const repliesByConversation = new Map();
 
@@ -182,6 +221,47 @@ export const exportPresidentialTenurePDF = async (req, res) => {
             repliesByConversation.get(key).push(reply);
         }
 
+        // Resolve a participant's position within this presidential tenure.
+        const getParticipantPosition = (user) => {
+            if (!user?._id) return "Participant";
+
+            // The president is separate from EXCOM membership appointments.
+            if (
+                tenure.president?._id &&
+                String(user._id) === String(tenure.president._id)
+            ) {
+                return "President";
+            }
+
+            const appointments = members
+                .filter(
+                    (membership) =>
+                        String(membership.user?._id) === String(user._id)
+                )
+                .sort((a, b) => {
+                    if (
+                        a.status === "active" &&
+                        b.status !== "active"
+                    ) {
+                        return -1;
+                    }
+
+                    if (
+                        b.status === "active" &&
+                        a.status !== "active"
+                    ) {
+                        return 1;
+                    }
+
+                    return (
+                        new Date(b.appointedAt) -
+                        new Date(a.appointedAt)
+                    );
+                });
+
+            return appointments[0]?.position || "Member";
+        };
+
         const formatDate = (date) =>
             date ? new Date(date).toLocaleString("en-NG") : "Present";
 
@@ -192,21 +272,72 @@ export const exportPresidentialTenurePDF = async (req, res) => {
             tenure.president?.lastName
         )}_${tenure._id}.pdf`;
 
+        // Record the export before starting the PDF response.
+        await createAuditLog({
+            actor: req.user._id,
+            action: "EXCOM_ARCHIVE_EXPORTED",
+            resource: "PresidentialTenure",
+            resourceId: tenure._id,
+            req,
+            details: {
+                president: tenure.president?._id,
+                discussionsExported: conversations.length,
+                repliesExported: replies.length,
+            },
+        });
+
+        const doc = new PDFDocument({
+            size: "A4",
+            margins: {
+                top: 50,
+                bottom: 65,
+                left: 50,
+                right: 50,
+            },
+            bufferPages: true,
+            autoFirstPage: true,
+        });
+
+        const PAGE_BOTTOM = 720;
+        const FOOTER_Y = 760;
+        const CONTENT_WIDTH = 495;
+
+        // Add a page when the remaining content area is insufficient.
+        const ensurePageSpace = (requiredHeight = 50) => {
+            if (doc.y + requiredHeight > PAGE_BOTTOM) {
+                doc.addPage();
+            }
+        };
+
+        // Keep a heading with the content that follows it.
+        const addSectionHeading = (heading) => {
+            ensurePageSpace(45);
+
+            doc
+                .fontSize(14)
+                .font("Helvetica-Bold")
+                .text(heading);
+
+            doc.moveDown(0.5);
+        };
+
+        // Prepare response headers only after database work and audit logging.
         res.setHeader("Content-Type", "application/pdf");
         res.setHeader(
             "Content-Disposition",
             `attachment; filename="${filename}"`
         );
 
-        const doc = new PDFDocument({
-            size: "A4",
-            margins: {
-                top: 50,
-                bottom: 50,
-                left: 50,
-                right: 50,
-            },
-            bufferPages: true,
+        doc.on("error", (error) => {
+            console.error("PDF document stream error:", error);
+
+            if (!res.destroyed) {
+                res.destroy(error);
+            }
+        });
+
+        res.on("error", (error) => {
+            console.error("PDF response stream error:", error);
         });
 
         doc.pipe(res);
@@ -231,14 +362,14 @@ export const exportPresidentialTenurePDF = async (req, res) => {
         doc.moveDown(2);
 
         // TENURE INFORMATION
-        doc.fontSize(14).font("Helvetica-Bold").text("TENURE INFORMATION");
-        doc.moveDown(0.5);
+        addSectionHeading("TENURE INFORMATION");
 
         doc.fontSize(10).font("Helvetica");
 
         doc.text(
             `President: ${tenure.president?.firstName || ""} ${tenure.president?.lastName || ""}`
         );
+        doc.text("Position: President");
         doc.text(`Email: ${tenure.president?.email || "N/A"}`);
         doc.text(`Start Date: ${formatDate(tenure.startDate)}`);
         doc.text(`End Date: ${formatDate(tenure.endDate)}`);
@@ -247,21 +378,30 @@ export const exportPresidentialTenurePDF = async (req, res) => {
         doc.moveDown(1.5);
 
         // EXCOM MEMBERS
-        doc.fontSize(14).font("Helvetica-Bold").text("EXCOM MEMBERS");
-        doc.moveDown(0.5);
+        addSectionHeading("EXCOM MEMBERS");
 
         if (!members.length) {
-            doc.fontSize(10).font("Helvetica").text("No EXCOM appointments recorded.");
+            ensurePageSpace(25);
+
+            doc
+                .fontSize(10)
+                .font("Helvetica")
+                .text("No EXCOM appointments recorded.");
         } else {
             members.forEach((membership, index) => {
+                ensurePageSpace(100);
+
                 const member = membership.user;
 
                 doc
                     .fontSize(10)
                     .font("Helvetica-Bold")
-                    .text(`${index + 1}. ${member?.firstName || ""} ${member?.lastName || ""}`);
+                    .text(
+                        `${index + 1}. ${member?.firstName || ""} ${member?.lastName || ""}`
+                    );
 
                 doc
+                    .fontSize(10)
                     .font("Helvetica")
                     .text(`Position: ${membership.position}`)
                     .text(`Email: ${member?.email || "N/A"}`)
@@ -279,16 +419,19 @@ export const exportPresidentialTenurePDF = async (req, res) => {
         doc.moveDown(1);
 
         // DISCUSSIONS AND REPLIES
-        doc.fontSize(14).font("Helvetica-Bold").text("DISCUSSIONS & REPLIES");
-        doc.moveDown(0.7);
+        addSectionHeading("DISCUSSIONS & REPLIES");
 
         if (!conversations.length) {
-            doc.fontSize(10).font("Helvetica").text("No discussions recorded.");
+            ensurePageSpace(25);
+
+            doc
+                .fontSize(10)
+                .font("Helvetica")
+                .text("No discussions recorded.");
         } else {
             conversations.forEach((conversation, index) => {
-                if (doc.y > 680) {
-                    doc.addPage();
-                }
+                // Reserve room for the discussion heading and metadata.
+                ensurePageSpace(100);
 
                 const creator = conversation.createdBy;
 
@@ -303,38 +446,65 @@ export const exportPresidentialTenurePDF = async (req, res) => {
                     .text(
                         `Created by: ${creator?.firstName || ""} ${creator?.lastName || ""}`
                     )
+                    .text(
+                        `Position: ${getParticipantPosition(creator)}`
+                    )
                     .text(`Date: ${formatDate(conversation.createdAt)}`)
                     .text(`Status: ${conversation.status}`);
 
                 doc.moveDown(0.4);
 
-                doc.fontSize(10).font("Helvetica").text(conversation.message, {
-                    paragraphGap: 5,
-                });
+                // PDFKit automatically continues long text onto new pages.
+                doc
+                    .fontSize(10)
+                    .font("Helvetica")
+                    .text(conversation.message || "", {
+                        width: CONTENT_WIDTH,
+                        paragraphGap: 5,
+                    });
 
                 doc.moveDown(0.6);
 
                 const conversationReplies =
                     repliesByConversation.get(String(conversation._id)) || [];
 
-                doc.fontSize(10).font("Helvetica-Bold").text("Replies");
+                ensurePageSpace(30);
+
+                doc
+                    .fontSize(10)
+                    .font("Helvetica-Bold")
+                    .text("Replies");
 
                 if (!conversationReplies.length) {
-                    doc.fontSize(9).font("Helvetica").text("No replies.");
+                    ensurePageSpace(20);
+
+                    doc
+                        .fontSize(9)
+                        .font("Helvetica")
+                        .text("No replies.");
                 } else {
                     conversationReplies.forEach((reply) => {
+                        // Keep reply heading and at least some content together.
+                        ensurePageSpace(45);
+
                         const sender = reply.sender;
 
                         doc
                             .fontSize(9)
                             .font("Helvetica-Bold")
                             .text(
-                                `${sender?.firstName || ""} ${sender?.lastName || ""} — ${formatDate(reply.createdAt)}`
+                                `${sender?.firstName || ""} ${sender?.lastName || ""}`
                             );
 
                         doc
+                            .fontSize(9)
                             .font("Helvetica")
-                            .text(reply.message, {
+                            .text(
+                                `Position: ${getParticipantPosition(sender)}`
+                            )
+                            .text(`Date: ${formatDate(reply.createdAt)}`)
+                            .text(reply.message || "", {
+                                width: CONTENT_WIDTH,
                                 paragraphGap: 4,
                             });
 
@@ -349,7 +519,11 @@ export const exportPresidentialTenurePDF = async (req, res) => {
         // PAGE NUMBERS
         const range = doc.bufferedPageRange();
 
-        for (let i = range.start; i < range.start + range.count; i++) {
+        for (
+            let i = range.start;
+            i < range.start + range.count;
+            i++
+        ) {
             doc.switchToPage(i);
 
             doc
@@ -358,26 +532,14 @@ export const exportPresidentialTenurePDF = async (req, res) => {
                 .text(
                     `EXCOM Archive | Page ${i + 1} of ${range.count}`,
                     50,
-                    760,
+                    FOOTER_Y,
                     {
-                        width: 495,
+                        width: CONTENT_WIDTH,
                         align: "center",
+                        lineBreak: false,
                     }
                 );
         }
-
-        await createAuditLog({
-            actor: req.user._id,
-            action: "EXCOM_ARCHIVE_EXPORTED",
-            resource: "PresidentialTenure",
-            resourceId: tenure._id,
-            req,
-            details: {
-                president: tenure.president?._id,
-                discussionsExported: conversations.length,
-                repliesExported: replies.length,
-            },
-        });
 
         doc.end();
 
@@ -391,6 +553,8 @@ export const exportPresidentialTenurePDF = async (req, res) => {
             });
         }
 
-        res.destroy(error);
+        if (!res.destroyed) {
+            res.destroy(error);
+        }
     }
 };
