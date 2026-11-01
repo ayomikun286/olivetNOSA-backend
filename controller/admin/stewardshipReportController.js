@@ -394,30 +394,49 @@ export const getAdminStewardshipReports = async (req, res) => {
 };
 
 
-
 export const getPresidentStewardshipReports = async (req, res) => {
     try {
         const reports = await StewardshipReport.find({
-            createdBy: req.user._id,
+            $or: [
+                // Reports assigned to this President
+                {
+                    president: req.user._id,
+                },
+
+                // Published general reports from Super Admin
+                {
+                    president: null,
+                    status: "published",
+                },
+            ],
         })
-            .sort({ reportingYear: -1, reportingMonth: -1 })
-            .lean();
+            .populate(
+                "president",
+                "firstName middleName lastName"
+            )
+            .populate(
+                "createdBy",
+                "firstName middleName lastName"
+            )
+            .sort({
+                reportingYear: -1,
+                reportingMonth: -1,
+                createdAt: -1,
+            });
 
         return res.status(200).json({
             success: true,
-            count: reports.length,
             data: reports,
         });
     } catch (error) {
-        console.error("Get president stewardship reports error:", error);
+        console.error("Get President stewardship reports error:", error);
 
         return res.status(500).json({
             success: false,
-            message: "Failed to fetch stewardship reports.",
+            message: "Unable to retrieve stewardship reports.",
         });
     }
 };
-
 
 
 export const getPublishedStewardshipReports = async (req, res) => {
