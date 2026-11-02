@@ -48,18 +48,20 @@ export const getMyYearSet = async (req, res) => {
     // YEAR SET MEMBERS
     // ========================================
 
-    const members = await User.find({
-      yearSet: yearSet._id,
-      role: "member",
-
-    })
-      .select(
-        "_id firstName middleName lastName alumniId email phone graduationYear chapter financialStatus status isEmailVerified"
-      )
-      .populate("chapter", "name code")
-      .sort({ createdAt: -1 })
-      .lean();
-
+   const members = await User.find({
+  yearSet: yearSet._id,
+  role: "member",
+})
+  .select(
+    "_id firstName middleName lastName alumniId email phone graduationYear chapter financialStatus status isEmailVerified approvedBy approvedAt approvalAuthority"
+  )
+  .populate("chapter", "name code")
+  .populate(
+    "approvedBy",
+    "firstName middleName lastName alumniId role"
+  )
+  .sort({ createdAt: -1 })
+  .lean();
     // ========================================
     // MEMBER FINANCIAL SUMMARIES
     // No individual payment history is fetched.
@@ -295,8 +297,11 @@ export const approveYearSetMember = async (req, res) => {
     }
 
     // Reuse the existing approval service.
-    const result = await approveMember(userId, leader._id);
-
+    const result = await approveMember(
+      userId,
+      leader._id,
+      "yearSetLeader"
+    );
     // Send approval email.
     await sendEmail({
       to: result.user.email,

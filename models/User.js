@@ -455,6 +455,17 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
+    approvalAuthority: {
+      type: String,
+      enum: ["yearSetLeader", "superAdmin"],
+      default: null,
+    },
 
     hasCompletedOnboarding: {
       type: Boolean,
@@ -486,9 +497,9 @@ const userSchema = new mongoose.Schema(
 
 
     lastViewedAnnouncementAt: {
-  type: Date,
-  default: null,
-},
+      type: Date,
+      default: null,
+    },
 
 
     // ========================================

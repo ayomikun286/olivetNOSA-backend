@@ -14,6 +14,14 @@ const gallerySchema = new mongoose.Schema(
       trim: true,
     },
 
+
+    album: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "Album",
+  required: true,
+},
+
+
     category: {
       type: String,
       required: true,

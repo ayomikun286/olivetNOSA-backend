@@ -30,9 +30,13 @@ export const approveMemberController = async (req, res) => {
   try {
     const { userId } = req.params;
 
-    const result = await approveMember(userId, req.user._id);
+    const result = await approveMember(
+      userId,
+      req.user._id,
+      "superAdmin"
+    );
 
-   
+
 
     // SEND ACCOUNT APPROVAL EMAIL
     await sendEmail({
@@ -799,7 +803,7 @@ export const getAdminMembersController = async (req, res) => {
     const [members, total] = await Promise.all([
       User.find(memberFilter)
         .select(
-          "firstName middleName lastName email phone enrollmentYear graduationYear alumniId status isEmailVerified role yearSet chapter createdAt updatedAt"
+          "firstName middleName lastName email phone enrollmentYear graduationYear alumniId status isEmailVerified role yearSet chapter createdAt updatedAt approvedBy approvedAt approvalAuthority"
         )
         .populate(
           "yearSet",
@@ -809,13 +813,17 @@ export const getAdminMembersController = async (req, res) => {
           "chapter",
           "name code"
         )
+        .populate(
+          "approvedBy",
+          "firstName middleName lastName alumniId role"
+        )
         .sort({
           createdAt: -1,
         })
         .skip(skip)
         .limit(limit)
         .lean(),
-
+        
       User.countDocuments(filter),
     ]);
 

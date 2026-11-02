@@ -10,7 +10,8 @@ import generateAlumniId from "../utils/generateAlumniId.js";
 
 export const approveMember = async (
   userId,
-  approvedBy
+  approvedBy,
+  approvalAuthority
 ) => {
   const session = await mongoose.startSession();
 
@@ -72,6 +73,8 @@ export const approveMember = async (
     user.status = "active";
     user.alumniId = alumniId;
     user.approvedAt = new Date();
+    user.approvedBy = approvedBy;
+    user.approvalAuthority = approvalAuthority;
     user.hasCompletedOnboarding = false;
 
     await user.save({ session });
@@ -104,6 +107,7 @@ export const approveMember = async (
         yearSet: user.yearSet._id,
         graduationYear: user.graduationYear,
         obligationsAssigned: obligationResult.assigned,
+        approvalAuthority,
       },
     });
 
