@@ -15,11 +15,18 @@ const gallerySchema = new mongoose.Schema(
       trim: true,
     },
 
+
+
     album: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Album",
       required: true,
     },
+
+    isFeatured: {
+  type: Boolean,
+  default: false,
+},
 
     size: {
       type: String,
@@ -56,6 +63,11 @@ gallerySchema.index({
   album: 1,
   isPublished: 1,
   createdAt: -1,
+});
+gallerySchema.index({
+    isFeatured: 1,
+    isPublished: 1,
+    createdAt: -1,
 });
 
 const Gallery = mongoose.model("Gallery", gallerySchema);

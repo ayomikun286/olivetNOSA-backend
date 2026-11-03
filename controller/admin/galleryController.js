@@ -211,6 +211,7 @@ export const createGalleryImage = async (req, res) => {
 
 
 // PATCH /api/admin/gallery/:id
+
 export const updateGalleryImage = async (req, res) => {
     let uploadedAsset = null;
     let databaseUpdated = false;
@@ -236,7 +237,7 @@ export const updateGalleryImage = async (req, res) => {
             });
         }
 
-        const { title, size, isPublished } = req.body;
+        const { title, size, isPublished, isFeatured } = req.body;
 
         // Validate title.
         if (title !== undefined) {
@@ -259,6 +260,34 @@ export const updateGalleryImage = async (req, res) => {
             });
         }
 
+        // Validate featured status.
+        if (
+            isFeatured !== undefined &&
+            ![true, false, "true", "false"].includes(isFeatured)
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid featured status.",
+            });
+        }
+
+        // Enforce maximum of 8 featured images.
+if (isFeatured === true || isFeatured === "true") {
+    if (!image.isFeatured) {
+        const featuredCount = await Gallery.countDocuments({
+            isFeatured: true,
+            _id: { $ne: image._id },
+        });
+
+        if (featuredCount >= 8) {
+            return res.status(400).json({
+                success: false,
+                message: "You can only feature a maximum of 8 gallery images.",
+            });
+        }
+    }
+}
+
         // Validate publication status.
         if (
             isPublished !== undefined &&
@@ -275,6 +304,7 @@ export const updateGalleryImage = async (req, res) => {
             title: image.title,
             size: image.size,
             isPublished: image.isPublished,
+            isFeatured: image.isFeatured,
             image: image.image,
             imageSource: image.imageSource,
             cloudinaryPublicId: image.cloudinaryPublicId,
@@ -319,6 +349,12 @@ export const updateGalleryImage = async (req, res) => {
                 isPublished === true || isPublished === "true";
         }
 
+        // Featured status must be updated independently of file uploads.
+        if (isFeatured !== undefined) {
+            image.isFeatured =
+                isFeatured === true || isFeatured === "true";
+        }
+
         await image.save();
         databaseUpdated = true;
 
@@ -335,6 +371,7 @@ export const updateGalleryImage = async (req, res) => {
                     title: image.title,
                     size: image.size,
                     isPublished: image.isPublished,
+                    isFeatured: image.isFeatured,
                     image: image.image,
                 },
             },
@@ -386,6 +423,7 @@ export const updateGalleryImage = async (req, res) => {
         });
     }
 };
+
 
 
 
@@ -468,3 +506,40 @@ export const deleteGalleryImage = async (req, res) => {
 };
 
 
+
+
+// GET /api/gallery/featured
+
+export const getFeaturedGalleryImages = async (req, res) => {
+    try {
+        const images = await Gallery.find({
+            isFeatured: true,
+            isPublished: true,
+        })
+            .populate({
+                path: "album",
+                select: "title category year",
+                match: { isPublished: true },
+            })
+            .sort({ createdAt: -1 })
+            .lean();
+
+        const featuredImages = images
+            .filter((image) => image.album)
+            .slice(0, 8);
+
+        return res.status(200).json({
+            success: true,
+            count: featuredImages.length,
+            data: featuredImages,
+        });
+
+    } catch (error) {
+        console.error("Get featured gallery images error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch featured gallery images.",
+        });
+    }
+};
