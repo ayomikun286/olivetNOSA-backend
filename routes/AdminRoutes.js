@@ -19,6 +19,14 @@ import {
 
 
 import {
+  createAlbum,
+  getAdminAlbums,
+  getAdminAlbumById,
+  updateAlbum,
+  deleteAlbum,
+} from "../controller/admin/album.controller.js";
+
+import {
   getEmailQueueSummary,
   getAdminEmailJobs,
   getEmailQueueRuns,
@@ -545,7 +553,7 @@ router.post(
   "/gallery",
   protect,
   requireRole("admin", "superAdmin"),
-  galleryUpload.single("image"),
+  galleryUpload.array("images", 50),
   createGalleryImage
 );
 
@@ -562,6 +570,45 @@ router.delete(
   protect,
   requireRole("admin", "superAdmin"),
   deleteGalleryImage
+);
+
+
+
+// ALBUM MANAGEMENT
+
+router.get(
+  "/albums",
+  protect,
+  requireRole("admin", "superAdmin"),
+  getAdminAlbums
+);
+
+router.get(
+  "/albums/:albumId",
+  protect,
+  requireRole("admin", "superAdmin"),
+  getAdminAlbumById
+);
+
+router.post(
+  "/albums",
+  protect,
+  requireRole("admin", "superAdmin"),
+  createAlbum
+);
+
+router.patch(
+  "/albums/:albumId",
+  protect,
+  requireRole("admin", "superAdmin"),
+  updateAlbum
+);
+
+router.delete(
+  "/albums/:albumId",
+  protect,
+  requireRole("admin", "superAdmin"),
+  deleteAlbum
 );
 // =========================================================//
 

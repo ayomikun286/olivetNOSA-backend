@@ -1,3 +1,4 @@
+
 import mongoose from "mongoose";
 
 const gallerySchema = new mongoose.Schema(
@@ -14,25 +15,10 @@ const gallerySchema = new mongoose.Schema(
       trim: true,
     },
 
-
     album: {
-  type: mongoose.Schema.Types.ObjectId,
-  ref: "Album",
-  required: true,
-},
-
-
-    category: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Album",
       required: true,
-      enum: [
-        "Heritage",
-        "Olivet",
-        "Community",
-        "People",
-        "Students",
-        "Campus",
-      ],
     },
 
     size: {
@@ -66,7 +52,11 @@ const gallerySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-gallerySchema.index({ isPublished: 1, category: 1, createdAt: -1 });
+gallerySchema.index({
+  album: 1,
+  isPublished: 1,
+  createdAt: -1,
+});
 
 const Gallery = mongoose.model("Gallery", gallerySchema);
 

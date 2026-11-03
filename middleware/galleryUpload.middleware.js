@@ -4,8 +4,8 @@ const galleryUpload = multer({
   storage: multer.memoryStorage(),
 
   limits: {
-    fileSize: 10 * 1024 * 1024,
-    files: 1,
+    fileSize: 10 * 1024 * 1024, // 10MB per image
+    files: 50, // Maximum 50 images per upload
   },
 
   fileFilter: (req, file, cb) => {
