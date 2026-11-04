@@ -8,6 +8,9 @@ import {
 
 import generateAlumniId from "../utils/generateAlumniId.js";
 
+
+
+
 export const approveMember = async (
   userId,
   approvedBy,
@@ -17,6 +20,8 @@ export const approveMember = async (
 
   try {
     session.startTransaction();
+
+    
 
     const user = await User.findById(userId)
       .populate("chapter", "_id code name")
@@ -32,6 +37,12 @@ export const approveMember = async (
         "Member must verify their email before approval."
       );
     }
+
+    if (user.possibleDuplicate?.isDuplicate) {
+  throw new Error(
+    "This account has a possible identity conflict. Please contact the Super Admin to review and resolve it before approving this member."
+  );
+}
 
     if (user.status === "active" && user.alumniId) {
       throw new Error("Member has already been approved.");

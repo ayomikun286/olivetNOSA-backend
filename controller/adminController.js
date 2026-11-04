@@ -91,6 +91,147 @@ export const approveMemberController = async (req, res) => {
   }
 };
 
+export const getPendingDuplicateMembersController = async (req, res) => {
+  try {
+    const members = await User.find({
+      role: "member",
+      "possibleDuplicate.isDuplicate": true,
+      "possibleDuplicate.reviewStatus": "pending",
+    })
+      .select(
+        "firstName middleName lastName email phone enrollmentYear graduationYear alumniId status isEmailVerified yearSet chapter createdAt possibleDuplicate"
+      )
+      .populate(
+        "yearSet",
+        "year name"
+      )
+      .populate(
+        "chapter",
+        "name code"
+      )
+      .populate({
+        path: "possibleDuplicate.matchedUserIds",
+        select:
+          "firstName middleName lastName email phone enrollmentYear graduationYear alumniId status yearSet chapter",
+        populate: [
+          {
+            path: "yearSet",
+            select: "year name",
+          },
+          {
+            path: "chapter",
+            select: "name code",
+          },
+        ],
+      })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      total: members.length,
+      members,
+    });
+  } catch (error) {
+    console.error(
+      "Get pending duplicate members error:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load pending identity conflicts.",
+    });
+  }
+};
+
+
+
+export const resolveDuplicateMemberController = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { decision } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid member ID.",
+      });
+    }
+
+    if (!["cleared", "confirmed"].includes(decision)) {
+      return res.status(400).json({
+        success: false,
+        message: "Decision must be either cleared or confirmed.",
+      });
+    }
+
+    const member = await User.findOne({
+      _id: userId,
+      role: "member",
+    });
+
+    if (!member) {
+      return res.status(404).json({
+        success: false,
+        message: "Member not found.",
+      });
+    }
+
+    if (
+      !member.possibleDuplicate?.isDuplicate ||
+      member.possibleDuplicate.reviewStatus !== "pending"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "This member has no pending identity conflict to resolve.",
+      });
+    }
+
+    member.possibleDuplicate.isDuplicate = decision === "confirmed";
+    member.possibleDuplicate.reviewStatus = decision;
+    member.possibleDuplicate.reviewedBy = req.user._id;
+    member.possibleDuplicate.reviewedAt = new Date();
+
+    await member.save();
+
+    await createAuditLog({
+      actor: req.user._id,
+      action:
+        decision === "cleared"
+          ? "member.duplicate_cleared"
+          : "member.duplicate_confirmed",
+      resource: "User",
+      resourceId: member._id,
+      targetUser: member._id,
+      details: {
+        decision,
+        matchedUserIds: member.possibleDuplicate.matchedUserIds,
+      },
+      req,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message:
+        decision === "cleared"
+          ? "Identity conflict cleared successfully."
+          : "Identity conflict confirmed successfully.",
+      data: {
+        userId: member._id,
+        possibleDuplicate: member.possibleDuplicate,
+      },
+    });
+  } catch (error) {
+    console.error("Resolve duplicate member error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to resolve identity conflict.",
+    });
+  }
+};
+
 
 // ========================================
 // SUSPEND MEMBER
@@ -301,6 +442,7 @@ export const getAdminDashboard = async (req, res) => {
       pendingMembers,
       suspendedMembers,
       monthlyRegistrations,
+      pendingDuplicates,
     ] = await Promise.all([
       User.countDocuments({
         role: "member",
@@ -328,6 +470,13 @@ export const getAdminDashboard = async (req, res) => {
           $lt: startOfNextMonth,
         },
       }),
+
+      User.countDocuments({
+        role: "member",
+        "possibleDuplicate.isDuplicate": true,
+        "possibleDuplicate.reviewStatus": "pending",
+      }),
+
     ]);
 
     const financialResult = await ObligationAssignment.aggregate([
@@ -607,6 +756,7 @@ export const getAdminDashboard = async (req, res) => {
         pending: pendingMembers,
         suspended: suspendedMembers,
         monthlyRegistrations,
+        pendingDuplicates,
       },
 
       finance: {
@@ -823,7 +973,7 @@ export const getAdminMembersController = async (req, res) => {
         .skip(skip)
         .limit(limit)
         .lean(),
-        
+
       User.countDocuments(filter),
     ]);
 
@@ -1449,6 +1599,8 @@ export const createAdminMemberController = async (req, res) => {
     await session.endSession();
   }
 };
+
+
 
 
 

@@ -32,13 +32,14 @@ const cookieOptions = {
 };
 
 
-
+const escapeRegex = (value) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 
 
 
 export const Signup = async (req, res) => {
-  
+
 
   try {
     const {
@@ -213,6 +214,22 @@ export const Signup = async (req, res) => {
     }
 
 
+    // CHECK POSSIBLE NAME CONFLICTS
+    // ==========================================
+
+    const possibleMatches = await User.find({
+      firstName: {
+        $regex: `^${escapeRegex(firstNameValue)}$`,
+        $options: "i",
+      },
+      lastName: {
+        $regex: `^${escapeRegex(lastNameValue)}$`,
+        $options: "i",
+      },
+    }).select("_id firstName middleName lastName graduationYear status");
+
+
+
 
     // FIND YEAR SET
     // ==========================================
@@ -273,6 +290,18 @@ export const Signup = async (req, res) => {
       email: emailValue,
 
       phone: phoneValue,
+
+      possibleDuplicate: {
+        isDuplicate: possibleMatches.length > 0,
+
+        matchedUserIds: possibleMatches.map(
+          (matchedUser) => matchedUser._id
+        ),
+
+        reviewStatus: possibleMatches.length > 0
+          ? "pending"
+          : "not_required",
+      },
 
       enrollmentYear: enrollmentYearValue,
 
@@ -2299,13 +2328,13 @@ export const getCurrentUser = async (req, res) => {
 
   const isExcomMember = activeTenure
     ? await ExcomMembership.exists({
-        tenure: activeTenure._id,
-        user: user._id,
-        status: "active",
-      })
+      tenure: activeTenure._id,
+      user: user._id,
+      status: "active",
+    })
     : false;
 
-   
+
   return successResponse(res, "Current user retrieved.", {
     id: user._id,
     firstName: user.firstName,
@@ -2356,7 +2385,7 @@ export const getMemberProfile = async (req, res) => {
         enrollmentYear: user.enrollmentYear,
         graduationYear: user.graduationYear,
         financialStatus: user.financialStatus,
-       
+
         alumniId: user.alumniId,
         yearSet: user.yearSet,
         chapter: user.chapter,
@@ -2396,7 +2425,7 @@ export const updateMemberProfile = async (req, res) => {
       phone,
       profile,
       chapter,
-      
+
     } = req.body;
 
     const changedFields = [];
@@ -2463,69 +2492,69 @@ export const updateMemberProfile = async (req, res) => {
 
     // PROFILE
 
-if (profile !== undefined) {
-  if (!profile || typeof profile !== "object" || Array.isArray(profile)) {
-    return errorResponse(res, 400, "Invalid profile data.");
-  }
-
-  const existingProfile =
-    user.profile?.toObject?.() || user.profile || {};
-
-  // Validate gender
-  if (
-    profile.gender !== undefined &&
-    !["male", "female"].includes(profile.gender)
-  ) {
-    return errorResponse(res, 400, "Invalid gender selection.");
-  }
-
-  // Validate privacy settings
-  if (profile.privacy !== undefined) {
-    if (
-      !profile.privacy ||
-      typeof profile.privacy !== "object" ||
-      Array.isArray(profile.privacy)
-    ) {
-      return errorResponse(res, 400, "Invalid privacy settings.");
-    }
-
-    for (const [key, value] of Object.entries(profile.privacy)) {
-      if (typeof value !== "boolean") {
-        return errorResponse(
-          res,
-          400,
-          `Invalid value for privacy setting: ${key}`
-        );
+    if (profile !== undefined) {
+      if (!profile || typeof profile !== "object" || Array.isArray(profile)) {
+        return errorResponse(res, 400, "Invalid profile data.");
       }
+
+      const existingProfile =
+        user.profile?.toObject?.() || user.profile || {};
+
+      // Validate gender
+      if (
+        profile.gender !== undefined &&
+        !["male", "female"].includes(profile.gender)
+      ) {
+        return errorResponse(res, 400, "Invalid gender selection.");
+      }
+
+      // Validate privacy settings
+      if (profile.privacy !== undefined) {
+        if (
+          !profile.privacy ||
+          typeof profile.privacy !== "object" ||
+          Array.isArray(profile.privacy)
+        ) {
+          return errorResponse(res, 400, "Invalid privacy settings.");
+        }
+
+        for (const [key, value] of Object.entries(profile.privacy)) {
+          if (typeof value !== "boolean") {
+            return errorResponse(
+              res,
+              400,
+              `Invalid value for privacy setting: ${key}`
+            );
+          }
+        }
+      }
+
+      // Preserve existing nested settings
+      const updatedProfile = {
+        ...existingProfile,
+        ...profile,
+
+        socialLinks: {
+          ...(existingProfile.socialLinks || {}),
+          ...(profile.socialLinks || {}),
+        },
+
+        privacy: {
+          ...(existingProfile.privacy || {}),
+          ...(profile.privacy || {}),
+        },
+      };
+
+      const profileChanged =
+        JSON.stringify(existingProfile) !==
+        JSON.stringify(updatedProfile);
+
+      if (profileChanged) {
+        changedFields.push("profile");
+      }
+
+      user.profile = updatedProfile;
     }
-  }
-
-  // Preserve existing nested settings
-  const updatedProfile = {
-    ...existingProfile,
-    ...profile,
-
-    socialLinks: {
-      ...(existingProfile.socialLinks || {}),
-      ...(profile.socialLinks || {}),
-    },
-
-    privacy: {
-      ...(existingProfile.privacy || {}),
-      ...(profile.privacy || {}),
-    },
-  };
-
-  const profileChanged =
-    JSON.stringify(existingProfile) !==
-    JSON.stringify(updatedProfile);
-
-  if (profileChanged) {
-    changedFields.push("profile");
-  }
-
-  user.profile = updatedProfile;
-}
 
     // CHAPTER CHANGE
 

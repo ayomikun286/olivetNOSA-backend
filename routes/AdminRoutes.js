@@ -3,12 +3,14 @@ import express from "express";
 
 import {
   approveMemberController,
+  resolveDuplicateMemberController,
   suspendMemberController,
   reactivateMemberController,
   getAdminDashboard,
   getAdminMembersController,
   createAdminMemberController,
-  deleteMemberController
+  deleteMemberController,
+  getPendingDuplicateMembersController,
 } from "../controller/adminController.js";
 
 import {
@@ -235,6 +237,20 @@ router.get(
     "superAdmin"
   ),
   getAdminMembersController
+);
+
+router.patch(
+  "/members/:userId/duplicate-review",
+  protect,
+  requireRole("superAdmin"),
+  resolveDuplicateMemberController
+);
+
+router.get(
+  "/members/duplicate-review",
+  protect,
+  requireRole("superAdmin"),
+  getPendingDuplicateMembersController
 );
 
 

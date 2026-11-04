@@ -416,6 +416,36 @@ const userSchema = new mongoose.Schema(
     },
 
 
+    possibleDuplicate: {
+      isDuplicate: {
+        type: Boolean,
+        default: false,
+      },
+
+      matchedUserIds: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      }],
+
+      reviewStatus: {
+        type: String,
+        enum: ["not_required", "pending", "cleared", "confirmed"],
+        default: "not_required",
+      },
+
+      reviewedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        default: null,
+      },
+
+      reviewedAt: {
+        type: Date,
+        default: null,
+      },
+    },
+
+
     // ========================================
     // EMAIL VERIFICATION
     // ========================================
