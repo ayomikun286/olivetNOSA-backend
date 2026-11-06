@@ -7,8 +7,9 @@ import StewardshipReport from "../models/StewardshipReport.js";
 // HELPERS
 // ============================================================
 
-const canManageAnnouncements = (req) =>
-    ["treasurer", "superAdmin", "president"].includes(req.user?.role);
+const isApprovedUser = (req) => req.user?.status === "active";
+
+const canManageAnnouncements = (req) => ["treasurer", "superAdmin", "president"].includes(req.user?.role);
 
 const isSuperAdmin = (req) => req.user?.role === "superAdmin";
 
@@ -102,6 +103,14 @@ export const createAnnouncement = async (req, res) => {
 
 export const getAnnouncements = async (req, res) => {
     try {
+
+        if (!isApprovedUser(req)) {
+            return res.status(403).json({
+                success: false,
+                message: "Your account is not approved to access announcements.",
+            });
+        }
+
         const [announcements, stewardshipReports, user] =
             await Promise.all([
                 Announcement.find({ status: "published" })
@@ -171,6 +180,14 @@ export const getAnnouncements = async (req, res) => {
 export const markAnnouncementAsViewed = async (req, res) => {
     try {
         const { type = "announcement" } = req.body;
+
+        if (!isApprovedUser(req)) {
+            return res.status(403).json({
+                success: false,
+                message: "Your account is not approved to access announcements.",
+            });
+        }
+
 
         let content;
 
