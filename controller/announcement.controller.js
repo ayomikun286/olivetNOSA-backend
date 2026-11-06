@@ -9,7 +9,7 @@ import StewardshipReport from "../models/StewardshipReport.js";
 
 const isApprovedUser = (req) => req.user?.status === "active";
 
-const canManageAnnouncements = (req) => ["treasurer", "superAdmin", "president"].includes(req.user?.role);
+const canManageAnnouncements = (req) => ["treasurer", "superAdmin"].includes(req.user?.role);
 
 const isSuperAdmin = (req) => req.user?.role === "superAdmin";
 

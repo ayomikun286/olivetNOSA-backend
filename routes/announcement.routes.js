@@ -31,14 +31,14 @@ router.patch(
 router.get(
     "/manage",
     protect,
-    requireRole("president", "treasurer", "superAdmin"),
+    requireRole( "treasurer", "superAdmin"),
     getAllAnnouncements
 );
 
 router.post(
     "/",
     protect,
-    requireRole("treasurer", "superAdmin", "president"),
+    requireRole("treasurer", "superAdmin",),
     createAnnouncement
 );
 
