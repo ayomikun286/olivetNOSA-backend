@@ -12,7 +12,7 @@ import helmet from "helmet";
 
 
 
-
+import { initializeGeoLocation } from "./utils/geoLocation.js";
 import analyticsRoutes from "./routes/analytics.routes.js";
 import excomHistoryRoutes from "./routes/excom/excomHistory.routes.js";
 import excomConversationRoutes from "./routes/excom/excomConversation.routes.js";
@@ -101,13 +101,7 @@ app.use("/api/analytics", analyticsRoutes);
 app.use("/api/announcements", announcementRoutes);
 
 
-app.get("/api/analytics/ip-check", (req, res) => {
-  res.json({
-    ip: req.ip,
-    forwardedFor: req.headers["x-forwarded-for"] || null,
-    realIp: req.headers["x-real-ip"] || null,
-  });
-});
+
 
 
 
@@ -127,6 +121,7 @@ const startServer = async () => {
   try {
 
     await connectDB();
+     await initializeGeoLocation();
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
     });

@@ -20,6 +20,8 @@ export const recordAnalyticsEvent = async ({
   pagePath,
   elementLabel = null,
   targetPath = null,
+  country = null,
+  countryCode = null,
 } = {}) => {
   // Validate event type
   if (!ALLOWED_EVENT_TYPES.includes(eventType)) {
@@ -90,6 +92,7 @@ export const recordAnalyticsEvent = async ({
     throw validationError("Target path is only allowed for click events");
   }
 
+
   const analyticsEvent = new AnalyticsEvent({
     eventType,
     visitorId: visitorId.trim(),
@@ -97,10 +100,13 @@ export const recordAnalyticsEvent = async ({
     pagePath: pagePath.trim(),
     elementLabel: elementLabel?.trim() || null,
     targetPath: targetPath?.trim() || null,
+    country,
+    countryCode,
   });
 
   return analyticsEvent.save();
 };
+
 
 
 
@@ -115,45 +121,89 @@ export const getAnalyticsDashboard = async ({
 } = {}) => {
   const now = new Date();
 
-  const end = endDate ? new Date(endDate) : now;
+  // ========================================
+  // DATE PARSING (AFRICA/LAGOS)
+  // ========================================
+
+  const parseDate = (value, isEndDate = false) => {
+    if (!value) return null;
+
+    // Interpret date-only values as Nigerian dates (UTC+1).
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return new Date(
+        `${value}T${isEndDate
+          ? "23:59:59.999"
+          : "00:00:00.000"
+        }+01:00`
+      );
+    }
+
+    return new Date(value);
+  };
+
+  const end = endDate
+    ? parseDate(endDate, true)
+    : now;
 
   const start = startDate
-    ? new Date(startDate)
-    : new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+    ? parseDate(startDate)
+    : new Date(
+      end.getTime() - 30 * 24 * 60 * 60 * 1000
+    );
 
-  // Include the entire selected end date
-  if (endDate && /^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
-    const selectedEndDate = new Date(endDate);
+  const todayInLagos = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Lagos",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
 
-    // Reject dates that haven't started yet
-    if (selectedEndDate > now) {
-      const error = new Error("Invalid analytics date range");
-      error.statusCode = 400;
-      throw error;
-    }
-
-    end.setUTCHours(23, 59, 59, 999);
-
-    // If the selected end date is today,
-    // stop at the current time instead of the end of the day.
-    if (end > now) {
-      end.setTime(now.getTime());
-    }
+  // If the selected end date is today in Nigeria,
+  // cap it at the current time.
+  if (endDate === todayInLagos && end > now) {
+    end.setTime(now.getTime());
   }
 
-  // Validate date range
+  // ========================================
+  // DATE VALIDATION
+  // ========================================
+
+  //     console.log("ANALYTICS DATE DEBUG:", {
+  //     receivedStartDate: startDate,
+  //     receivedEndDate: endDate,
+
+  //     parsedStart: start,
+  //     parsedEnd: end,
+  //     currentTime: now,
+
+  //     startTimestamp: start?.getTime(),
+  //     endTimestamp: end?.getTime(),
+  //     nowTimestamp: now.getTime(),
+
+  //     invalidStart: Number.isNaN(start?.getTime()),
+  //     invalidEnd: Number.isNaN(end?.getTime()),
+
+  //     startAfterEnd: start > end,
+  //     endAfterNow: end > now,
+  // });
+
   if (
+    !start ||
+    !end ||
     Number.isNaN(start.getTime()) ||
     Number.isNaN(end.getTime()) ||
     start > end ||
     end > now
   ) {
-    const error = new Error("Invalid analytics date range");
+    const error = new Error(
+      "Invalid analytics date range"
+    );
+
     error.statusCode = 400;
     throw error;
   }
 
-  // Prevent excessively large analytics queries
+  // Prevent excessively large analytics queries.
   const MAX_RANGE_DAYS = 366;
 
   const rangeInDays =
@@ -164,6 +214,7 @@ export const getAnalyticsDashboard = async ({
     const error = new Error(
       "Analytics date range cannot exceed 366 days"
     );
+
     error.statusCode = 400;
     throw error;
   }
@@ -175,7 +226,10 @@ export const getAnalyticsDashboard = async ({
     },
   };
 
-  // Keep the rest of your existing aggregation code below.
+  // ========================================
+  // ANALYTICS AGGREGATIONS
+  // ========================================
+
   const [
     overviewResult,
     uniqueVisitors,
@@ -183,7 +237,9 @@ export const getAnalyticsDashboard = async ({
     monthlyVisitors,
     topPages,
     topClicks,
+    visitorsByCountry,
   ] = await Promise.all([
+
     // 1. General statistics
     AnalyticsEvent.aggregate([
       { $match: match },
@@ -193,7 +249,11 @@ export const getAnalyticsDashboard = async ({
 
           totalPageViews: {
             $sum: {
-              $cond: [{ $eq: ["$eventType", "page_view"] }, 1, 0],
+              $cond: [
+                { $eq: ["$eventType", "page_view"] },
+                1,
+                0,
+              ],
             },
           },
 
@@ -201,7 +261,10 @@ export const getAnalyticsDashboard = async ({
             $sum: {
               $cond: [
                 {
-                  $in: ["$eventType", ["button_click", "link_click"]],
+                  $in: [
+                    "$eventType",
+                    ["button_click", "link_click"],
+                  ],
                 },
                 1,
                 0,
@@ -218,7 +281,7 @@ export const getAnalyticsDashboard = async ({
       eventType: "page_view",
     }),
 
-    // 3. Daily unique visitors
+    // 3. Daily visitors
     AnalyticsEvent.aggregate([
       {
         $match: {
@@ -235,22 +298,34 @@ export const getAnalyticsDashboard = async ({
               timezone: "Africa/Lagos",
             },
           },
-          visitors: { $addToSet: "$visitorId" },
-          pageViews: { $sum: 1 },
+
+          visitors: {
+            $addToSet: "$visitorId",
+          },
+
+          pageViews: {
+            $sum: 1,
+          },
         },
       },
       {
         $project: {
           date: "$_id",
-          uniqueVisitors: { $size: "$visitors" },
+          uniqueVisitors: {
+            $size: "$visitors",
+          },
           pageViews: 1,
           _id: 0,
         },
       },
-      { $sort: { date: 1 } },
+      {
+        $sort: {
+          date: 1,
+        },
+      },
     ]),
 
-    // 4. Monthly unique visitors
+    // 4. Monthly visitors
     AnalyticsEvent.aggregate([
       {
         $match: {
@@ -267,19 +342,31 @@ export const getAnalyticsDashboard = async ({
               timezone: "Africa/Lagos",
             },
           },
-          visitors: { $addToSet: "$visitorId" },
-          pageViews: { $sum: 1 },
+
+          visitors: {
+            $addToSet: "$visitorId",
+          },
+
+          pageViews: {
+            $sum: 1,
+          },
         },
       },
       {
         $project: {
           month: "$_id",
-          uniqueVisitors: { $size: "$visitors" },
+          uniqueVisitors: {
+            $size: "$visitors",
+          },
           pageViews: 1,
           _id: 0,
         },
       },
-      { $sort: { month: 1 } },
+      {
+        $sort: {
+          month: 1,
+        },
+      },
     ]),
 
     // 5. Most visited pages
@@ -293,20 +380,36 @@ export const getAnalyticsDashboard = async ({
       {
         $group: {
           _id: "$pagePath",
-          views: { $sum: 1 },
-          visitors: { $addToSet: "$visitorId" },
+
+          views: {
+            $sum: 1,
+          },
+
+          visitors: {
+            $addToSet: "$visitorId",
+          },
         },
       },
       {
         $project: {
           pagePath: "$_id",
           views: 1,
-          uniqueVisitors: { $size: "$visitors" },
+
+          uniqueVisitors: {
+            $size: "$visitors",
+          },
+
           _id: 0,
         },
       },
-      { $sort: { views: -1 } },
-      { $limit: 10 },
+      {
+        $sort: {
+          views: -1,
+        },
+      },
+      {
+        $limit: 10,
+      },
     ]),
 
     // 6. Most clicked elements
@@ -314,7 +417,9 @@ export const getAnalyticsDashboard = async ({
       {
         $match: {
           ...match,
-          eventType: { $in: ["button_click", "link_click"] },
+          eventType: {
+            $in: ["button_click", "link_click"],
+          },
         },
       },
       {
@@ -324,7 +429,10 @@ export const getAnalyticsDashboard = async ({
             elementLabel: "$elementLabel",
             targetPath: "$targetPath",
           },
-          clicks: { $sum: 1 },
+
+          clicks: {
+            $sum: 1,
+          },
         },
       },
       {
@@ -336,25 +444,96 @@ export const getAnalyticsDashboard = async ({
           _id: 0,
         },
       },
-      { $sort: { clicks: -1 } },
-      { $limit: 10 },
+      {
+        $sort: {
+          clicks: -1,
+        },
+      },
+      {
+        $limit: 10,
+      },
+    ]),
+
+    // 7. Visitors by country
+    AnalyticsEvent.aggregate([
+      {
+        $match: {
+          ...match,
+          eventType: "page_view",
+          country: {
+            $nin: [null, ""],
+          },
+          countryCode: {
+            $nin: [null, ""],
+          },
+        },
+      },
+      {
+        $group: {
+          _id: "$countryCode",
+
+          country: {
+            $first: "$country",
+          },
+
+          visitors: {
+            $addToSet: "$visitorId",
+          },
+
+          pageViews: {
+            $sum: 1,
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          country: 1,
+          countryCode: "$_id",
+
+          uniqueVisitors: {
+            $size: "$visitors",
+          },
+
+          pageViews: 1,
+        },
+      },
+      {
+        $sort: {
+          uniqueVisitors: -1,
+        },
+      },
+      {
+        $limit: 20,
+      },
     ]),
   ]);
+
+  // ========================================
+  // OVERVIEW
+  // ========================================
 
   const overview = overviewResult[0] || {
     totalPageViews: 0,
     totalClicks: 0,
   };
 
+  // ========================================
+  // RESPONSE
+  // ========================================
+
   return {
     overview: {
       ...overview,
       uniqueVisitors: uniqueVisitors.length,
     },
+
     dailyVisitors,
     monthlyVisitors,
     topPages,
     topClicks,
+    visitorsByCountry,
+
     dateRange: {
       startDate: start,
       endDate: end,

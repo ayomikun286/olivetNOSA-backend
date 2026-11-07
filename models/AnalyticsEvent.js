@@ -51,6 +51,22 @@ const analyticsEventSchema = new mongoose.Schema(
       maxlength: 500,
     },
 
+    // Approximate visitor location derived from IP
+country: {
+  type: String,
+  trim: true,
+  default: null,
+  maxlength: 100,
+},
+
+countryCode: {
+  type: String,
+  trim: true,
+  uppercase: true,
+  default: null,
+  maxlength: 2,
+},
+
 
     
   },
