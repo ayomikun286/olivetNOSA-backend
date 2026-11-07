@@ -100,6 +100,17 @@ app.use("/api/financial-report-notifications", financialReportNotificationRoutes
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/announcements", announcementRoutes);
 
+
+app.get("/api/analytics/ip-check", (req, res) => {
+  res.json({
+    ip: req.ip,
+    forwardedFor: req.headers["x-forwarded-for"] || null,
+    realIp: req.headers["x-real-ip"] || null,
+  });
+});
+
+
+
 app.use("/api/obligations", obligationRoutes);
 app.use(obligationAssignmentRoutes);
 app.use("/api/notifications", Notification);
