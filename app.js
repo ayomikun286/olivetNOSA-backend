@@ -12,6 +12,8 @@ import helmet from "helmet";
 
 
 
+
+import analyticsRoutes from "./routes/analytics.routes.js";
 import excomHistoryRoutes from "./routes/excom/excomHistory.routes.js";
 import excomConversationRoutes from "./routes/excom/excomConversation.routes.js";
 import excomMembershipRoutes from "./routes/excom/excomMembership.routes.js";
@@ -95,7 +97,7 @@ app.use("/api/jobs", jobRoutes);
 app.use("/api/excom/members", excomMembershipRoutes);
 
 app.use("/api/financial-report-notifications", financialReportNotificationRoutes);
-
+app.use("/api/analytics", analyticsRoutes);
 app.use("/api/announcements", announcementRoutes);
 
 app.use("/api/obligations", obligationRoutes);
