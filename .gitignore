@@ -9,6 +9,8 @@ seeds/
 .env.*
 !.env.example
 
+GeoLite2-Country.mmdb
+
 # Logs
 logs/
 *.log
