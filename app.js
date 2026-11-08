@@ -118,9 +118,10 @@ app.use("/api/admin/financial-reports", financialReportRoutes);
 
 
 const startServer = async () => {
+   await connectDB();
   try {
 
-    await connectDB();
+   
      await initializeGeoLocation();
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);

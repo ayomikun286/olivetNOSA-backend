@@ -3,7 +3,6 @@ node_modules/
 seeds/
 
 
-data/GeoLite2-Country.mmdb
 
 # Environment variables
 .env
