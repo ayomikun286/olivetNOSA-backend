@@ -200,7 +200,9 @@ router.patch(
   protect,
   requireRole(
     "admin",
-    "superAdmin"
+    "superAdmin",
+     "president"
+
   ),
   approveMemberController
 );
@@ -234,7 +236,8 @@ router.get(
   protect,
   requireRole(
     "admin",
-    "superAdmin"
+    "superAdmin",
+      "president"
   ),
   getAdminMembersController
 );

@@ -493,7 +493,7 @@ const userSchema = new mongoose.Schema(
 
     approvalAuthority: {
       type: String,
-      enum: ["yearSetLeader", "superAdmin"],
+      enum: ["yearSetLeader", "superAdmin", "president"],
       default: null,
     },
 

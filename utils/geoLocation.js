@@ -8,7 +8,7 @@ const __dirname = path.dirname(__filename);
 
 const databasePath = path.resolve(
   __dirname,
-  "../data/GeoLite2-Country.mmdb"
+  "../GeoLite2-Country.mmdb"
 );
 
 let countryReader = null;

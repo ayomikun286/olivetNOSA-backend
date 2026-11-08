@@ -8,19 +8,7 @@ const requiredEnvVars = [
   "FRONTEND_URL",
 ];
 
-console.log("PRODUCTION ENV CHECK:", {
-  JWT_SECRET: Boolean(process.env.JWT_SECRET?.trim()),
-  SESSION_SECRET: Boolean(process.env.SESSION_SECRET?.trim()),
-  FRONTEND_URL: Boolean(process.env.FRONTEND_URL?.trim()),
-});
 
-console.log("PRODUCTION ENV CHECK:", {
-  cwd: process.cwd(),
-  nodeEnv: process.env.NODE_ENV,
-  JWT_SECRET: Boolean(process.env.JWT_SECRET?.trim()),
-  SESSION_SECRET: Boolean(process.env.SESSION_SECRET?.trim()),
-  FRONTEND_URL: Boolean(process.env.FRONTEND_URL?.trim()),
-});
 
 const missingEnvVars = requiredEnvVars.filter(
   (key) => !process.env[key]?.trim()

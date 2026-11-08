@@ -33,7 +33,7 @@ export const approveMemberController = async (req, res) => {
     const result = await approveMember(
       userId,
       req.user._id,
-      "superAdmin"
+      req.user.role
     );
 
 
