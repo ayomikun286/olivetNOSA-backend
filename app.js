@@ -128,7 +128,7 @@ const startServer = async () => {
       .collection("users")
       .indexes();
 
-    console.log("UPDATED USER COLLECTION INDEXES:", indexes);
+    // console.log("UPDATED USER COLLECTION INDEXES:", indexes);
 
     // ========================================
     // INITIALIZE SERVER

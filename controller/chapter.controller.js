@@ -12,7 +12,14 @@ export const getChapters = async (req, res) => {
   try {
     const chapters = await Chapter.find({ isActive: true })
       .select("_id name code country")
-      .sort({ name: 1 });
+      .lean();
+
+    chapters.sort((a, b) => {
+      if (a.code === "OTH") return 1;
+      if (b.code === "OTH") return -1;
+
+      return a.name.localeCompare(b.name);
+    });
 
     return successResponse(
       res,
