@@ -1,4 +1,5 @@
 import "./config/env.js";
+import mongoose from "mongoose";
 import session from "express-session";
 import express from "express";
 import cors from "cors";
@@ -38,7 +39,7 @@ import memberDuesStatus from "./routes/membershipStatus.route.js";
 import leaderShipRoutes from "./routes/leadership.route.js";
 import dns from "dns";
 import supportRoutes from "./routes/support.routes.js";
-import donation from "./routes/donation.route.js";;
+import donation from "./routes/donation.route.js";
 import financialReportNotificationRoutes from "./routes/financialReportNotificationRoutes.js";
 
 import financialReportRoutes from "./routes/admin/financialReportRoutes.js";
@@ -118,14 +119,27 @@ app.use("/api/admin/financial-reports", financialReportRoutes);
 
 
 const startServer = async () => {
-   await connectDB();
   try {
+    await connectDB();
 
-   
-     await initializeGeoLocation();
+    
+    // VERIFY UPDATED INDEX
+    const indexes = await mongoose.connection
+      .collection("users")
+      .indexes();
+
+    console.log("UPDATED USER COLLECTION INDEXES:", indexes);
+
+    // ========================================
+    // INITIALIZE SERVER
+    // ========================================
+
+    await initializeGeoLocation();
+
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
     });
+
   } catch (error) {
     console.error("❌ Failed to start server:", error.message);
     process.exit(1);
@@ -133,7 +147,6 @@ const startServer = async () => {
 };
 
 startServer();
-
 
 
 

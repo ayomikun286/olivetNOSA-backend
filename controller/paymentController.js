@@ -237,6 +237,15 @@ export const initializePayment = async (
                 .substring(2, 8)
                 .toUpperCase()}`;
 
+        const payerEmail = req.user.email || process.env.PAYSTACK_FALLBACK_EMAIL;
+
+        if (!payerEmail) {
+            return res.status(500).json({
+                success: false,
+                message: "Payment email configuration is missing.",
+            });
+        }
+
 
         // CREATE PENDING PAYMENT
         const payment = await Payment.create({
@@ -278,8 +287,7 @@ export const initializePayment = async (
                     method: "POST",
 
                     body: JSON.stringify({
-                        email:
-                            req.user.email,
+                        email:  payerEmail,
 
                         amount:
                             requestedAmount * 100,
@@ -294,14 +302,13 @@ export const initializePayment = async (
                                 .PAYSTACK_CALLBACK_URL,
 
                         metadata: {
-                            paymentId:
-                                payment._id.toString(),
+                            paymentId: payment._id.toString(),
 
-                            userId:
-                                userId.toString(),
+                            userId: userId.toString(),
 
-                            obligationAssignmentId:
-                                assignment._id.toString(),
+                            obligationAssignmentId: assignment._id.toString(),
+                             payerEmail,
+
                         },
                     }),
                 }
@@ -1812,12 +1819,12 @@ export const getAdminPaymentHistoryExport = async (req, res) => {
                 payer: getMemberName(user),
                 email: user?.email || "",
                 alumniId: user?.alumniId || "",
-               payerCategory:
-    recordNote ||
-    !assignment ||
-    !assignment.obligation
-        ? "unclassified"
-        : category,
+                payerCategory:
+                    recordNote ||
+                        !assignment ||
+                        !assignment.obligation
+                        ? "unclassified"
+                        : category,
                 yearSet:
                     yearSet?.name ||
                     yearSet?.year?.toString() ||
@@ -1835,60 +1842,60 @@ export const getAdminPaymentHistoryExport = async (req, res) => {
         });
 
         // Collection reconciliation.
-// Preserve all successful cash, but classify only payments with
-// verified assignment ownership into their respective categories.
-const collectionByCategory = {
-    individual: { amount: 0, transactions: 0 },
-    yearSet: { amount: 0, transactions: 0 },
-    chapter: { amount: 0, transactions: 0 },
-    unclassified: { amount: 0, transactions: 0 },
-};
+        // Preserve all successful cash, but classify only payments with
+        // verified assignment ownership into their respective categories.
+        const collectionByCategory = {
+            individual: { amount: 0, transactions: 0 },
+            yearSet: { amount: 0, transactions: 0 },
+            chapter: { amount: 0, transactions: 0 },
+            unclassified: { amount: 0, transactions: 0 },
+        };
 
-let totalCollected = 0;
+        let totalCollected = 0;
 
-for (const payment of paymentHistory) {
-    const amount = Number(payment.amount || 0);
-    const category = [
-        "individual",
-        "yearSet",
-        "chapter",
-    ].includes(payment.payerCategory)
-        ? payment.payerCategory
-        : "unclassified";
+        for (const payment of paymentHistory) {
+            const amount = Number(payment.amount || 0);
+            const category = [
+                "individual",
+                "yearSet",
+                "chapter",
+            ].includes(payment.payerCategory)
+                ? payment.payerCategory
+                : "unclassified";
 
-    totalCollected += amount;
+            totalCollected += amount;
 
-    collectionByCategory[category].amount += amount;
-    collectionByCategory[category].transactions += 1;
+            collectionByCategory[category].amount += amount;
+            collectionByCategory[category].transactions += 1;
 
-    const originalPayment = payments.find(
-        (item) => getId(item) === payment.paymentId
-    );
+            const originalPayment = payments.find(
+                (item) => getId(item) === payment.paymentId
+            );
 
-    const assignment = originalPayment?.obligationAssignment;
+            const assignment = originalPayment?.obligationAssignment;
 
-    if (!assignment) continue;
+            if (!assignment) continue;
 
-    if (
-        category === "yearSet" &&
-        assignment.yearSet &&
-        yearSetGroups.has(getId(assignment.yearSet))
-    ) {
-        yearSetGroups.get(
-            getId(assignment.yearSet)
-        ).successfulPaymentCount += 1;
-    }
+            if (
+                category === "yearSet" &&
+                assignment.yearSet &&
+                yearSetGroups.has(getId(assignment.yearSet))
+            ) {
+                yearSetGroups.get(
+                    getId(assignment.yearSet)
+                ).successfulPaymentCount += 1;
+            }
 
-    if (
-        category === "chapter" &&
-        assignment.chapter &&
-        chapterGroups.has(getId(assignment.chapter))
-    ) {
-        chapterGroups.get(
-            getId(assignment.chapter)
-        ).successfulPaymentCount += 1;
-    }
-}
+            if (
+                category === "chapter" &&
+                assignment.chapter &&
+                chapterGroups.has(getId(assignment.chapter))
+            ) {
+                chapterGroups.get(
+                    getId(assignment.chapter)
+                ).successfulPaymentCount += 1;
+            }
+        }
 
         const successfulTransactionCount = paymentHistory.length;
 

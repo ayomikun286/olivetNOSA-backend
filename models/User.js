@@ -28,13 +28,15 @@ const userSchema = new mongoose.Schema(
 
     email: {
       type: String,
-      required: true,
+      required: false,
       unique: true,
+      sparse: true,
       lowercase: true,
       trim: true,
       maxlength: 150,
     },
 
+    
     alumniId: {
       type: String,
       unique: true,
@@ -389,6 +391,11 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: false,
       select: false,
+    },
+
+    mustChangePassword: {
+      type: Boolean,
+      default: false,
     },
 
 

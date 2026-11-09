@@ -48,15 +48,34 @@ export const protect = async (req, res, next) => {
       });
     }
 
-    if (!user.isEmailVerified) {
-      return res.status(403).json({
-        ok: false,
-        message: "Please verify your email address.",
-      });
-    }
+    if (user.email && !user.isEmailVerified) {
+  return res.status(403).json({
+    ok: false,
+    message: "Please verify your email address.",
+  });
+}
 
-    req.user = user;
-    next();
+// Require first-login password change before accessing the portal.
+// Keep these routes available so the member can complete the process.
+if (user.mustChangePassword) {
+  const allowedPaths = [
+    "/auth/me",
+    "/auth/activity",
+    "/auth/change-password",
+  ];
+
+  if (!allowedPaths.includes(req.path)) {
+    return res.status(403).json({
+      ok: false,
+      code: "PASSWORD_CHANGE_REQUIRED",
+      message: "Please change your temporary password before continuing.",
+    });
+  }
+}
+
+req.user = user;
+next();
+
   } catch (error) {
     if (
       error.name === "TokenExpiredError" ||

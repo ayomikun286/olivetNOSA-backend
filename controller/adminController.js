@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import bcrypt from "bcrypt";
 import crypto from "crypto";
 import User from "../models/User.js";
 import Payment from "../models/Payment.js";
@@ -1606,3 +1607,236 @@ export const createAdminMemberController = async (req, res) => {
 
 
 
+
+
+
+export const createAdminMemberWithoutEmailController = async (req, res) => {
+  const session = await mongoose.startSession();
+
+  try {
+    const {
+      firstName,
+      middleName,
+      lastName,
+      phone,
+      enrollmentYear,
+      graduationYear,
+      chapter,
+    } = req.body;
+
+    // ========================================
+    // VALIDATION
+    // ========================================
+
+    if (
+      !firstName?.trim() ||
+      !lastName?.trim() ||
+      !enrollmentYear ||
+      !graduationYear ||
+      !chapter
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "First name, last name, enrollment year, graduation year and chapter are required.",
+      });
+    }
+
+    const enrollmentYearNumber = Number(enrollmentYear);
+    const graduationYearNumber = Number(graduationYear);
+
+    if (
+      !Number.isInteger(enrollmentYearNumber) ||
+      !Number.isInteger(graduationYearNumber) ||
+      enrollmentYearNumber < 1900 ||
+      graduationYearNumber < 1900 ||
+      enrollmentYearNumber > graduationYearNumber
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide valid enrollment and graduation years.",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(chapter)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid chapter selected.",
+      });
+    }
+
+    // ========================================
+    // VERIFY CHAPTER AND YEAR SET
+    // ========================================
+
+    const [chapterDoc, yearSetDoc] = await Promise.all([
+      Chapter.findById(chapter).select("_id code name"),
+
+      YearSet.findOne({
+        year: graduationYearNumber,
+      }).select("_id year name"),
+    ]);
+
+    if (!chapterDoc) {
+      return res.status(400).json({
+        success: false,
+        message: "Selected chapter was not found.",
+      });
+    }
+
+    if (!yearSetDoc) {
+      return res.status(400).json({
+        success: false,
+        message:
+          `No year set was found for graduation year ${graduationYearNumber}.`,
+      });
+    }
+
+    // ========================================
+    // GENERATE TEMPORARY PASSWORD
+    // ========================================
+
+    const temporaryPassword = crypto
+      .randomBytes(12)
+      .toString("hex");
+
+    const hashedPassword = await bcrypt.hash(
+      temporaryPassword,
+      12
+    );
+
+    // ========================================
+    // CREATE MEMBER
+    // ========================================
+
+    session.startTransaction();
+
+    const alumniId = await generateAlumniId(
+      yearSetDoc._id,
+      chapterDoc._id,
+      graduationYearNumber,
+      session
+    );
+
+
+
+    const memberData = {
+      firstName: firstName.trim(),
+      middleName: middleName?.trim() || undefined,
+      lastName: lastName.trim(),
+      phone: phone?.trim() || undefined,
+      enrollmentYear: enrollmentYearNumber,
+      graduationYear: graduationYearNumber,
+      yearSet: yearSetDoc._id,
+      chapter: chapterDoc._id,
+      alumniId,
+      password: hashedPassword,
+      role: "member",
+      status: "active",
+      isEmailVerified: false,
+      mustChangePassword: true,
+    };
+
+    console.log("EMAIL FIELD CHECK:", {
+      hasEmailProperty: Object.hasOwn(memberData, "email"),
+      emailValue: memberData.email,
+    });
+
+    const [member] = await User.create(
+      [memberData],
+      { session }
+    );
+
+    // ========================================
+    // ASSIGN INDIVIDUAL OBLIGATIONS
+    // ========================================
+
+    const obligationResult =
+      await assignIndividualObligationsToUser(
+        member._id,
+        req.user?._id || null,
+        session
+      );
+
+    // ========================================
+    // AUDIT LOG
+    // ========================================
+
+    await createAuditLog({
+      actor: req.user?._id || null,
+      action: "member.admin_created_without_email",
+      resource: "User",
+      resourceId: member._id,
+      targetUser: member._id,
+      session,
+      req,
+      details: {
+        alumniId,
+        chapter: chapterDoc._id,
+        yearSet: yearSetDoc._id,
+        enrollmentYear: enrollmentYearNumber,
+        graduationYear: graduationYearNumber,
+        status: member.status,
+        emailProvided: false,
+        obligationsAssigned: obligationResult.assigned,
+      },
+    });
+
+    await session.commitTransaction();
+
+    // ========================================
+    // RESPONSE
+    // Return temporary password only once.
+    // Never store it in plain text.
+    // ========================================
+
+    return res.status(201).json({
+      success: true,
+      message:
+        "Member created successfully. Provide the temporary login details to the member.",
+
+      member: {
+        _id: member._id,
+        firstName: member.firstName,
+        middleName: member.middleName,
+        lastName: member.lastName,
+        phone: member.phone,
+        enrollmentYear: member.enrollmentYear,
+        graduationYear: member.graduationYear,
+        alumniId: member.alumniId,
+        status: member.status,
+        isEmailVerified: member.isEmailVerified,
+        mustChangePassword: member.mustChangePassword,
+        yearSet: yearSetDoc,
+        chapter: chapterDoc,
+      },
+
+      credentials: {
+        alumniId: member.alumniId,
+        temporaryPassword,
+      },
+
+      obligationsAssigned: obligationResult.assigned,
+    });
+
+  } catch (error) {
+    if (session.inTransaction()) {
+      await session.abortTransaction();
+    }
+
+    console.error(
+      "Create member without email error:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message:
+        error.message ||
+        "Failed to create member without email.",
+    });
+
+  } finally {
+    await session.endSession();
+  }
+};

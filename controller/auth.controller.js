@@ -2204,15 +2204,14 @@ export const Login = async (req, res) => {
     // EMAIL VERIFICATION CHECK
     // ------------------------------------------
 
-    if (!user.isEmailVerified) {
-      return res.status(403).json({
-        success: false,
-        message:
-          "Please verify your email before logging in.",
-        verifyRequired: true,
-        email: user.email,
-      });
-    }
+    if (user.email && !user.isEmailVerified) {
+  return res.status(403).json({
+    success: false,
+    message: "Please verify your email before logging in.",
+    verifyRequired: true,
+    email: user.email,
+  });
+}
 
     // ------------------------------------------
     // ACCOUNT STATUS CHECK
@@ -2295,6 +2294,7 @@ export const Login = async (req, res) => {
         role: user.role,
         status: user.status,
         isEmailVerified: user.isEmailVerified,
+        mustChangePassword: user.mustChangePassword,
       }
     );
 
@@ -2350,6 +2350,7 @@ export const getCurrentUser = async (req, res) => {
     yearSet: user.yearSet,
     financialStatus: user.financialStatus,
     approvedAt: user.approvedAt,
+    mustChangePassword: user.mustChangePassword,
     hasCompletedOnboarding: user.hasCompletedOnboarding,
     isPresident: user.isPresident,
     isExcomMember: Boolean(isExcomMember),
@@ -2966,5 +2967,111 @@ export const completeOnboardingController = async (req, res) => {
       success: false,
       message: "Failed to complete onboarding.",
     });
+  }
+};
+
+
+
+export const changeTemporaryPasswordController = async (req, res) => {
+  try {
+    const {
+      currentPassword,
+      newPassword,
+      confirmPassword,
+    } = req.body;
+
+    // Only accounts awaiting their first password change can use this endpoint.
+    const user = await User.findById(req.user._id)
+      .select("+password");
+
+    if (!user) {
+      return errorResponse(res, 404, "User not found.");
+    }
+
+    if (!user.mustChangePassword) {
+      return errorResponse(
+        res,
+        400,
+        "Your account does not require a password change."
+      );
+    }
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      return errorResponse(
+        res,
+        400,
+        "All password fields are required."
+      );
+    }
+
+    if (newPassword.length < 8) {
+      return errorResponse(
+        res,
+        400,
+        "Your new password must be at least 8 characters."
+      );
+    }
+
+    if (newPassword !== confirmPassword) {
+      return errorResponse(
+        res,
+        400,
+        "New passwords do not match."
+      );
+    }
+
+    const isCurrentPasswordValid = await bcrypt.compare(
+      currentPassword,
+      user.password
+    );
+
+    if (!isCurrentPasswordValid) {
+      return errorResponse(
+        res,
+        401,
+        "Your temporary password is incorrect."
+      );
+    }
+
+    if (currentPassword === newPassword) {
+      return errorResponse(
+        res,
+        400,
+        "Your new password must be different from your temporary password."
+      );
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+    user.password = hashedPassword;
+    user.mustChangePassword = false;
+
+    await user.save();
+
+    await createAuditLog({
+      actor: user._id,
+      action: "auth.temporary_password_changed",
+      resource: "User",
+      resourceId: user._id,
+      targetUser: user._id,
+      req,
+      details: {
+        method: "first_login_password_change",
+      },
+    });
+
+    return successResponse(
+      res,
+      "Password changed successfully. You can now access your account."
+    );
+
+  } catch (err) {
+    console.error("Temporary password change error:", err);
+
+    return errorResponse(
+      res,
+      500,
+      "Something went wrong while changing your password."
+    );
   }
 };

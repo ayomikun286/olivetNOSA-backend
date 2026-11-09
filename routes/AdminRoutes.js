@@ -10,6 +10,7 @@ import {
   getAdminMembersController,
   createAdminMemberController,
   deleteMemberController,
+  createAdminMemberWithoutEmailController,
   getPendingDuplicateMembersController,
 } from "../controller/adminController.js";
 
@@ -262,6 +263,13 @@ router.post(
   protect,
   requireRole("admin", "superAdmin"),
   createAdminMemberController
+);
+
+router.post(
+  "/members/without-email",
+  protect,
+  requireRole("admin", "superAdmin"),
+  createAdminMemberWithoutEmailController
 );
 
 // ============================================================================= //

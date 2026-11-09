@@ -15,6 +15,7 @@ import {
   updateMemberProfile,
   uploadProfilePhoto,
   refreshActivity,
+  changeTemporaryPasswordController,
   completeOnboardingController,
 } from "../controller/auth.controller.js";
 import { protect } from "../middleware/authmiddleware.js";
@@ -116,6 +117,16 @@ router.patch(
   protect,
   completeOnboardingController
 );
+
+
+router.patch(
+  "/auth/change-password",
+  protect,
+  passwordResetLimiter,
+  changeTemporaryPasswordController
+);
+
+
 
 router.get("/api/public/settings/general", getPublicGeneralSettings);
 
