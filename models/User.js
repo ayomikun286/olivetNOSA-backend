@@ -411,6 +411,8 @@ const userSchema = new mongoose.Schema(
         "secretary",
         "superAdmin",
         "president",
+        "assistantGeneralSecretary",
+        "owner",
       ],
       default: "member",
     },
@@ -499,7 +501,7 @@ const userSchema = new mongoose.Schema(
 
     approvalAuthority: {
       type: String,
-      enum: ["yearSetLeader", "superAdmin", "president"],
+      enum: ["yearSetLeader", "superAdmin", "president", "assistantGeneralSecretary"],
       default: null,
     },
 

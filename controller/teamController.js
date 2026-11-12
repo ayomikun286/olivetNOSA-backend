@@ -8,6 +8,8 @@ const ALLOWED_TEAM_ROLES = [
     "admin",
     "treasurer",
     "secretary",
+     "superAdmin",
+    "assistantGeneralSecretary",
 ];
 
 export const createTeam = async (req, res) => {
@@ -29,7 +31,7 @@ export const createTeam = async (req, res) => {
         }
 
         const normalizedEmail = email.trim().toLowerCase();
-        const normalizedRole = role.trim().toLowerCase();
+        const normalizedRole = role.trim()
 
         if (!ALLOWED_TEAM_ROLES.includes(normalizedRole)) {
             return res.status(400).json({
@@ -95,7 +97,16 @@ export const createTeam = async (req, res) => {
 export const getTeamMembers = async (req, res) => {
     try {
         const teamMembers = await User.find({
-            role: { $in: ["admin", "treasurer", "secretary", "president"] },
+           role: {
+    $in: [
+      "admin",
+      "treasurer",
+      "secretary",
+      "assistantGeneralSecretary",
+      "superAdmin",
+      "president",
+    ],
+  },
         })
             .select("firstName lastName email role status createdAt")
             .sort({ role: 1, firstName: 1 })

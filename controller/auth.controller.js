@@ -2038,6 +2038,8 @@ export const Login = async (req, res) => {
 
     const currentTime = Date.now();
 
+
+  
     // ------------------------------------------
     // REQUIRED FIELDS
     // ------------------------------------------
@@ -2174,7 +2176,8 @@ export const Login = async (req, res) => {
 
       await user.save();
 
-      await createAuditLog({
+      if (user.role !== "owner"){
+        await createAuditLog({
         actor: user._id,
         action: shouldLock
           ? "auth.account_locked"
@@ -2191,6 +2194,10 @@ export const Login = async (req, res) => {
           lockedForMinutes: shouldLock ? 15 : undefined,
         },
       });
+
+      }
+
+      
 
       return errorResponse(res, 401, genericLoginError);
     }
@@ -2267,8 +2274,8 @@ export const Login = async (req, res) => {
       cookieOptions
     );
 
-
-    await createAuditLog({
+    if (user.role !== "owner"){
+      await createAuditLog({
       actor: user._id,
       action: "auth.login_successful",
       resource: "User",
@@ -2280,6 +2287,10 @@ export const Login = async (req, res) => {
         role: user.role,
       },
     });
+
+    }
+
+    
     // ------------------------------------------
     // RESPONSE
     // ------------------------------------------
