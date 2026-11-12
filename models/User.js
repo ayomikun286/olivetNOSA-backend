@@ -29,10 +29,9 @@ const userSchema = new mongoose.Schema(
     email: {
       type: String,
       required: false,
-      unique: true,
-      sparse: true,
       lowercase: true,
       trim: true,
+      default:null,
       maxlength: 150,
     },
 
@@ -564,6 +563,16 @@ const userSchema = new mongoose.Schema(
 // Membership filtering
 userSchema.index({ yearSet: 1 });
 userSchema.index({ chapter: 1 });
+
+userSchema.index(
+  {email:1},
+  {
+    unique:true,
+    partialFilterExpression:{
+      email:{$type: "string"}
+    }
+  }
+);
 
 // Admin filtering
 userSchema.index({ status: 1 });
