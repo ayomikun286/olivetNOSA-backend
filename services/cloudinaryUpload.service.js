@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import cloudinary from "../config/cloudinary.js";
+import { Readable } from "stream";
 
 // Upload PDF to Cloudinary.
 export const uploadPdfToCloudinary = (
@@ -10,12 +11,13 @@ export const uploadPdfToCloudinary = (
     new Promise((resolve, reject) => {
         const publicId = `${prefix}_${randomUUID()}.pdf`;
 
-        const stream = cloudinary.uploader.upload_stream(
+        const uploadStream = cloudinary.uploader.upload_chunked_stream(
             {
                 folder,
                 public_id: publicId,
                 resource_type: "raw",
                 access_mode: "public",
+                chunk_size: 6 * 1024 * 1024,
             },
             (error, result) => {
                 if (error) return reject(error);
@@ -23,7 +25,7 @@ export const uploadPdfToCloudinary = (
             }
         );
 
-        stream.end(file.buffer);
+        Readable.from([file.buffer]).pipe(uploadStream);
     });
 
 // Delete PDF from Cloudinary.
