@@ -169,13 +169,20 @@ export const assignIndividualObligationToMembers = async (
   // ----------------------------------------------------------
 
   const members = await User.find({
-    role: "member",
-    status: "active",
-    isEmailVerified: true,
-  })
-    .select("_id role status isEmailVerified")
-    .lean()
-    .session(session);
+  role: {
+    $nin: [
+      "admin",
+      "superAdmin",
+      "owner",
+      "secretary",
+      "treasurer",
+    ],
+  },
+  status: "active",
+})
+  .select("_id role status")
+  .lean()
+  .session(session);
 
   console.log("Eligible members:", members.length);
   console.log(members);
@@ -286,17 +293,17 @@ export const assignIndividualObligationToMembers = async (
       }
     );
 
-   console.log("Model name:", ObligationAssignment.modelName);
-console.log("Collection name:", ObligationAssignment.collection.name);
-console.log("Database name:", ObligationAssignment.db.name);
-console.log("Prepared documents:", assignments.length);
-console.log(
-  "First document validation:",
-  await new ObligationAssignment(assignments[0]).validate().then(
-    () => "valid",
-    (error) => error.message
-  )
-);
+    console.log("Model name:", ObligationAssignment.modelName);
+    console.log("Collection name:", ObligationAssignment.collection.name);
+    console.log("Database name:", ObligationAssignment.db.name);
+    console.log("Prepared documents:", assignments.length);
+    console.log(
+      "First document validation:",
+      await new ObligationAssignment(assignments[0]).validate().then(
+        () => "valid",
+        (error) => error.message
+      )
+    );
   } catch (error) {
     console.error("INSERT ERROR:", error.message);
     console.error("WRITE ERRORS:", error.writeErrors);
@@ -305,11 +312,11 @@ console.log(
   }
 
   console.log(
-  "Collection count after insert:",
-  await ObligationAssignment.countDocuments({
-    obligation: obligation._id,
-  })
-);
+    "Collection count after insert:",
+    await ObligationAssignment.countDocuments({
+      obligation: obligation._id,
+    })
+  );
   await createAuditLog({
     actor: assignedBy,
     action: "obligation.assignments_created",

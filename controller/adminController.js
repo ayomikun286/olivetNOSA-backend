@@ -40,28 +40,32 @@ export const approveMemberController = async (req, res) => {
 
 
     // SEND ACCOUNT APPROVAL EMAIL
-    await sendEmail({
-      to: result.user.email,
-      subject: "Your OlivetNOSA Account Has Been Approved",
-      html: memberApprovalTemplate({
-        name: result.user.firstName,
-        alumniId: result.user.alumniId,
+    try {
+      await sendEmail({
+        to: result.user.email,
+        subject: "Your OlivetNOSA Account Has Been Approved",
+        html: memberApprovalTemplate({
+          name: result.user.firstName,
+          alumniId: result.user.alumniId,
 
-      }),
-    });
+        }),
+      });
+
+    } catch (err) {
+      console.error("Error sending account approval email:", err);
+    }
 
     // OBLIGATION NOTIFICATIONS
-    for (const assignment of result.obligationAssignments || []) {
+    if (result.obligationAssignments?.length > 0) {
       await createNotification({
-        userId: userId,
+        userId,
         type: "obligation",
         title: "New Payment Obligation",
         message:
-          "A new payment obligation has been assigned to your account. Please review your obligations for the current year.",
-        link: "/portal/member/dashboard/directory",
+          "Payment obligations have been assigned to your account. Please review them for the current year.",
+        link: "/portal/member/dashboard/my-obligation",
       });
     }
-
     // ACCOUNT APPROVED NOTIFICATION
     const notification = NOTIFICATION_MESSAGES.account.approved;
 
@@ -91,6 +95,8 @@ export const approveMemberController = async (req, res) => {
     });
   }
 };
+
+
 
 export const getPendingDuplicateMembersController = async (req, res) => {
   try {
@@ -242,10 +248,19 @@ export const suspendMemberController = async (req, res) => {
   try {
     const { userId } = req.params;
 
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid member ID.",
+      });
+    }
+
     const member = await User.findOne({
       _id: userId,
-      role: "member",
-    });
+      role: {
+        $nin: ["admin", "superAdmin", "owner", "secretary", "treasurer"],
+      },
+    });;
 
     if (!member) {
       return res.status(404).json({
@@ -301,11 +316,19 @@ export const reactivateMemberController = async (req, res) => {
   try {
     const { userId } = req.params;
 
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid member ID.",
+      });
+    }
+
     const member = await User.findOne({
       _id: userId,
-      role: "member",
+      role: {
+        $nin: ["admin", "superAdmin", "owner", "secretary", "treasurer"],
+      },
     });
-
     if (!member) {
       return res.status(404).json({
         success: false,
@@ -435,6 +458,11 @@ export const getAdminDashboard = async (req, res) => {
       1
     );
 
+    const alumniRoleFilter = {
+      role: {
+        $nin: ["admin", "superAdmin", "owner", "secretary", "treasurer"],
+      },
+    };
 
 
     const [
@@ -446,26 +474,26 @@ export const getAdminDashboard = async (req, res) => {
       pendingDuplicates,
     ] = await Promise.all([
       User.countDocuments({
-        role: "member",
+        ...alumniRoleFilter,
       }),
 
       User.countDocuments({
-        role: "member",
+        ...alumniRoleFilter,
         status: "active",
       }),
 
       User.countDocuments({
-        role: "member",
+        ...alumniRoleFilter,
         status: "pending",
       }),
 
       User.countDocuments({
-        role: "member",
+        ...alumniRoleFilter,
         status: "suspended",
       }),
 
       User.countDocuments({
-        role: "member",
+        ...alumniRoleFilter,
         createdAt: {
           $gte: startOfMonth,
           $lt: startOfNextMonth,
@@ -702,9 +730,7 @@ export const getAdminDashboard = async (req, res) => {
 
 
 
-    const recentMembers = await User.find({
-      role: "member",
-    })
+    const recentMembers = await User.find(alumniRoleFilter)
       .select(
         "firstName middleName lastName email status yearSet chapter alumniId createdAt"
       )
@@ -818,7 +844,9 @@ export const getAdminMembersController = async (req, res) => {
 
 
     const filter = {
-      role: "member",
+      role: {
+        $nin: ["admin", "superAdmin", "owner", "treasurer", "secretary"],
+      },
     };
 
     // ========================================
@@ -946,13 +974,10 @@ export const getAdminMembersController = async (req, res) => {
     // FETCH MEMBERS
     // ========================================
 
-    const memberFilter = {
-      ...filter,
-      role: "member",
-    };
+
 
     const [members, total] = await Promise.all([
-      User.find(memberFilter)
+      User.find(filter)
         .select(
           "firstName middleName lastName email phone enrollmentYear graduationYear alumniId status isEmailVerified role yearSet chapter createdAt updatedAt approvedBy approvedAt approvalAuthority"
         )
@@ -1057,7 +1082,10 @@ export const createAdminMemberController = async (req, res) => {
 
     if (
       !Number.isInteger(enrollmentYearNumber) ||
-      !Number.isInteger(graduationYearNumber)
+      !Number.isInteger(graduationYearNumber) ||
+      enrollmentYearNumber < 1900 ||
+      graduationYearNumber < 1900 ||
+      enrollmentYearNumber > graduationYearNumber
     ) {
       return res.status(400).json({
         success: false,
@@ -1079,6 +1107,14 @@ export const createAdminMemberController = async (req, res) => {
         emailSent: false,
         message:
           "A member with this email address already exists.",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(chapter)) {
+      return res.status(400).json({
+        success: false,
+        emailSent: false,
+        message: "Invalid chapter selected.",
       });
     }
 
