@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import { createAuditLog } from "../../services/auditLog.service.js";
 import EmailJob from "../../models/EmailJob.js";
 import EmailQueueRun from "../../models/EmailQueueRun.js";
-
+import { processEmailQueue } from "../../services/emailQueueWorker.service.js";
 // ========================================
 // EMAIL QUEUE SUMMARY
 // ========================================
@@ -711,5 +711,41 @@ export const retryUncertainEmailJob = async (req, res) => {
 
     } finally {
         await session.endSession();
+    }
+};
+
+
+
+
+export const runEmailQueueJob = async (req, res) => {
+    try {
+        const secret = req.headers["x-internal-secret"];
+
+        if (
+            !secret ||
+            !process.env.INTERNAL_PAYMENT_SECRET ||
+            secret !== process.env.INTERNAL_PAYMENT_SECRET
+        ) {
+            return res.status(401).json({
+                success: false,
+                message: "Unauthorized.",
+            });
+        }
+
+        const result = await processEmailQueue();
+
+        return res.status(200).json({
+            success: true,
+            message: "Email queue processing completed.",
+            result,
+        });
+
+    } catch (error) {
+        console.error("Email queue cron error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Email queue processing failed.",
+        });
     }
 };

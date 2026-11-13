@@ -6,7 +6,9 @@ import {
     deleteCloudinaryPdf,
 } from "../../services/cloudinaryUpload.service.js";
 import { createAuditLog } from "../../services/auditLog.service.js";
-
+import {
+    queueStewardshipReportEmails,
+} from "../../services/stewardshipEmail.service.js";
 
 
 
@@ -141,10 +143,24 @@ export const createStewardshipReport = async (req, res) => {
             },
         });
 
+        let emailQueue = null;
+
+        if (report.status === "published") {
+            try {
+                emailQueue = await queueStewardshipReportEmails(report);
+            } catch (error) {
+                console.error(
+                    "Stewardship email queue error:",
+                    error.message
+                );
+            }
+        }
+
         return res.status(201).json({
             success: true,
             message: "Stewardship report created successfully.",
             data: report,
+            emailQueue
         });
 
     } catch (error) {
@@ -319,6 +335,22 @@ export const updateStewardshipReport = async (req, res) => {
             },
         });
 
+        let emailQueue = null;
+
+        const wasNotPublished = before.status !== "published";
+        const isNowPublished = report.status === "published";
+
+        if (wasNotPublished && isNowPublished) {
+            try {
+                emailQueue = await queueStewardshipReportEmails(report);
+            } catch (error) {
+                console.error(
+                    "Stewardship email queue error:",
+                    error.message
+                );
+            }
+        }
+
         // Delete old PDF only after the database saves the replacement.
         if (
             uploadedPdf &&
@@ -339,6 +371,7 @@ export const updateStewardshipReport = async (req, res) => {
             success: true,
             message: "Stewardship report updated successfully.",
             data: report,
+            emailQueue
         });
     } catch (error) {
         // Remove new upload only if the database did not save it.

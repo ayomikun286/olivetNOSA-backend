@@ -3,6 +3,8 @@ import Announcement from "../models/Announcement.js";
 import { createAuditLog } from "../services/auditLog.service.js";
 import User from "../models/User.js";
 import StewardshipReport from "../models/StewardshipReport.js";
+import { queueAnnouncementEmails } from "../services/announcementEmail.service.js";
+
 // ============================================================
 // HELPERS
 // ============================================================
@@ -79,6 +81,16 @@ export const createAnnouncement = async (req, res) => {
             },
         });
 
+        let emailQueue = null;
+
+        if (announcement.status === "published") {
+            try {
+                emailQueue = await queueAnnouncementEmails(announcement);
+            } catch (error) {
+                console.error("Announcement email queue error:", error.message);
+            }
+        }
+
         return res.status(201).json({
             success: true,
             message:
@@ -86,6 +98,7 @@ export const createAnnouncement = async (req, res) => {
                     ? "Announcement published successfully."
                     : "Announcement saved as draft successfully.",
             announcement,
+             emailQueue,
         });
     } catch (error) {
         console.error("Create announcement error:", error);
@@ -386,10 +399,19 @@ export const publishAnnouncement = async (req, res) => {
             },
         });
 
+        let emailQueue = null;
+
+        try {
+            emailQueue = await queueAnnouncementEmails(announcement);
+        } catch (error) {
+            console.error("Announcement email queue error:", error.message);
+        }
+
         return res.status(200).json({
             success: true,
             message: "Announcement published successfully.",
             announcement,
+             emailQueue,
         });
     } catch (error) {
         console.error("Publish announcement error:", error);

@@ -41,7 +41,7 @@ import dns from "dns";
 import supportRoutes from "./routes/support.routes.js";
 import donation from "./routes/donation.route.js";
 import financialReportNotificationRoutes from "./routes/financialReportNotificationRoutes.js";
-
+import emailQueueRoutes from "./routes/emailQueue.routes.js";
 import financialReportRoutes from "./routes/admin/financialReportRoutes.js";
 
 dns.setServers(["8.8.8.8", "1.1.1.1"]);
@@ -102,7 +102,7 @@ app.use("/api/analytics", analyticsRoutes);
 app.use("/api/announcements", announcementRoutes);
 
 
-
+app.use("/api/admin/email-queue", emailQueueRoutes);
 
 
 
