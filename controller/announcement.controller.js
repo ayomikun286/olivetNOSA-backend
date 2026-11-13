@@ -1,9 +1,13 @@
-
+import mongoose from "mongoose";
 import Announcement from "../models/Announcement.js";
 import { createAuditLog } from "../services/auditLog.service.js";
 import User from "../models/User.js";
 import StewardshipReport from "../models/StewardshipReport.js";
 import { queueAnnouncementEmails } from "../services/announcementEmail.service.js";
+import {
+    uploadPdfToCloudinary,
+    deleteCloudinaryPdf,
+} from "../services/cloudinaryUpload.service.js";
 
 // ============================================================
 // HELPERS
@@ -36,6 +40,9 @@ const logAnnouncementAction = async ({
 // ============================================================
 
 export const createAnnouncement = async (req, res) => {
+    let uploadedPdf = null;
+    let databaseCreated = false;
+
     try {
         if (!canManageAnnouncements(req)) {
             return res.status(403).json({
@@ -46,7 +53,12 @@ export const createAnnouncement = async (req, res) => {
 
         const { title, content, status = "draft" } = req.body;
 
-        if (!title?.trim() || !content?.trim()) {
+        if (
+            typeof title !== "string" ||
+            !title.trim() ||
+            typeof content !== "string" ||
+            !content.trim()
+        ) {
             return res.status(400).json({
                 success: false,
                 message: "Title and content are required.",
@@ -60,13 +72,30 @@ export const createAnnouncement = async (req, res) => {
             });
         }
 
+        if (req.file) {
+            uploadedPdf = await uploadPdfToCloudinary(
+                req.file,
+                "nosa/announcements",
+                "announcement"
+            );
+        }
+
         const announcement = await Announcement.create({
             title: title.trim(),
             content: content.trim(),
             createdBy: req.user._id,
+            attachment: uploadedPdf
+                ? {
+                    url: uploadedPdf.secure_url,
+                    publicId: uploadedPdf.public_id,
+                    fileName: req.file.originalname,
+                }
+                : undefined,
             status,
             publishedAt: status === "published" ? new Date() : null,
         });
+
+        databaseCreated = true;
 
         await logAnnouncementAction({
             req,
@@ -78,6 +107,7 @@ export const createAnnouncement = async (req, res) => {
             details: {
                 title: announcement.title,
                 status: announcement.status,
+                attachment: announcement.attachment,
             },
         });
 
@@ -87,7 +117,10 @@ export const createAnnouncement = async (req, res) => {
             try {
                 emailQueue = await queueAnnouncementEmails(announcement);
             } catch (error) {
-                console.error("Announcement email queue error:", error.message);
+                console.error(
+                    "Announcement email queue error:",
+                    error.message
+                );
             }
         }
 
@@ -98,9 +131,17 @@ export const createAnnouncement = async (req, res) => {
                     ? "Announcement published successfully."
                     : "Announcement saved as draft successfully.",
             announcement,
-             emailQueue,
+            emailQueue,
         });
     } catch (error) {
+        if (uploadedPdf?.public_id && !databaseCreated) {
+            try {
+                await deleteCloudinaryPdf(uploadedPdf.public_id);
+            } catch (cleanupError) {
+                console.error("Announcement PDF cleanup error:", cleanupError);
+            }
+        }
+
         console.error("Create announcement error:", error);
 
         return res.status(500).json({
@@ -283,11 +324,65 @@ export const getAllAnnouncements = async (req, res) => {
     }
 };
 
+
+// ============================================================
+// GET SINGLE PUBLISHED ANNOUNCEMENT — Approved Members
+// ============================================================
+
+export const getPublishedAnnouncementById = async (req, res) => {
+    try {
+        if (!isApprovedUser(req)) {
+            return res.status(403).json({
+                success: false,
+                message: "Your account is not approved to access announcements.",
+            });
+        }
+
+        const { id } = req.params;
+
+        if (!mongoose.isValidObjectId(id)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid announcement ID.",
+            });
+        }
+
+        const announcement = await Announcement.findOne({
+            _id: id,
+            status: "published",
+        })
+            .populate("createdBy", "firstName lastName")
+            .lean();
+
+        if (!announcement) {
+            return res.status(404).json({
+                success: false,
+                message: "Published announcement not found.",
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            announcement,
+        });
+    } catch (error) {
+        console.error("Get published announcement error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch announcement.",
+        });
+    }
+};
+
 // ============================================================
 // UPDATE ANNOUNCEMENT — Treasurer & Super Admin
 // ============================================================
 
 export const updateAnnouncement = async (req, res) => {
+    let uploadedPdf = null;
+    let databaseUpdated = false;
+
     try {
         if (!canManageAnnouncements(req)) {
             return res.status(403).json({
@@ -298,7 +393,12 @@ export const updateAnnouncement = async (req, res) => {
 
         const { title, content } = req.body;
 
-        if (!title?.trim() || !content?.trim()) {
+        if (
+            typeof title !== "string" ||
+            !title.trim() ||
+            typeof content !== "string" ||
+            !content.trim()
+        ) {
             return res.status(400).json({
                 success: false,
                 message: "Title and content are required.",
@@ -317,12 +417,38 @@ export const updateAnnouncement = async (req, res) => {
         const previousValues = {
             title: announcement.title,
             content: announcement.content,
+            attachment: announcement.attachment
+                ? { ...announcement.attachment.toObject?.() ?? announcement.attachment }
+                : null,
         };
+
+        const oldPublicId = announcement.attachment?.publicId;
+
+        // Upload replacement PDF before changing the database.
+        if (req.file) {
+            uploadedPdf = await uploadPdfToCloudinary(
+                req.file,
+                "nosa/announcements",
+                "announcement"
+            );
+
+            announcement.attachment = {
+                url: uploadedPdf.secure_url,
+                publicId: uploadedPdf.public_id,
+                fileName: req.file.originalname,
+            };
+        } else if (
+            req.body.removeAttachment === "true" ||
+            req.body.removeAttachment === true
+        ) {
+            announcement.attachment = null;
+        }
 
         announcement.title = title.trim();
         announcement.content = content.trim();
 
         await announcement.save();
+        databaseUpdated = true;
 
         await logAnnouncementAction({
             req,
@@ -333,9 +459,26 @@ export const updateAnnouncement = async (req, res) => {
                 newValues: {
                     title: announcement.title,
                     content: announcement.content,
+                    attachment: announcement.attachment,
                 },
             },
         });
+
+        // Delete the old PDF only after the database update succeeds.
+        const shouldDeleteOldPdf =
+            oldPublicId &&
+            oldPublicId !== announcement.attachment?.publicId;
+
+        if (shouldDeleteOldPdf) {
+            try {
+                await deleteCloudinaryPdf(oldPublicId);
+            } catch (cleanupError) {
+                console.error(
+                    "Failed to delete previous announcement PDF:",
+                    cleanupError
+                );
+            }
+        }
 
         return res.status(200).json({
             success: true,
@@ -343,6 +486,18 @@ export const updateAnnouncement = async (req, res) => {
             announcement,
         });
     } catch (error) {
+        // Clean up a new upload only if the database did not save it.
+        if (uploadedPdf?.public_id && !databaseUpdated) {
+            try {
+                await deleteCloudinaryPdf(uploadedPdf.public_id);
+            } catch (cleanupError) {
+                console.error(
+                    "Failed to clean up replacement announcement PDF:",
+                    cleanupError
+                );
+            }
+        }
+
         console.error("Update announcement error:", error);
 
         return res.status(500).json({
@@ -566,13 +721,15 @@ export const deleteAnnouncement = async (req, res) => {
             });
         }
 
+        const attachmentPublicId = announcement.attachment?.publicId;
+
         const deletedDetails = {
             title: announcement.title,
             status: announcement.status,
             content: announcement.content,
+            attachment: announcement.attachment,
         };
 
-        // Record the audit before permanent deletion.
         await logAnnouncementAction({
             req,
             action: "announcement.deleted",
@@ -581,6 +738,17 @@ export const deleteAnnouncement = async (req, res) => {
         });
 
         await announcement.deleteOne();
+
+        if (attachmentPublicId) {
+            try {
+                await deleteCloudinaryPdf(attachmentPublicId);
+            } catch (cleanupError) {
+                console.error(
+                    "Failed to delete announcement PDF from Cloudinary:",
+                    cleanupError
+                );
+            }
+        }
 
         return res.status(200).json({
             success: true,

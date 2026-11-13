@@ -56,18 +56,7 @@ export const createStewardshipReport = async (req, res) => {
         const month = Number(reportingMonth);
         const year = Number(reportingYear);
 
-        if (
-            !Number.isInteger(month) ||
-            month < 1 ||
-            month > 12 ||
-            !Number.isInteger(year) ||
-            year < 2020
-        ) {
-            return res.status(400).json({
-                success: false,
-                message: "Invalid reporting month or year.",
-            });
-        }
+       
 
         // Determine report ownership.
         let presidentId = null;

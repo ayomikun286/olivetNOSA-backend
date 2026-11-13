@@ -16,6 +16,21 @@ const announcementSchema = new mongoose.Schema(
       trim: true,
     },
 
+    attachment: {
+    url: {
+        type: String,
+        default: null,
+    },
+    publicId: {
+        type: String,
+        default: null,
+    },
+    fileName: {
+        type: String,
+        default: null,
+    },
+},
+
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

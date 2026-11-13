@@ -68,26 +68,7 @@ const stewardshipReportSchema = new mongoose.Schema(
 );
 
 // Prevent duplicate reports for the same President, month and year.
-stewardshipReportSchema.index(
-    { president: 1, reportingMonth: 1, reportingYear: 1 },
-    {
-        unique: true,
-        partialFilterExpression: {
-            president: { $type: "objectId" },
-        },
-    }
-);
 
-// Prevent duplicate general reports for the same month and year.
-stewardshipReportSchema.index(
-    { reportingMonth: 1, reportingYear: 1 },
-    {
-        unique: true,
-        partialFilterExpression: {
-            president: null,
-        },
-    }
-);
 
 const StewardshipReport = mongoose.model(
     "StewardshipReport",
