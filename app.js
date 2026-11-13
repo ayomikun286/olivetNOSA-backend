@@ -11,7 +11,8 @@ import galleryRoutes from "./routes/galleryRoutes.js";
 import jobRoutes from "./routes/jobRoutes.js";
 import helmet from "helmet";
 
-
+import path from "path";
+import { fileURLToPath } from "url";
 
 import { initializeGeoLocation } from "./utils/geoLocation.js";
 import analyticsRoutes from "./routes/analytics.routes.js";
@@ -47,6 +48,24 @@ import financialReportRoutes from "./routes/admin/financialReportRoutes.js";
 dns.setServers(["8.8.8.8", "1.1.1.1"]);
 dns.setDefaultResultOrder("ipv4first");
 const app = express();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const PDF_STORAGE_DIR = path.resolve(
+    __dirname,
+    "../announcement-pdfs"
+);
+
+app.use(
+    "/uploads/pdfs",
+    express.static(PDF_STORAGE_DIR, {
+        dotfiles: "deny",
+        index: false,
+    })
+);
+
+
 app.set("trust proxy", 1);
 const PORT = process.env.PORT || 5000;
 
@@ -76,6 +95,8 @@ app.use(session(sessionConfig));
 app.get("/", (req, res) => {
   res.send("Welcome to the NOSA Alumni API");
 });
+
+
 
 
 app.use("/api/chapters", chapterRoutes);
