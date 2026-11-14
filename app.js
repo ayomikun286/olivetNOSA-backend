@@ -4,7 +4,7 @@ import session from "express-session";
 import express from "express";
 import cors from "cors";
 
-
+import fs from "fs";
 import stewardshipReportRoutes from "./routes/stewardshipReportRoutes.js";
 import announcementRoutes from "./routes/announcement.routes.js";
 import galleryRoutes from "./routes/galleryRoutes.js";
@@ -57,13 +57,22 @@ const PDF_STORAGE_DIR = path.resolve(
     "../announcement-pdfs"
 );
 
-app.use(
-    "/uploads/pdfs",
-    express.static(PDF_STORAGE_DIR, {
-        dotfiles: "deny",
-        index: false,
-    })
-);
+console.log("PDF STORAGE DIRECTORY:", PDF_STORAGE_DIR);
+console.log("PDF FILES:", fs.readdirSync(PDF_STORAGE_DIR));
+
+app.get("/api/uploads/pdfs/:filename", (req, res) => {
+    const filename = path.basename(req.params.filename);
+    const filePath = path.join(PDF_STORAGE_DIR, filename);
+
+    console.log("PDF REQUESTED:", filePath);
+    console.log("PDF EXISTS:", fs.existsSync(filePath));
+
+    if (!fs.existsSync(filePath)) {
+        return res.status(404).send("PDF file not found");
+    }
+
+    res.sendFile(filePath);
+});
 
 
 app.set("trust proxy", 1);

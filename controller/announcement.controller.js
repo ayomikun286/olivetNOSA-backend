@@ -5,10 +5,13 @@ import User from "../models/User.js";
 import StewardshipReport from "../models/StewardshipReport.js";
 import { queueAnnouncementEmails } from "../services/announcementEmail.service.js";
 import {
-    uploadPdfToCloudinary,
+    uploadPdfToLocalStorage,
+    deleteLocalPdf,
+} from "../services/pdfStorage.service.js";
+
+import {
     deleteCloudinaryPdf,
 } from "../services/cloudinaryUpload.service.js";
-
 // ============================================================
 // HELPERS
 // ============================================================
@@ -72,25 +75,25 @@ export const createAnnouncement = async (req, res) => {
             });
         }
 
+        // Upload PDF to the Plesk server.
         if (req.file) {
-            uploadedPdf = await uploadPdfToCloudinary(
-                req.file,
-                "nosa/announcements",
-                "announcement"
-            );
+            uploadedPdf = await uploadPdfToLocalStorage(req.file, req);
         }
 
         const announcement = await Announcement.create({
             title: title.trim(),
             content: content.trim(),
             createdBy: req.user._id,
+
             attachment: uploadedPdf
                 ? {
-                    url: uploadedPdf.secure_url,
-                    publicId: uploadedPdf.public_id,
-                    fileName: req.file.originalname,
+                    url: uploadedPdf.url,
+                    publicId: uploadedPdf.publicId,
+                    fileName: uploadedPdf.fileName,
+                    storage: uploadedPdf.storage,
                 }
                 : undefined,
+
             status,
             publishedAt: status === "published" ? new Date() : null,
         });
@@ -133,12 +136,17 @@ export const createAnnouncement = async (req, res) => {
             announcement,
             emailQueue,
         });
+
     } catch (error) {
-        if (uploadedPdf?.public_id && !databaseCreated) {
+        // Remove uploaded PDF if announcement creation failed.
+        if (uploadedPdf?.publicId && !databaseCreated) {
             try {
-                await deleteCloudinaryPdf(uploadedPdf.public_id);
+                await deleteLocalPdf(uploadedPdf.publicId);
             } catch (cleanupError) {
-                console.error("Announcement PDF cleanup error:", cleanupError);
+                console.error(
+                    "Announcement PDF cleanup error:",
+                    cleanupError
+                );
             }
         }
 
@@ -150,7 +158,6 @@ export const createAnnouncement = async (req, res) => {
         });
     }
 };
-
 // ============================================================
 // GET PUBLISHED ANNOUNCEMENTS — All authenticated members
 // ============================================================
@@ -418,24 +425,30 @@ export const updateAnnouncement = async (req, res) => {
             title: announcement.title,
             content: announcement.content,
             attachment: announcement.attachment
-                ? { ...announcement.attachment.toObject?.() ?? announcement.attachment }
+                ? {
+                    ...announcement.attachment.toObject?.() ??
+                        announcement.attachment,
+                }
                 : null,
         };
 
-        const oldPublicId = announcement.attachment?.publicId;
+        // Keep a copy of the old attachment for cleanup.
+        const oldAttachment = announcement.attachment
+            ? {
+                ...announcement.attachment.toObject?.() ??
+                    announcement.attachment,
+            }
+            : null;
 
-        // Upload replacement PDF before changing the database.
+        // Upload replacement PDF to Plesk before updating the database.
         if (req.file) {
-            uploadedPdf = await uploadPdfToCloudinary(
-                req.file,
-                "nosa/announcements",
-                "announcement"
-            );
+            uploadedPdf = await uploadPdfToLocalStorage(req.file, req);
 
             announcement.attachment = {
-                url: uploadedPdf.secure_url,
-                publicId: uploadedPdf.public_id,
-                fileName: req.file.originalname,
+                url: uploadedPdf.url,
+                publicId: uploadedPdf.publicId,
+                fileName: uploadedPdf.fileName,
+                storage: uploadedPdf.storage,
             };
         } else if (
             req.body.removeAttachment === "true" ||
@@ -464,14 +477,19 @@ export const updateAnnouncement = async (req, res) => {
             },
         });
 
-        // Delete the old PDF only after the database update succeeds.
-        const shouldDeleteOldPdf =
-            oldPublicId &&
-            oldPublicId !== announcement.attachment?.publicId;
+        // Delete the previous file only after the database update succeeds.
+        const attachmentChanged =
+            oldAttachment?.publicId &&
+            oldAttachment.publicId !== announcement.attachment?.publicId;
 
-        if (shouldDeleteOldPdf) {
+        if (attachmentChanged) {
             try {
-                await deleteCloudinaryPdf(oldPublicId);
+                if (oldAttachment.storage === "local") {
+                    await deleteLocalPdf(oldAttachment.publicId);
+                } else {
+                    // Existing attachments without storage are Cloudinary.
+                    await deleteCloudinaryPdf(oldAttachment.publicId);
+                }
             } catch (cleanupError) {
                 console.error(
                     "Failed to delete previous announcement PDF:",
@@ -485,11 +503,12 @@ export const updateAnnouncement = async (req, res) => {
             message: "Announcement updated successfully.",
             announcement,
         });
+
     } catch (error) {
-        // Clean up a new upload only if the database did not save it.
-        if (uploadedPdf?.public_id && !databaseUpdated) {
+        // Remove the newly uploaded local PDF if the database update failed.
+        if (uploadedPdf?.publicId && !databaseUpdated) {
             try {
-                await deleteCloudinaryPdf(uploadedPdf.public_id);
+                await deleteLocalPdf(uploadedPdf.publicId);
             } catch (cleanupError) {
                 console.error(
                     "Failed to clean up replacement announcement PDF:",
@@ -721,13 +740,13 @@ export const deleteAnnouncement = async (req, res) => {
             });
         }
 
-        const attachmentPublicId = announcement.attachment?.publicId;
+        const attachment = announcement.attachment;
 
         const deletedDetails = {
             title: announcement.title,
             status: announcement.status,
             content: announcement.content,
-            attachment: announcement.attachment,
+            attachment,
         };
 
         await logAnnouncementAction({
@@ -739,12 +758,18 @@ export const deleteAnnouncement = async (req, res) => {
 
         await announcement.deleteOne();
 
-        if (attachmentPublicId) {
+        // Delete the PDF from its correct storage.
+        if (attachment?.publicId) {
             try {
-                await deleteCloudinaryPdf(attachmentPublicId);
+                if (attachment.storage === "local") {
+                    await deleteLocalPdf(attachment.publicId);
+                } else {
+                    // Older attachments without storage are Cloudinary.
+                    await deleteCloudinaryPdf(attachment.publicId);
+                }
             } catch (cleanupError) {
                 console.error(
-                    "Failed to delete announcement PDF from Cloudinary:",
+                    "Failed to delete announcement PDF:",
                     cleanupError
                 );
             }
@@ -754,6 +779,7 @@ export const deleteAnnouncement = async (req, res) => {
             success: true,
             message: "Announcement deleted successfully.",
         });
+
     } catch (error) {
         console.error("Delete announcement error:", error);
 

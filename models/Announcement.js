@@ -16,7 +16,7 @@ const announcementSchema = new mongoose.Schema(
       trim: true,
     },
 
-    attachment: {
+attachment: {
     url: {
         type: String,
         default: null,
@@ -28,6 +28,11 @@ const announcementSchema = new mongoose.Schema(
     fileName: {
         type: String,
         default: null,
+    },
+    storage: {
+        type: String,
+        enum: ["cloudinary", "local"],
+        default: "cloudinary",
     },
 },
 
