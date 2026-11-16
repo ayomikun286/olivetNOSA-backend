@@ -24,6 +24,7 @@ import { corsOptions } from "./config/cors.js";
 import { sessionConfig } from "./config/session.js";
 import connectDB from "./config/db.js";
 import chapterRoutes from "./routes/chapter.routes.js";
+import combinedPaymentRoutes from "./routes/combinedPaymentRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
 import yearSetRoutes from "./routes/yearSet.routes.js";
 import userRoutes from "./routes/auth.js"
@@ -140,6 +141,7 @@ app.use("/api/obligations", obligationRoutes);
 app.use(obligationAssignmentRoutes);
 app.use("/api/notifications", Notification);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/payments/combined", combinedPaymentRoutes);
 app.use("/api/directory", directoryRoutes);
 
 app.use("/api/calendar", calendarRoutes);

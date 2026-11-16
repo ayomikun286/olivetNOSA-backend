@@ -13,6 +13,26 @@ const paymentSchema = new mongoose.Schema(
         },
 
         // ========================================
+        // COMBINED PAYMENT ALLOCATIONS
+        // Used when one payment covers multiple obligations
+        // ========================================
+        allocations: [
+            {
+                obligationAssignment: {
+                    type: mongoose.Schema.Types.ObjectId,
+                    ref: "ObligationAssignment",
+                    required: true,
+                },
+
+                amount: {
+                    type: Number,
+                    required: true,
+                    min: 0,
+                },
+            },
+        ],
+
+        // ========================================
         // OBLIGATION ASSIGNMENT
         // The member-specific obligation being paid
         // ========================================

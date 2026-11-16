@@ -1,10 +1,16 @@
+
 import Payment from "../models/Payment.js";
 import { paystackRequest } from "../config/paystack.js";
+
 import {
   completeSuccessfulPayment,
   handleFailedPayment,
   handlePaymentVerificationMismatch,
 } from "./paymentService.js";
+
+import {
+  completeSuccessfulCombinedPayment,
+} from "./combinedPaymentService.js";
 
 import { isPaystackAmountValid } from "./paystackAmount.js";
 
@@ -55,7 +61,7 @@ export const verifyPendingPayments = async () => {
         const currencyMismatch =
           !receivedCurrency ||
           receivedCurrency.toUpperCase() !==
-          expectedCurrency.toUpperCase();
+            expectedCurrency.toUpperCase();
 
         // Record amount/currency discrepancies.
         if (amountMismatch || currencyMismatch) {
@@ -83,7 +89,14 @@ export const verifyPendingPayments = async () => {
 
         // Paystack confirms successful payment.
         if (transaction.status === "success") {
-          const result = await completeSuccessfulPayment(
+          const isCombinedPayment =
+            payment.metadata?.paymentType === "combined";
+
+          const completionFunction = isCombinedPayment
+            ? completeSuccessfulCombinedPayment
+            : completeSuccessfulPayment;
+
+          const result = await completionFunction(
             payment._id,
             transaction,
             {
