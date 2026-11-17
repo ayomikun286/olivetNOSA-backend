@@ -98,7 +98,8 @@ import {
     getAdminPayments,
     getAdminPaymentById,
      recoverFailedPayment,
-     getAdminPaymentHistoryExport
+     getAdminPaymentHistoryExport,
+      verifyAdminPendingPayment
 } from "../controller/paymentController.js";
 import upload from "../middleware/upload.middleware.js";
 import { protect } from "../middleware/authmiddleware.js";
@@ -542,6 +543,18 @@ router.post(
     recoverFailedPayment
 );
 
+
+router.patch(
+    "/payments/:paymentId/verify",
+    protect,
+    requireRole(
+        "admin",
+        "treasurer",
+        "secretary",
+        "superAdmin"
+    ),
+    verifyAdminPendingPayment
+);
 
 
 // ===========================================//

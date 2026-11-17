@@ -1051,157 +1051,157 @@ export const getAdminPayments = async (req, res) => {
         // ========================================
 
         const collectionResult = await Payment.aggregate([
-    {
-        $match: {
-            ...query,
-            status: "successful",
-        },
-    },
+            {
+                $match: {
+                    ...query,
+                    status: "successful",
+                },
+            },
 
-    // Normalize old single payments and new combined payments.
-    {
-        $project: {
-            allocationItems: {
-                $cond: [
-                    {
-                        $and: [
-                            {
-                                $eq: [
-                                    "$metadata.paymentType",
-                                    "combined",
-                                ],
-                            },
-                            {
-                                $gt: [
-                                    {
-                                        $size: {
-                                            $ifNull: [
-                                                "$allocations",
-                                                [],
-                                            ],
-                                        },
-                                    },
-                                    0,
-                                ],
-                            },
-                        ],
-                    },
-
-                    {
-                        $map: {
-                            input: "$allocations",
-                            as: "allocation",
-                            in: {
-                                assignmentId:
-                                    "$$allocation.obligationAssignment",
-                                amount: "$$allocation.amount",
-                            },
-                        },
-                    },
-
-                    {
+            // Normalize old single payments and new combined payments.
+            {
+                $project: {
+                    allocationItems: {
                         $cond: [
                             {
-                                $ne: [
-                                    "$obligationAssignment",
-                                    null,
+                                $and: [
+                                    {
+                                        $eq: [
+                                            "$metadata.paymentType",
+                                            "combined",
+                                        ],
+                                    },
+                                    {
+                                        $gt: [
+                                            {
+                                                $size: {
+                                                    $ifNull: [
+                                                        "$allocations",
+                                                        [],
+                                                    ],
+                                                },
+                                            },
+                                            0,
+                                        ],
+                                    },
                                 ],
                             },
-                            [
-                                {
-                                    assignmentId:
-                                        "$obligationAssignment",
-                                    amount: "$amount",
+
+                            {
+                                $map: {
+                                    input: "$allocations",
+                                    as: "allocation",
+                                    in: {
+                                        assignmentId:
+                                            "$$allocation.obligationAssignment",
+                                        amount: "$$allocation.amount",
+                                    },
                                 },
-                            ],
-                            [],
+                            },
+
+                            {
+                                $cond: [
+                                    {
+                                        $ne: [
+                                            "$obligationAssignment",
+                                            null,
+                                        ],
+                                    },
+                                    [
+                                        {
+                                            assignmentId:
+                                                "$obligationAssignment",
+                                            amount: "$amount",
+                                        },
+                                    ],
+                                    [],
+                                ],
+                            },
                         ],
                     },
-                ],
+                },
             },
-        },
-    },
 
-    {
-        $unwind: "$allocationItems",
-    },
+            {
+                $unwind: "$allocationItems",
+            },
 
-    // Find each allocation's assignment.
-    {
-        $lookup: {
-            from: ObligationAssignment.collection.name,
-            localField: "allocationItems.assignmentId",
-            foreignField: "_id",
-            as: "assignment",
-        },
-    },
+            // Find each allocation's assignment.
+            {
+                $lookup: {
+                    from: ObligationAssignment.collection.name,
+                    localField: "allocationItems.assignmentId",
+                    foreignField: "_id",
+                    as: "assignment",
+                },
+            },
 
-    {
-        $unwind: "$assignment",
-    },
+            {
+                $unwind: "$assignment",
+            },
 
-    // Find the corresponding obligation.
-    {
-        $lookup: {
-            from: Obligation.collection.name,
-            localField: "assignment.obligation",
-            foreignField: "_id",
-            as: "obligation",
-        },
-    },
+            // Find the corresponding obligation.
+            {
+                $lookup: {
+                    from: Obligation.collection.name,
+                    localField: "assignment.obligation",
+                    foreignField: "_id",
+                    as: "obligation",
+                },
+            },
 
-    {
-        $unwind: "$obligation",
-    },
+            {
+                $unwind: "$obligation",
+            },
 
-    // First group: combine allocations belonging to the
-    // same payment and obligation category.
-    {
-        $group: {
-            _id: {
-                paymentId: "$_id",
+            // First group: combine allocations belonging to the
+            // same payment and obligation category.
+            {
+                $group: {
+                    _id: {
+                        paymentId: "$_id",
 
-                type: {
-                    $cond: [
-                        {
-                            $eq: [
-                                "$obligation.isOptional",
-                                true,
+                        type: {
+                            $cond: [
+                                {
+                                    $eq: [
+                                        "$obligation.isOptional",
+                                        true,
+                                    ],
+                                },
+                                "optional",
+                                "mandatory",
                             ],
                         },
-                        "optional",
-                        "mandatory",
-                    ],
+
+                        category: "$obligation.category",
+                    },
+
+                    amount: {
+                        $sum: "$allocationItems.amount",
+                    },
                 },
-
-                category: "$obligation.category",
             },
 
-            amount: {
-                $sum: "$allocationItems.amount",
-            },
-        },
-    },
+            // Second group: aggregate category totals.
+            // Each original payment counts only once per category.
+            {
+                $group: {
+                    _id: {
+                        type: "$_id.type",
+                        category: "$_id.category",
+                    },
 
-    // Second group: aggregate category totals.
-    // Each original payment counts only once per category.
-    {
-        $group: {
-            _id: {
-                type: "$_id.type",
-                category: "$_id.category",
-            },
+                    amount: {
+                        $sum: "$amount",
+                    },
 
-            amount: {
-                $sum: "$amount",
+                    transactions: {
+                        $sum: 1,
+                    },
+                },
             },
-
-            transactions: {
-                $sum: 1,
-            },
-        },
-    },
-]);
+        ]);
 
         // ========================================
         // NORMALIZED COLLECTION BREAKDOWN
@@ -2329,6 +2329,181 @@ export const getAdminPaymentHistoryExport = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: "Failed to prepare payment history export.",
+        });
+    }
+};
+
+
+
+
+
+export const verifyAdminPendingPayment = async (req, res) => {
+    try {
+        const { paymentId } = req.params;
+
+        if (!mongoose.isValidObjectId(paymentId)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid payment ID.",
+            });
+        }
+
+        const payment = await Payment.findById(paymentId);
+
+        if (!payment) {
+            return res.status(404).json({
+                success: false,
+                message: "Payment not found.",
+            });
+        }
+
+        if (
+            payment.gateway !== "paystack" ||
+            !payment.gatewayReference
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: "This payment cannot be verified through Paystack.",
+            });
+        }
+
+        if (payment.status !== "pending") {
+            return res.status(409).json({
+                success: false,
+                message: "Only pending payments can be verified.",
+            });
+        }
+
+        const paystackResponse = await paystackRequest(
+            `/transaction/verify/${encodeURIComponent(
+                payment.gatewayReference
+            )}`,
+            { method: "GET" }
+        );
+
+        const transaction = paystackResponse?.data;
+
+        if (!transaction) {
+            return res.status(502).json({
+                success: false,
+                message: "Paystack did not return transaction details.",
+            });
+        }
+
+        if (transaction.reference !== payment.gatewayReference) {
+            return res.status(409).json({
+                success: false,
+                message: "Paystack transaction reference does not match.",
+            });
+        }
+
+       const expectedCurrency = (payment.currency || "NGN").toUpperCase();
+
+const amountIsValid = isPaystackAmountValid(payment, transaction);
+
+const currencyIsValid =
+    transaction.currency &&
+    transaction.currency.toUpperCase() === expectedCurrency;
+
+if (!amountIsValid || !currencyIsValid) {
+    const reason = !amountIsValid
+        ? "Paystack transaction amount mismatch."
+        : "Paystack transaction currency mismatch.";
+
+    await handlePaymentVerificationMismatch(
+        payment,
+        transaction,
+        {
+            source: "admin_manual_verification",
+            reason,
+            actor: req.user._id,
+            req,
+        }
+    );
+
+    return res.status(409).json({
+        success: false,
+        message: reason,
+    });
+}
+
+        if (transaction.status === "success") {
+            const isCombinedPayment =
+                payment.metadata?.paymentType === "combined";
+
+            const completionFunction = isCombinedPayment
+                ? completeSuccessfulCombinedPayment
+                : completeSuccessfulPayment;
+
+            const result = await completionFunction(
+                payment._id,
+                transaction,
+                {
+                    actor: req.user._id,
+                    req,
+                    source: "admin_manual_verification",
+                }
+            );
+
+            if (result.alreadyProcessed) {
+                return res.status(409).json({
+                    success: false,
+                    message: "This payment has already been processed.",
+                });
+            }
+
+            return res.status(200).json({
+                success: true,
+                message: "Payment verified successfully.",
+                data: {
+                    payment: result.payment,
+                    assignment: result.assignment || null,
+                    assignments: result.assignments || [],
+                },
+            });
+        }
+
+        if (
+            ["failed", "reversed", "abandoned"].includes(
+                transaction.status
+            )
+        ) {
+            const failedStatus =
+                transaction.status === "abandoned"
+                    ? "cancelled"
+                    : "failed";
+
+            await handleFailedPayment(
+                payment,
+                transaction,
+                failedStatus,
+                {
+                    source: "admin_manual_verification",
+                    actor: req.user._id,
+                    req,
+                }
+            );
+
+            return res.status(200).json({
+                success: true,
+                message: `Paystack confirmed this payment as ${failedStatus}.`,
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Payment is still pending on Paystack.",
+            data: {
+                status: "pending",
+                gatewayStatus: transaction.status,
+            },
+        });
+    } catch (error) {
+        console.error("Admin payment verification error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Payment verification failed. Please try again.",
         });
     }
 };
