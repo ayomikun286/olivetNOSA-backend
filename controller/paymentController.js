@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import crypto from "crypto";
 import Payment from "../models/Payment.js";
+import User from "../models/User.js";
 import ObligationAssignment from "../models/ObligationAssignment.js";
 import Obligation from "../models/Obligation.js";
 import { paystackRequest } from "../config/paystack.js";
@@ -1574,7 +1575,20 @@ export const recoverFailedPayment = async (req, res) => {
 
 export const getAdminPaymentHistoryExport = async (req, res) => {
     try {
-        const { startDate, endDate } = req.query;
+        const {
+            startDate,
+            endDate,
+            status = "all",
+            search = "",
+            gateway = "",
+            paymentMethod = "",
+        } = req.query;
+
+        const normalizedStatus = status || "all";
+
+        // ========================================
+        // VALIDATE DATES
+        // ========================================
 
         const isValidDate = (value) =>
             /^\d{4}-\d{2}-\d{2}$/.test(value || "") &&
@@ -1601,103 +1615,87 @@ export const getAdminPaymentHistoryExport = async (req, res) => {
             });
         }
 
+        // ========================================
+        // BUILD PAYMENT FILTER
+        // ========================================
+
         const paymentDateFilter = {
-            status: "successful",
-            paidAt: { $gte: start, $lte: end },
+            createdAt: {
+                $gte: start,
+                $lte: end,
+            },
         };
 
-        const userSelect =
-            "firstName middleName lastName email alumniId yearSet chapter graduationYear";
+        // STATUS
+        if (normalizedStatus !== "all") {
+            paymentDateFilter.status = normalizedStatus;
+        }
 
-        const [
-            payments,
-            assignments,
-            yearSets,
-            chapters,
-        ] = await Promise.all([
-            Payment.find(paymentDateFilter)
-                .populate({
-                    path: "user",
-                    select: userSelect,
-                    populate: [
-                        { path: "yearSet", select: "name year" },
-                        { path: "chapter", select: "name code" },
-                    ],
-                })
-                .populate({
-                    path: "obligationAssignment",
-                    select:
-                        "user yearSet chapter amountDue amountPaid status dueDate obligation",
-                    populate: [
-                        {
-                            path: "obligation",
-                            select: "name category year isOptional",
-                        },
-                        {
-                            path: "yearSet",
-                            select: "name year",
-                        },
-                        {
-                            path: "chapter",
-                            select: "name code",
-                        },
-                    ],
-                })
-                .populate({
-                    path: "allocations.obligationAssignment",
-                    select:
-                        "user yearSet chapter amountDue amountPaid status dueDate obligation",
-                    populate: [
-                        {
-                            path: "obligation",
-                            select: "name category year isOptional",
-                        },
-                        {
-                            path: "yearSet",
-                            select: "name year",
-                        },
-                        {
-                            path: "chapter",
-                            select: "name code",
-                        },
-                    ],
-                })
-                .sort({ paidAt: 1, _id: 1 })
-                .lean(),
+        // GATEWAY
+        if (gateway) {
+            paymentDateFilter.gateway = gateway;
+        }
 
-            ObligationAssignment.find({})
-                .populate({
-                    path: "user",
-                    select: userSelect,
-                    populate: [
-                        { path: "yearSet", select: "name year" },
-                        { path: "chapter", select: "name code" },
-                    ],
-                })
-                .populate({
-                    path: "yearSet",
-                    select: "name year",
-                })
-                .populate({
-                    path: "chapter",
-                    select: "name code",
-                })
-                .populate({
+        // PAYMENT METHOD
+        if (paymentMethod) {
+            paymentDateFilter.paymentMethod = paymentMethod;
+        }
+
+        // ========================================
+        // SEARCH
+        // ========================================
+
+        if (search.trim()) {
+            const searchRegex = new RegExp(search.trim(), "i");
+
+            const matchingUsers = await User.find({
+                $or: [
+                    { email: searchRegex },
+                    { alumniId: searchRegex },
+                    { firstName: searchRegex },
+                    { middleName: searchRegex },
+                    { lastName: searchRegex },
+                ],
+            }).select("_id");
+
+            const userIds = matchingUsers.map(
+                (user) => user._id
+            );
+
+            paymentDateFilter.$or = [
+                { gatewayReference: searchRegex },
+                { user: { $in: userIds } },
+            ];
+        }
+
+        // ========================================
+        // FETCH MATCHING PAYMENTS
+        // NO PAGINATION
+        // ========================================
+
+        const payments = await Payment.find(paymentDateFilter)
+            .populate({
+                path: "user",
+                select: "firstName middleName lastName alumniId",
+            })
+            .populate({
+                path: "obligationAssignment",
+                select: "obligation",
+                populate: {
                     path: "obligation",
-                    select: "name category year isOptional",
-                })
-                .lean(),
-
-            YearSet.find({})
-                .select("name year")
-                .sort({ year: 1, name: 1 })
-                .lean(),
-
-            Chapter.find({})
-                .select("name code")
-                .sort({ name: 1 })
-                .lean(),
-        ]);
+                    select: "name category",
+                },
+            })
+            .populate({
+                path: "allocations.obligationAssignment",
+                select: "obligation",
+                populate: {
+                    path: "obligation",
+                    select: "name category",
+                },
+            })
+            .sort({ createdAt: -1, _id: -1 })
+            .lean();
 
         // ========================================
         // HELPERS
@@ -1712,343 +1710,14 @@ export const getAdminPaymentHistoryExport = async (req, res) => {
                 .filter(Boolean)
                 .join(" ") || "Unknown member";
 
-        const getId = (value) =>
-            value?._id?.toString() || value?.toString() || "";
-
-        const getYearSetName = (user) => {
-            const yearSet = user?.yearSet;
-
-            if (!yearSet) {
-                return user?.graduationYear
-                    ? String(user.graduationYear)
-                    : "";
-            }
-
-            return (
-                yearSet.name ||
-                yearSet.year?.toString() ||
-                ""
-            );
-        };
-
-        const getObligationName = (assignment) =>
-            assignment?.obligation?.name || "Unassigned obligation";
-
-        const getCategory = (assignment) =>
-            assignment?.obligation?.category || "unclassified";
-
-        const createGroup = (name) => ({
-            name,
-            amountDue: 0,
-            amountPaid: 0,
-            outstanding: 0,
-            successfulPaymentCount: 0,
-        });
-
-        // ========================================
-        // INITIALIZE COLLECTIVE GROUPS
-        // ========================================
-
-        const yearSetGroups = new Map();
-        const chapterGroups = new Map();
-
-        for (const yearSet of yearSets) {
-            yearSetGroups.set(
-                getId(yearSet),
-                createGroup(
-                    yearSet.name ||
-                    yearSet.year?.toString() ||
-                    "Unnamed Year Set"
-                )
-            );
-        }
-
-        for (const chapter of chapters) {
-            chapterGroups.set(
-                getId(chapter),
-                createGroup(chapter.name || "Unnamed Chapter")
-            );
-        }
-
-        // ========================================
-        // INDEX ASSIGNMENTS AND PAYMENTS
-        // ========================================
-
-        const assignmentsById = new Map();
-
-        for (const assignment of assignments) {
-            assignmentsById.set(getId(assignment), assignment);
-        }
-
-        const paymentsById = new Map();
-
-        for (const payment of payments) {
-            paymentsById.set(getId(payment), payment);
-        }
-
-        // ========================================
-        // ATTRIBUTE PAYMENTS TO ASSIGNMENTS
-        // ========================================
-
-        const paidByAssignment = new Map();
-
-        for (const payment of payments) {
-            const isCombined =
-                payment.metadata?.paymentType === "combined";
-
-            if (
-                isCombined &&
-                Array.isArray(payment.allocations) &&
-                payment.allocations.length > 0
-            ) {
-                for (const allocation of payment.allocations) {
-                    const assignmentId = getId(
-                        allocation.obligationAssignment
-                    );
-
-                    if (!assignmentId) continue;
-
-                    paidByAssignment.set(
-                        assignmentId,
-                        (paidByAssignment.get(assignmentId) || 0) +
-                        Number(allocation.amount || 0)
-                    );
-                }
-
-                continue;
-            }
-
-            // Preserve existing single-payment behaviour.
-            const assignmentId = getId(
-                payment.obligationAssignment
-            );
-
-            if (!assignmentId) continue;
-
-            paidByAssignment.set(
-                assignmentId,
-                (paidByAssignment.get(assignmentId) || 0) +
-                Number(payment.amount || 0)
-            );
-        }
-
-        // ========================================
-        // OBLIGATION SUMMARIES
-        // ========================================
-
-        const individualObligations = [];
-        const legacyOwnershipReview = [];
-
-        for (const assignment of assignments) {
-            const category = getCategory(assignment);
-            const user = assignment.user;
-
-            const assignmentId = getId(assignment);
-            const amountDue = Number(assignment.amountDue || 0);
-
-            const currentAmountPaid = Number(
-                assignment.amountPaid || 0
-            );
-
-            const amountPaidDuringPeriod = Number(
-                paidByAssignment.get(assignmentId) || 0
-            );
-
-            const outstanding = Math.max(
-                amountDue - currentAmountPaid,
-                0
-            );
-
-            if (category === "individual") {
-                individualObligations.push({
-                    alumniId: user?.alumniId || "",
-                    memberName: getMemberName(user),
-                    yearSet: getYearSetName(user),
-                    obligation: getObligationName(assignment),
-                    amountDue,
-                    amountPaid: amountPaidDuringPeriod,
-                    outstanding,
-                    currentAmountPaid,
-                    assignmentStatus: assignment.status || "",
-                    recordNote: !user
-                        ? "Assignment has no linked member"
-                        : !user.alumniId
-                            ? "Member record has no Alumni ID"
-                            : "",
-                });
-
-                continue;
-            }
-
-            if (
-                category !== "yearSet" &&
-                category !== "chapter"
-            ) {
-                continue;
-            }
-
-            if (category === "yearSet") {
-                const yearSetId = getId(assignment.yearSet);
-                const group = yearSetGroups.get(yearSetId);
-
-                if (!group) {
-                    legacyOwnershipReview.push({
-                        assignmentId,
-                        category,
-                        obligation: getObligationName(assignment),
-                        amountDue,
-                        currentAmountPaid,
-                        outstanding,
-                        amountPaidDuringPeriod,
-                        assignmentStatus: assignment.status || "",
-                        yearSetId: yearSetId || null,
-                        chapterId: null,
-                        formerPayerId: getId(assignment.user) || null,
-                        recordNote: !yearSetId
-                            ? "Collective assignment has no linked Year Set"
-                            : "Linked Year Set was not found",
-                    });
-
-                    continue;
-                }
-
-                group.amountDue += amountDue;
-                group.outstanding += outstanding;
-                group.amountPaid += amountPaidDuringPeriod;
-            }
-
-            if (category === "chapter") {
-                const chapterId = getId(assignment.chapter);
-                const group = chapterGroups.get(chapterId);
-
-                if (!group) {
-                    legacyOwnershipReview.push({
-                        assignmentId,
-                        category,
-                        obligation: getObligationName(assignment),
-                        amountDue,
-                        currentAmountPaid,
-                        outstanding,
-                        amountPaidDuringPeriod,
-                        assignmentStatus: assignment.status || "",
-                        yearSetId: null,
-                        chapterId: chapterId || null,
-                        formerPayerId: getId(assignment.user) || null,
-                        recordNote: !chapterId
-                            ? "Collective assignment has no linked Chapter"
-                            : "Linked Chapter was not found",
-                    });
-
-                    continue;
-                }
-
-                group.amountDue += amountDue;
-                group.outstanding += outstanding;
-                group.amountPaid += amountPaidDuringPeriod;
-            }
-        }
-
-        // ========================================
-        // PAYMENT HISTORY ROW BUILDER
-        // ========================================
-
-        const buildPaymentHistoryRow = (
-            payment,
-            assignment,
-            amount,
-            allocationIndex = null
-        ) => {
-            const user = payment.user;
-            const category = getCategory(assignment);
-
-            const yearSet =
-                category === "yearSet"
-                    ? assignment?.yearSet
-                    : user?.yearSet;
-
-            const chapter =
-                category === "chapter"
-                    ? assignment?.chapter
-                    : user?.chapter;
-
-            let recordNote = "";
-
-            if (!assignment) {
-                recordNote =
-                    "Successful payment has no linked obligation assignment";
-            } else if (!assignment.obligation) {
-                recordNote = "Linked assignment has no obligation";
-            } else if (!user) {
-                recordNote = "Linked payment has no member record";
-            } else if (
-                category === "yearSet" &&
-                !assignment.yearSet
-            ) {
-                recordNote =
-                    "Year Set assignment has no linked Year Set; review required";
-            } else if (
-                category === "chapter" &&
-                !assignment.chapter
-            ) {
-                recordNote =
-                    "Chapter assignment has no linked Chapter; review required";
-            } else if (
-                category === "yearSet" &&
-                !yearSetGroups.has(getId(assignment.yearSet))
-            ) {
-                recordNote =
-                    "Linked Year Set was not found; review required";
-            } else if (
-                category === "chapter" &&
-                !chapterGroups.has(getId(assignment.chapter))
-            ) {
-                recordNote =
-                    "Linked Chapter was not found; review required";
-            } else if (
-                category === "individual" &&
-                !assignment.user
-            ) {
-                recordNote =
-                    "Individual assignment has no linked member; review required";
-            }
-
-            const isClassifiable =
-                !recordNote &&
-                ["individual", "yearSet", "chapter"].includes(category);
-
-            return {
-                rowId:
-                    allocationIndex === null
-                        ? getId(payment)
-                        : `${getId(payment)}-${allocationIndex}`,
-
-                transactionDate: payment.paidAt || null,
-                paymentId: getId(payment),
-                assignmentId: getId(assignment) || null,
-
-                payer: getMemberName(user),
-                email: user?.email || "",
-                alumniId: user?.alumniId || "",
-
-                payerCategory: isClassifiable
-                    ? category
-                    : "unclassified",
-
-                yearSet:
-                    yearSet?.name ||
-                    yearSet?.year?.toString() ||
-                    "",
-
-                chapter: chapter?.name || "",
-                obligation: getObligationName(assignment),
-                reference: payment.gatewayReference || "",
-                paymentStatus: payment.status,
-                paymentMethod: payment.paymentMethod || "",
-                gateway: payment.gateway || "",
-                currency: payment.currency || "NGN",
-                amount: Number(amount || 0),
-                recordNote,
+        const getCategoryLabel = (category) => {
+            const labels = {
+                individual: "Individual",
+                yearSet: "Year Set",
+                chapter: "Chapter",
             };
+
+            return labels[category] || "Unclassified";
         };
 
         // ========================================
@@ -2058,8 +1727,31 @@ export const getAdminPaymentHistoryExport = async (req, res) => {
         const paymentHistory = [];
 
         for (const payment of payments) {
+            const user = payment.user;
+
             const isCombined =
                 payment.metadata?.paymentType === "combined";
+
+            const baseRow = {
+                transactionDate:
+                    payment.status === "successful"
+                        ? payment.paidAt || payment.createdAt
+                        : payment.createdAt,
+
+                payer: getMemberName(user),
+
+                alumniId: user?.alumniId || "",
+
+                reference: payment.gatewayReference || "",
+
+                paymentStatus: payment.status || "",
+
+                paymentMethod: payment.paymentMethod || "",
+            };
+
+            // ========================================
+            // COMBINED PAYMENT
+            // ========================================
 
             if (
                 isCombined &&
@@ -2068,27 +1760,35 @@ export const getAdminPaymentHistoryExport = async (req, res) => {
             ) {
                 let allocatedTotal = 0;
 
-                payment.allocations.forEach(
-                    (allocation, index) => {
-                        const amount = Number(
-                            allocation.amount || 0
-                        );
+                for (const allocation of payment.allocations) {
+                    const amount = Number(
+                        allocation.amount || 0
+                    );
 
-                        allocatedTotal += amount;
+                    allocatedTotal += amount;
 
-                        paymentHistory.push(
-                            buildPaymentHistoryRow(
-                                payment,
-                                allocation.obligationAssignment,
-                                amount,
-                                index
-                            )
-                        );
-                    }
-                );
+                    const assignment =
+                        allocation.obligationAssignment;
 
-                // Preserve any amount without a corresponding
-                // allocation as an unclassified record.
+                    const obligation =
+                        assignment?.obligation;
+
+                    paymentHistory.push({
+                        ...baseRow,
+
+                        payerCategory: getCategoryLabel(
+                            obligation?.category
+                        ),
+
+                        obligation:
+                            obligation?.name ||
+                            "Unassigned obligation",
+
+                        amount,
+                    });
+                }
+
+                // PRESERVE UNALLOCATED AMOUNT
                 const unallocatedAmount = Number(
                     (
                         Number(payment.amount || 0) -
@@ -2097,164 +1797,43 @@ export const getAdminPaymentHistoryExport = async (req, res) => {
                 );
 
                 if (unallocatedAmount > 0) {
-                    const row = buildPaymentHistoryRow(
-                        payment,
-                        null,
-                        unallocatedAmount,
-                        "unallocated"
-                    );
+                    paymentHistory.push({
+                        ...baseRow,
 
-                    row.recordNote =
-                        "Part of this combined payment has no recorded allocation; review required";
+                        payerCategory: "Unclassified",
 
-                    paymentHistory.push(row);
+                        obligation: "Unallocated payment",
+
+                        amount: unallocatedAmount,
+                    });
                 }
 
                 continue;
             }
 
-            // Existing single payments remain unchanged.
-            paymentHistory.push(
-                buildPaymentHistoryRow(
-                    payment,
-                    payment.obligationAssignment,
-                    payment.amount
-                )
-            );
+            // ========================================
+            // SINGLE PAYMENT
+            // ========================================
+
+            const assignment =
+                payment.obligationAssignment;
+
+            const obligation = assignment?.obligation;
+
+            paymentHistory.push({
+                ...baseRow,
+
+                payerCategory: getCategoryLabel(
+                    obligation?.category
+                ),
+
+                obligation:
+                    obligation?.name ||
+                    "Unassigned obligation",
+
+                amount: Number(payment.amount || 0),
+            });
         }
-
-        // ========================================
-        // COLLECTION RECONCILIATION
-        // ========================================
-
-        const collectionByCategory = {
-            individual: { amount: 0, transactions: 0 },
-            yearSet: { amount: 0, transactions: 0 },
-            chapter: { amount: 0, transactions: 0 },
-            unclassified: { amount: 0, transactions: 0 },
-        };
-
-        // Distinct Paystack transaction IDs per category.
-        const categoryPaymentIds = {
-            individual: new Set(),
-            yearSet: new Set(),
-            chapter: new Set(),
-            unclassified: new Set(),
-        };
-
-        // Distinct Paystack transaction IDs per collective group.
-        const yearSetPaymentIds = new Map();
-        const chapterPaymentIds = new Map();
-
-        for (const row of paymentHistory) {
-            const amount = Number(row.amount || 0);
-
-            const category = [
-                "individual",
-                "yearSet",
-                "chapter",
-            ].includes(row.payerCategory)
-                ? row.payerCategory
-                : "unclassified";
-
-            collectionByCategory[category].amount += amount;
-
-            categoryPaymentIds[category].add(row.paymentId);
-
-            // Resolve the original assignment directly by ID.
-            const assignment = row.assignmentId
-                ? assignmentsById.get(row.assignmentId)
-                : null;
-
-            if (
-                category === "yearSet" &&
-                assignment
-            ) {
-                const yearSetId = getId(assignment.yearSet);
-
-                if (
-                    yearSetId &&
-                    yearSetGroups.has(yearSetId)
-                ) {
-                    if (!yearSetPaymentIds.has(yearSetId)) {
-                        yearSetPaymentIds.set(
-                            yearSetId,
-                            new Set()
-                        );
-                    }
-
-                    yearSetPaymentIds
-                        .get(yearSetId)
-                        .add(row.paymentId);
-                }
-            }
-
-            if (
-                category === "chapter" &&
-                assignment
-            ) {
-                const chapterId = getId(assignment.chapter);
-
-                if (
-                    chapterId &&
-                    chapterGroups.has(chapterId)
-                ) {
-                    if (!chapterPaymentIds.has(chapterId)) {
-                        chapterPaymentIds.set(
-                            chapterId,
-                            new Set()
-                        );
-                    }
-
-                    chapterPaymentIds
-                        .get(chapterId)
-                        .add(row.paymentId);
-                }
-            }
-        }
-
-        for (const category of Object.keys(collectionByCategory)) {
-            collectionByCategory[category].transactions =
-                categoryPaymentIds[category].size;
-        }
-
-        for (const [yearSetId, paymentIds] of yearSetPaymentIds) {
-            yearSetGroups.get(yearSetId).successfulPaymentCount =
-                paymentIds.size;
-        }
-
-        for (const [chapterId, paymentIds] of chapterPaymentIds) {
-            chapterGroups.get(chapterId).successfulPaymentCount =
-                paymentIds.size;
-        }
-
-        // ========================================
-        // FINAL TOTALS
-        // ========================================
-
-        // Count original Paystack payments, not allocation rows.
-        const totalCollected = payments.reduce(
-            (sum, payment) =>
-                sum + Number(payment.amount || 0),
-            0
-        );
-
-        const successfulTransactionCount = payments.length;
-
-        const categoryCollected = Object.values(
-            collectionByCategory
-        ).reduce(
-            (sum, item) => sum + item.amount,
-            0
-        );
-
-        const reconciliationDifference = Number(
-            (totalCollected - categoryCollected).toFixed(2)
-        );
-
-        const unclassifiedPayments = paymentHistory.filter(
-            (payment) => payment.payerCategory === "unclassified"
-        );
 
         // ========================================
         // RESPONSE
@@ -2262,69 +1841,25 @@ export const getAdminPaymentHistoryExport = async (req, res) => {
 
         return res.status(200).json({
             success: true,
+
             data: {
                 startDate,
                 endDate,
-
-                collectionSummary: {
-                    successfulTransactionCount,
-                    totalCollected,
-                    collectionByCategory,
-                    categoryCollected,
-                    reconciliationDifference,
-                    reconciled: reconciliationDifference === 0,
-
-                    unclassifiedTransactionCount:
-                        new Set(
-                            unclassifiedPayments.map(
-                                (payment) => payment.paymentId
-                            )
-                        ).size,
-
-                    unclassifiedAmount: unclassifiedPayments.reduce(
-                        (sum, payment) =>
-                            sum + Number(payment.amount || 0),
-                        0
-                    ),
-                },
-
-                yearSetSummary: [...yearSetGroups.values()],
-                chapterSummary: [...chapterGroups.values()],
-                individualObligations,
+                status: normalizedStatus,
+                gateway,
+                paymentMethod,
+                search,
+                totalTransactions: payments.length,
+                totalRows: paymentHistory.length,
                 paymentHistory,
-                legacyOwnershipReview,
-                legacyOwnershipReviewCount:
-                    legacyOwnershipReview.length,
-
-                notes: {
-                    collectionDate:
-                        "Only successful payments with paidAt inside the selected date range are included.",
-
-                    collectionTotal:
-                        "Total collected is calculated directly from the successful payment ledger. Each Paystack transaction is counted once.",
-
-                    amountPaid:
-                        "Amount Paid in obligation summaries means successful payments during the selected period.",
-
-                    outstanding:
-                        "Outstanding is the current assignment balance, not the balance as of the selected end date.",
-
-                    unclassified:
-                        "Successful payments with missing obligation relationships or allocation data remain included in total collections and are flagged for review.",
-
-                    individualRecords:
-                        "Individual obligation rows without Alumni IDs are retained and flagged for identification.",
-
-                    collectiveOwnership:
-                        "Year Set and Chapter obligations are attributed using explicit assignment ownership. Legacy collective assignments with missing or invalid ownership appear in legacyOwnershipReview and are excluded from group totals until reviewed.",
-
-                    combinedPayments:
-                        "Combined payments appear as separate allocation rows in paymentHistory. Transaction counts still count each original Paystack payment only once.",
-                },
             },
         });
+
     } catch (error) {
-        console.error("Payment history export data error:", error);
+        console.error(
+            "Payment history export error:",
+            error
+        );
 
         return res.status(500).json({
             success: false,
@@ -2332,8 +1867,6 @@ export const getAdminPaymentHistoryExport = async (req, res) => {
         });
     }
 };
-
-
 
 
 
